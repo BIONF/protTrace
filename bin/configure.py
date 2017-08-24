@@ -104,9 +104,9 @@ class setParams:
 					self.simulation_runs = int(line.split(':')[1])
 				if line.split(':')[0] == 'nr_of_processors':
 					self.nr_processors = int(line.split(':')[1])
-				if line.split(':')[0] == 'msa':
+				if line.split(':')[0] == 'MAFFT_linsi':
 					self.msa = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'tree_reconstruction':
+				if line.split(':')[0] == 'RAxML':
 					self.tree_reconstruction = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'REvolver':
 					self.REvolver = os.path.abspath(line.split(':')[1])
@@ -132,8 +132,8 @@ class setParams:
 					self.hamstr = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'hamstrOneSeq':
 					self.hamstrOneSeq = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'degapping':
-					self.degapping = os.path.abspath(line.split(':')[1])
+				#if line.split(':')[0] == 'degapping':
+				#	self.degapping = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'treePuzzle':
 					self.treePuzzle = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'parameters_treePuzzle':
@@ -148,7 +148,7 @@ class setParams:
 					self.path_cache = os.path.abspath(line.split(':')[1])
 					if not os.path.exists(self.path_cache):
 						os.mkdir(self.path_cache)
-				if line.split(':')[0] == 'hamstr_oma_tree_map':
+				if line.split(':')[0] == 'Xref_mapping_file':
 					self.hamstr_oma_tree_map = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'path_oma_seqs':
 					self.path_oma_seqs = os.path.abspath(line.split(':')[1])
@@ -156,7 +156,7 @@ class setParams:
 					self.path_oma_group= os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'pfam_database':
 					self.pfam_database = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'species_tree':
+				if line.split(':')[0] == 'reference_species_tree':
 					self.species_tree = os.path.abspath(line.split(':')[1])
 				#if line.split(':')[0] == 'species_tree_msa':
 				#	self.species_tree_msa = os.path.abspath(line.split(':')[1])

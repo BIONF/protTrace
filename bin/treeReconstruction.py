@@ -3,7 +3,7 @@ import subprocess
 import time
 import maxLikDistMatrix
 
-# Module to reconstruct tree using RAxML
+# Module to reconstruct tree using RAxML and do scaling factor calculation
 
 # Calculate the median of a set
 def median(lst):
@@ -55,8 +55,11 @@ def msa_convert():
 # Run RAxML for tree reconstruction
 def run_raxml():
 	if makeTree:
-		os.system('rm -rf RAxML_*')
-		os.system('%s-PTHREADS -T %s -s temp_orth_%s.phy -m PROTGAMMA%s -p 12345 -n %s' %(raxml, nr_proc, protein_id, aaMatrix, protein_id))
+		if reuse_cache and os.path.exists('RAxML_bestTree.' + protein_id):
+			print('Orthologs RAxML tree found. Reusing it.')
+		else:
+			os.system('rm -rf RAxML_*')
+			os.system('%s-PTHREADS -T %s -s temp_orth_%s.phy -m PROTGAMMA%s -p 12345 -n %s' %(raxml, nr_proc, protein_id, aaMatrix, protein_id))
 	#print 'complete..'
 
 # Rename the reconstructed tree file
@@ -89,9 +92,9 @@ def rm_temp():
 	os.system('rm RAxML_result*')
 	os.system('rm RAxML_info*')
 
-# Perform likelihood mapping on the degapped sequences (for 4 or more sequences)
+# Perform likelihood mapping on the aligned sequences (for 4 or more sequences)
 def likelihoodMapping():
-
+	
 	fnew = open('temp_parameters_%s.txt' %protein_id, 'w')
 	# Select the parameter file for puzzle i.e. fill in the alignmentFile used !!! *** CHANGE THE FILE HERE ***
 	s1 = open(params_puzzle).read()
@@ -100,10 +103,10 @@ def likelihoodMapping():
 
 	#print 'Running tree puzzle..'
 	os.system('%s < temp_parameters_%s.txt' %(puzzle,protein_id))
-	
+
 	#print 'Puzzle run complete..'
 
-# Perform likelihood mapping on the degapped sequences (for 3 or more sequences)
+# Perform likelihood mapping on the aligned sequences (for 3 or more sequences)
 def distanceMapping():
 
 	fnew = open('temp_parameters_%s.txt' %protein_id, 'w')
@@ -129,7 +132,11 @@ def scalingFactorMax():
 		speciesMaxFile = open(species_maxLikMatrix).read().split('\n')
 		hamstrFile = open(map_file).read().split('\n')
 		for i in range(len(orthMaxFile) - 1):
-			species1 = orthMaxFile[i].split('\t')[0].split('_')[1]
+			line = orthMaxFile[i].split('\t')[0]
+			if '_' in line:
+				species1 = line.split('_')[1]
+			else:
+				species1 = line[1:]
 
 			###
 			### This block is needed when max likelihood matrix do not have OMA identifiers ###
@@ -139,8 +146,13 @@ def scalingFactorMax():
 			#	if species1 == hamstrFile[j].split('\t')[3]:
 			#		hamstr1 = hamstrFile[j].split('\t')[0]
 			#		break
+
 			for k in range(i + 1, len(orthMaxFile) - 1):
-				species2 = orthMaxFile[k].split('\t')[0].split('_')[1]
+				line = orthMaxFile[k].split('\t')[0]
+				if '_' in line:
+					species2 = line.split('_')[1]
+				else:
+					species2 = line[1:]
 				
 				#for j in range(len(hamstrFile) - 1):
 				#	if species2 == hamstrFile[j].split('\t')[3]:
@@ -209,14 +221,13 @@ def scalingFactorMax():
 		return sf							
 
 # Main module for running tree reconstruction
-def main(Raxml, Linsi, Clustalw, Degap, Orthologs, AaMatrix, Protein_id, Puzzle, Params_puzzle, Map_file, Species_maxLikMatrix, Scale_file, Tree_file, delTemp, defScale, cache_dir, ortholog_tree_reconstruction, nr_processors):
+def main(Raxml, Linsi, Clustalw, Orthologs, AaMatrix, Protein_id, Puzzle, Params_puzzle, Map_file, Species_maxLikMatrix, Scale_file, Tree_file, delTemp, defScale, cache_dir, ortholog_tree_reconstruction, nr_processors, use_cache):
 
-	global raxml, linsi, clustalw, degap, orth_file, aaMatrix, protein_id, puzzle, params_puzzle, map_file, species_maxLikMatrix, scaleFile, treeFile, phy_file, aln_file, sf, cacheDir, makeTree, nr_proc
+	global raxml, linsi, clustalw, orth_file, aaMatrix, protein_id, puzzle, params_puzzle, map_file, species_maxLikMatrix, scaleFile, treeFile, phy_file, aln_file, sf, cacheDir, makeTree, nr_proc, reuse_cache
 	cacheDir = cache_dir
 	raxml = Raxml
 	linsi = Linsi
 	clustalw = Clustalw
-	degap = Degap
 	aaMatrix = AaMatrix
 	protein_id = Protein_id
 	puzzle = Puzzle
@@ -231,6 +242,8 @@ def main(Raxml, Linsi, Clustalw, Degap, Orthologs, AaMatrix, Protein_id, Puzzle,
 	sf = float(defScale)
 	makeTree = ortholog_tree_reconstruction
 	nr_proc = nr_processors
+	reuse_cache = use_cache
+
 
 	#sf = 1.00
 		
@@ -238,23 +251,24 @@ def main(Raxml, Linsi, Clustalw, Degap, Orthologs, AaMatrix, Protein_id, Puzzle,
 		try:
 			rename_orth_file()
 			msa_convert()
-			if not os.path.exists(treeFile):
-				run_raxml()
+			run_raxml()
+			if reuse_cache and os.path.exists(scaleFile):
+				print('Pre-computed scaling factor found. Reusing it.')
 			else:
-				print 'Reusing previously generated RAxML tree.'
-			likelihoodMapping()
-			#if not os.path.exists(treeFile):
-				#rename_raxml()
-			sf = scalingFactorMax()
+				likelihoodMapping()
+				sf = scalingFactorMax()
+				print 'Scaling factor: ', sf
+				fnew = open(scaleFile, 'w')
+				fnew.write(str(sf))
+				fnew.close()
+			
+			if delTemp:
+				rm_temp()
 		except:
 			print '### ERROR: Some step in the tree reconstruction was invalid!! ###'
 			pass
-		print 'Scaling factor: ', sf
-		fnew = open(scaleFile, 'w')
-		fnew.write(str(sf))
-		fnew.close()
-		if delTemp:
-			rm_temp()			
+		
+					
 		
 	elif len(orth_file) < 8 and len(orth_file) > 3:
 		try:

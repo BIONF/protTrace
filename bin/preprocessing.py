@@ -991,6 +991,8 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
 						fnew.write(line + f.next())
 			fnew.close()
 
+			os.system('cp -avr %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
+
 			if not speciesFoundInOmaFlag:
 				sys.exit('ERROR: Species %s not found in OMA database. Please make sure if the species exists in OMA database. If not, please turn off "search_oma_database" flag in program configuration file.' %species_id)
 

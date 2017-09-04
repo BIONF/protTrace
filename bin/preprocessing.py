@@ -720,9 +720,9 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, formatdb, blastp, pro
 			#fnew.write('\n')'''
 		if os.path.exists(extendedFile):
 			#print 'Found .extended file..'
-			omaId = "NA"
 			with open(extendedFile) as f:
 				for line in f:
+					omaId = "NA"
 					if '>' in line:
 						hamstrId = line.split('|')[1]
 						seqIdentifier = line.split('|')[2]

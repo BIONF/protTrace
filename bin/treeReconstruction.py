@@ -136,7 +136,7 @@ def scalingFactorMax():
 			if '_' in line:
 				species1 = line.split('_')[1]
 			else:
-				species1 = line[1:]
+				species1 = line
 
 			###
 			### This block is needed when max likelihood matrix do not have OMA identifiers ###
@@ -152,7 +152,7 @@ def scalingFactorMax():
 				if '_' in line:
 					species2 = line.split('_')[1]
 				else:
-					species2 = line[1:]
+					species2 = line
 				
 				#for j in range(len(hamstrFile) - 1):
 				#	if species2 == hamstrFile[j].split('\t')[3]:

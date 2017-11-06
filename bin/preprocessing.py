@@ -202,7 +202,18 @@ def Preprocessing(prot_id, querySeq, config_file):
 		com = '%s -i proteome.fa' %(prot_config.formatdb)
 		os.system(com)
 		tempFile = open('temp_inputSeq.fa', 'w')
-		tempFile.write('>' + prot_id + '\n' + querySeq)
+		if not querySeq == "None":
+			tempFile.write('>' + prot_id + '\n' + querySeq)
+		else:
+			if os.path.exists(work_dir + '/' + orth_file):
+				with open(work_dir + '/' + orth_file) as orthFile:
+					for oLine in orthFile:
+						if '>' in oLine and species_id in oLine:
+							querySeq = orthFile.next()
+							tempFile.write('>' + prot_id + '\n' + querySeq)
+							break
+			else:
+				sys.exit("ERROR: No reciprocal BLAST hit ID found. Please check if file %s/omaID.txt exists." %work_dir)
 		tempFile.close()
 		os.system('%s -query temp_inputSeq.fa -db proteome.fa -evalue 0.00001 -outfmt 6 -max_target_seqs 1 -out temp.txt' %(prot_config.blastp))
 		if os.path.exists('temp.txt') and len(open('temp.txt').read().split('\n')) > 1:

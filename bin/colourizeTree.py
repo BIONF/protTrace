@@ -198,14 +198,24 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 			elif os.path.exists(orthFile):
 				foundSpeciesFlag = False
 				for line2 in open(orthFile):
-					if '>' in line2 and line2.split()[0].split('_')[1] == line.split()[-1]:
-						foundSpeciesFlag = True
-						orth = "1"
-						if not line.split()[-1] in matrixDict.keys():
-							matrixDict[line.split()[-1]] = []
-							matrixDict[line.split()[-1]].append(orth + '#' + fas)
-						else:
-							matrixDict[line.split()[-1]].append(orth + '#' + fas)
+					if '>' in line2 and '_' in line2:
+						if line2.split()[0].split('_')[1] == line.split()[-1]:
+							foundSpeciesFlag = True
+							orth = "1"
+							if not line.split()[-1] in matrixDict.keys():
+								matrixDict[line.split()[-1]] = []
+								matrixDict[line.split()[-1]].append(orth + '#' + fas)
+							else:
+								matrixDict[line.split()[-1]].append(orth + '#' + fas)
+					elif '>' in line2 and not '_' in line2:
+						if line2.split()[0][1:] == line.split()[-1]:
+							foundSpeciesFlag = True
+							orth = "1"
+							if not line.split()[-1] in matrixDict.keys():
+								matrixDict[line.split()[-1]] = []
+								matrixDict[line.split()[-1]].append(orth + '#' + fas)
+							else:
+								matrixDict[line.split()[-1]].append(orth + '#' + fas)
 
 				if not foundSpeciesFlag:
 					orth = "0"

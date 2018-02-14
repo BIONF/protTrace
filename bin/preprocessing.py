@@ -601,7 +601,11 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, formatdb, blastp, pro
 				refSpec = taxas.split('/')[-1]
 				break
 		
-		with open(taxaPath + '/' + refSpec + '/' + refSpec + '.fa') as f:
+		refSpec_Proteome = taxaPath + '/' + refSpec + '/' + refSpec + '.fa'
+		if os.path.exists(refSpec_Proteome + '.mod'):
+			refSpec_Proteome = refSpec_Proteome + '.mod'
+
+		with open(refSpec_Proteome) as f:
 			print('Searching for the seqId..')
 			flag = True
 			for line in f:
@@ -622,7 +626,7 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, formatdb, blastp, pro
 			os.chdir(tempDir)
 			#print 'Create a temporary file with the input sequence..'
 			#print 'Copy the reference proteome file into temporary directory..'
-			os.system('cp -avr %s .' %(taxaPath + '/' + refSpec + '/' + refSpec + '.fa'))
+			os.system('cp -avr %s .' %(refSpec_Proteome))
 			com = '%s -i %s' %(formatdb, refSpec +'.fa')
 			#print 'Create blast database for the OMA sequences: ', com
 			os.system(com)

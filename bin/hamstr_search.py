@@ -101,11 +101,15 @@ def align_hmm_run():
 	else:
 		os.system('hmmbuild %s %s' %(hmm_file, fasta_file))
 
+# Actual place from where HaMStR is run
 def actual_hamstr_computation(dirs):
 	if not ".fa" in dirs and not ".sql" in dirs:
 		hamstr_name = dirs.split('/')[-1]
 		if hamstr_name in hamstr_species_in_tree:
 			file_name = dirs + '/' + dirs.split('/')[-1] + '.fa'
+			if os.path.exists(file_name + '.mod'):
+				file_name = file_name + '.mod'
+
 			if not include_paralogs:
 				command = '%s/bin/hamstr.pl -central -sequence_file=%s -taxon=misc -hmmset=%s -strict -checkCoorthologsRef -representative -outpath=%s -hit_limit=10 -blastpath=%s' %(hamstr, file_name, protein_id, output, blastDir)
 			if include_paralogs:

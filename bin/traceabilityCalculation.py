@@ -44,7 +44,7 @@ def main(p_id, config_file):
 	taxonset = taxonset[::-1]
 	
 	
-	print '##### Running REvolver / BLAST cycles: #####'
+	print('##### Running REvolver / BLAST cycles: #####')
 	start_time = time.time()
 
 	if cache and os.path.exists('decay_summary_%s.txt_parameter' %prot_id):
@@ -52,22 +52,22 @@ def main(p_id, config_file):
 	else:
 		try:
 			pool = Pool(processes=nr_proc)
-			results = pool.map(actual_traceability_calculation, range(prot_config.simulation_runs))
+			results = pool.map(actual_traceability_calculation, list(range(prot_config.simulation_runs)))
 		except KeyboardInterrupt as e:
 			sys.exit(e)
 		except:
 			print("ERROR: Multiprocessing step <-> Traceability Calculations.")
 			pass
 	
-		print '#####\tTIME TAKEN: %s mins REvolver/BLAST#####' %((time.time() - start_time) / 60)
+		print('#####\tTIME TAKEN: %s mins REvolver/BLAST#####' %((time.time() - start_time) / 60))
 
 		ffull = open('full_decay_results_%s.txt' %prot_id, 'w')
 		fsum = open('decay_summary_%s.txt' %prot_id, 'w')
 	
 		detection_probability = {}
 		for res in results:
-			for key, value in res.iteritems():
-				if not key in detection_probability.keys():
+			for key, value in res.items():
+				if not key in list(detection_probability.keys()):
 					detection_probability[key] = []
 					detection_probability[key].append(value)
 				else:
@@ -85,7 +85,7 @@ def main(p_id, config_file):
 		ffull.close()
 		fsum.close()
 
-		print '##### Calculating decay parameters #####'
+		print('##### Calculating decay parameters #####')
 		decayParams(prot_config.R, prot_id, prot_config.decay_script)
 
 	os.chdir(rootDir)
@@ -104,9 +104,9 @@ def actual_traceability_calculation(run):
 
 	detection_probability = {}
 	
-	print 'Run: ', run
+	print('Run: ', run)
 	command = 'java -Xmx2G -Xms2G -cp "%s" revolver %s' %(prot_config.REvolver, temp_revolver_config_file)
-	print 'REvolver calculations command: ', command
+	print('REvolver calculations command: ', command)
 
 	success = False
 	trials = 0
@@ -140,7 +140,7 @@ def actual_traceability_calculation(run):
 
 def decayParams(r, prot_id, decay_script):
 	command = '%s --vanilla --file=%s --args decay_summary_%s.txt' %(r, decay_script, prot_id)
-	print '##### Decay parameter calculation command: ', command	
+	print('##### Decay parameter calculation command: ', command)	
 	os.system(command)
 		
 def run_revolver(REvolver, xml_file):

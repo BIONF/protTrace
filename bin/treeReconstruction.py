@@ -208,7 +208,7 @@ def scalingFactorMax():
 					#scales.append(1.00)
 					pass
 	except:
-		print '### ERROR: Scaling factor calculation had an error ###'
+		print('### ERROR: Scaling factor calculation had an error ###')
 		sys.exit('Maximum likelihood files are invalid!')
 
 	if len(scales) >= 1:
@@ -257,7 +257,7 @@ def main(Raxml, Linsi, Clustalw, Orthologs, AaMatrix, Protein_id, Puzzle, Params
 			else:
 				likelihoodMapping()
 				sf = scalingFactorMax()
-				print 'Scaling factor: ', sf
+				print('Scaling factor: ', sf)
 				fnew = open(scaleFile, 'w')
 				fnew.write(str(sf))
 				fnew.close()
@@ -265,7 +265,7 @@ def main(Raxml, Linsi, Clustalw, Orthologs, AaMatrix, Protein_id, Puzzle, Params
 			if delTemp:
 				rm_temp()
 		except:
-			print '### ERROR: Some step in the tree reconstruction was invalid!! ###'
+			print('### ERROR: Some step in the tree reconstruction was invalid!! ###')
 			pass
 		
 					
@@ -279,7 +279,7 @@ def main(Raxml, Linsi, Clustalw, Orthologs, AaMatrix, Protein_id, Puzzle, Params
 			
 		except:
 			pass
-		print 'Scaling factor: ', sf
+		print('Scaling factor: ', sf)
 		fnew = open(scaleFile, 'w')
 		if sf > 0:
 			fnew.write(str(sf))

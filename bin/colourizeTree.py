@@ -49,13 +49,13 @@ def calculateMaxLikDist(species1, species2):
 		elif os.path.exists(cacheDir + '/' + oma2 + '_' + oma1 + '.lik'):
 			return float(open(cacheDir + '/' + oma2 + '_' + oma1 + '.lik').read().split('\n')[0])
 		else:
-			print 'No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2)
+			print('No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2))
 			return 1.00		
 	else:
 		if not speciesMaxFile[rowIndex].split(sep)[columnIndex] == "NA":
 			return float(speciesMaxFile[rowIndex].split(sep)[columnIndex])
 		else:
-			print 'No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2)
+			print('No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2))
 			return 1.00
 
 def colourize(speciesName, nexusTreeFile):
@@ -169,7 +169,7 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 			else:
 				orth = "1"
 
-			if not line.split()[-1] in matrixDict.keys():
+			if not line.split()[-1] in list(matrixDict.keys()):
 				matrixDict[line.split()[-1]] = []
 				matrixDict[line.split()[-1]].append(orth + '#' + fas)
 			else:
@@ -183,13 +183,13 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 						foundSpeciesFlag = True
 						orth = line2.split()[3]
 						fas = line2.split()[-1]
-						if not line.split()[-1] in matrixDict.keys():
+						if not line.split()[-1] in list(matrixDict.keys()):
 							matrixDict[line.split()[-1]] = []
 							matrixDict[line.split()[-1]].append(orth + '#' + fas)
 						else:
 							matrixDict[line.split()[-1]].append(orth + '#' + fas)
 				if not foundSpeciesFlag:
-					if not line.split()[-1] in matrixDict.keys():
+					if not line.split()[-1] in list(matrixDict.keys()):
 						matrixDict[line.split()[-1]] = []
 						matrixDict[line.split()[-1]].append(orth + '#' + fas)
 					else:
@@ -202,7 +202,7 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 						if line2.split()[0].split('_')[1] == line.split()[-1]:
 							foundSpeciesFlag = True
 							orth = "1"
-							if not line.split()[-1] in matrixDict.keys():
+							if not line.split()[-1] in list(matrixDict.keys()):
 								matrixDict[line.split()[-1]] = []
 								matrixDict[line.split()[-1]].append(orth + '#' + fas)
 							else:
@@ -211,7 +211,7 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 						if line2.split()[0][1:] == line.split()[-1]:
 							foundSpeciesFlag = True
 							orth = "1"
-							if not line.split()[-1] in matrixDict.keys():
+							if not line.split()[-1] in list(matrixDict.keys()):
 								matrixDict[line.split()[-1]] = []
 								matrixDict[line.split()[-1]].append(orth + '#' + fas)
 							else:
@@ -219,20 +219,20 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 
 				if not foundSpeciesFlag:
 					orth = "0"
-					if not line.split()[-1] in matrixDict.keys():
+					if not line.split()[-1] in list(matrixDict.keys()):
 						matrixDict[line.split()[-1]] = []
 						matrixDict[line.split()[-1]].append(orth + '#' + fas)
 					else:
 						matrixDict[line.split()[-1]].append(orth + '#' + fas)
 			else:
-				if not line.split()[-1] in matrixDict.keys():
+				if not line.split()[-1] in list(matrixDict.keys()):
 					matrixDict[line.split()[-1]] = []
 					matrixDict[line.split()[-1]].append(orth + '#' + fas)
 				else:
 					matrixDict[line.split()[-1]].append(orth + '#' + fas)
 		
 
-	print 'Dictionary length: ', len(matrixDict)
+	print('Dictionary length: ', len(matrixDict))
 	try:
 		hamstrMapFile = open(mapFile).read().split('\n')
 		speciesTree = open(spTree).read()
@@ -240,7 +240,7 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 		decayPop = float(open('decay_summary_%s.txt_parameter' %protId).read().split('\n')[0])
 
 	except IOError:
-		print 'ERROR: Colourizing tree encountered problem!!!'
+		print('ERROR: Colourizing tree encountered problem!!!')
 
 	traceResults = open('trace_results_%s.txt' %protId, 'w')	
 
@@ -256,10 +256,10 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 		try:
 			os.system('java -cp %s figtreepdf %s' %(plotFigTree, nexusTreeFile.replace('.nexus', '_edit.nexus')))
 		except:
-			print 'WARNING: No representation of traceabilities on tree possible.\nJAVA program figtreepdf not responding!!!'
+			print('WARNING: No representation of traceabilities on tree possible.\nJAVA program figtreepdf not responding!!!')
 	traceResults.close()
 
-	print 'Creating matrix file for PhyloProfile...'
+	print('Creating matrix file for PhyloProfile...')
 	matrixFile = open('%s_phyloMatrix.txt' %protId, 'w')
 	matrixFile.write('geneID\tncbiID\torthoID\tFAS\tTraceability\n')
 	#matrixFile.write(protId)

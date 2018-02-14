@@ -29,12 +29,12 @@ def main(argv):
 	try:
 		opts, args = getopt.getopt(argv, "f:i:c:h", ["fasta=", "id=", "config=", "help"])
 	except getopt.GetoptError:
-		print 'Invalid arguments:\nUsage:\tprotTrace.py -i <omaIdsFile> | -f <fastaSeqsFile> -c <configFile> [-help]'
+		print('Invalid arguments:\nUsage:\tprotTrace.py -i <omaIdsFile> | -f <fastaSeqsFile> -c <configFile> [-help]')
 		sys.exit(2)
 
 	for opt, arg in opts:
 		if opt in ('-h','--help'):
-			print "USAGE:\tprotTrace.py -i <omaIdsFile> | -f <fastaSeqsFile> -c <configFile> [-h]\n\t-i\t\tText file containing protein OMA ids (1 id per line)\n\t-f\t\tList of input protein sequences in fasta format\n\t-c\t\tConfiguration file for setting program's dependencies"
+			print("USAGE:\tprotTrace.py -i <omaIdsFile> | -f <fastaSeqsFile> -c <configFile> [-h]\n\t-i\t\tText file containing protein OMA ids (1 id per line)\n\t-f\t\tList of input protein sequences in fasta format\n\t-c\t\tConfiguration file for setting program's dependencies")
 			sys.exit(2)
 		elif opt in ('-i', '--id'):
 			id_list = arg
@@ -43,7 +43,7 @@ def main(argv):
 		elif opt in ('-c','--config'):
 			config_file = arg
 		else:
-			print 'Invalid arguments:\nUsage:\tprotTrace.py -i <omaIdsFile> | -f <fastaSeqsFile> -c <configFile> [-help]'
+			print('Invalid arguments:\nUsage:\tprotTrace.py -i <omaIdsFile> | -f <fastaSeqsFile> -c <configFile> [-help]')
 			sys.exit(2)
 	
 	config_file = os.path.abspath(config_file)
@@ -53,7 +53,7 @@ def main(argv):
 	
 	if id_list != '':
 		for ids in open(id_list):
-			print '##### Running for OMA id: %s #####' %ids.split()[0]
+			print('##### Running for OMA id: %s #####' %ids.split()[0])
 			if proteinParams.preprocessing:	
 				preprocessing.Preprocessing(ids.split()[0], 'None', config_file)
 			if proteinParams.traceability_calculation:
@@ -64,9 +64,9 @@ def main(argv):
 		with open(fasta_list) as fa:
 			for seqs in fa:
 				if '>' in seqs:
-					print '##### Running for fasta id: %s #####' %seqs[1:-1]
+					print('##### Running for fasta id: %s #####' %seqs[1:-1])
 					inputId = seqs.split()[0][1:]
-					querySeq = fa.next()
+					querySeq = next(fa)
 
 				if proteinParams.preprocessing:
 					preprocessing.Preprocessing(inputId, querySeq, config_file)
@@ -78,12 +78,12 @@ def main(argv):
 
 if __name__ == "__main__":
 	if len(sys.argv[1:]) == 0:
-		print 'ERROR:\tNo arguments entered for the traceability run:\nUSAGE:\tprotTrace.py -i <omaIdsFile> | -f <fastaSeqsFile> -c <configFile> [-help]'
+		print('ERROR:\tNo arguments entered for the traceability run:\nUSAGE:\tprotTrace.py -i <omaIdsFile> | -f <fastaSeqsFile> -c <configFile> [-help]')
 		sys.exit(2)
 	else:
 		start_time = time.time()
-		print '##### Start time: %s #####' %time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime())
+		print('##### Start time: %s #####' %time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime()))
 		main(sys.argv[1:])
 		end_time = time.time()
-		print '##### End time: %s #####' %time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime())
-		print '##### TOTAL TIME: %s hours#####' %((end_time - start_time) / 3600)
+		print('##### End time: %s #####' %time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime()))
+		print('##### TOTAL TIME: %s hours#####' %((end_time - start_time) / 3600))

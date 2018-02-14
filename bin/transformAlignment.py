@@ -98,7 +98,7 @@ def postTransformAlign(trans):
 			#print len(stateOld) - i, stateOld[i]
 			t = t.replace(' ' + str(stateOld[i]) + ' ', ' ' + str(len(stateOld) - 1 - i) + ' ').replace(' ' + str(stateOld[i]) + '\n', ' ' + str(len(stateOld) -1 - i) + '\n')
 	except:
-		print 'WARNING: Error while editing the transformed alignment file!'
+		print('WARNING: Error while editing the transformed alignment file!')
 		pass	
 
 	for i in range(1, len(t.split('\n')) - 1):
@@ -113,6 +113,6 @@ def main(phy_file, trans_file):
 		postTransformAlign(trans_file)
 		return len(indelBlocksPos)
 	else:
-		print 'Transformed alignment cannot be created for empty phylip files!'	
+		print('Transformed alignment cannot be created for empty phylip files!')	
 	
 	 

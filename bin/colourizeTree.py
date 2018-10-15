@@ -33,7 +33,6 @@ def calculateMaxLikDist(species1, species2):
 	sep = '\t'
 
 	for l in range(len(speciesMaxFile) - 1):
-		
 		if speciesMaxFile[l].split(sep)[0] == oma1:
 			rowIndex = l
 			flag1 = False
@@ -42,23 +41,23 @@ def calculateMaxLikDist(species1, species2):
 			flag2 = False
 
 	if flag1 or flag2:
-		#print 'Checkpoint 2 crossed'
+		print 'Checkpoint 2 crossed'
 		# Checking for the likelihood score in cache directory
 		if os.path.exists(cacheDir + '/' + oma1 + '_' + oma2 + '.lik'):
 			return float(open(cacheDir + '/' + oma1 + '_' + oma2 + '.lik').read().split('\n')[0])
 		elif os.path.exists(cacheDir + '/' + oma2 + '_' + oma1 + '.lik'):
 			return float(open(cacheDir + '/' + oma2 + '_' + oma1 + '.lik').read().split('\n')[0])
 		else:
-			print('No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2))
-			return 1.00		
+			print 'No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2)
+			return 1.00
 	else:
 		if not speciesMaxFile[rowIndex].split(sep)[columnIndex] == "NA":
 			return float(speciesMaxFile[rowIndex].split(sep)[columnIndex])
 		else:
-			print('No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2))
+			print 'No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2)
 			return 1.00
 
-def colourize(speciesName, nexusTreeFile):
+def colourize(speciesName, speciesId, nexusTreeFile, speciesTree, decayRate, decayPop, traceResults, matrixDict):
 	tree = open(nexusTreeFile).read().split('\n')
 	for i in range(len(tree) - 1):
 		if tree[i] == "\ttaxlabels":
@@ -77,18 +76,17 @@ def colourize(speciesName, nexusTreeFile):
 		#print tempSpecies
 		if not tempSpecies == speciesName:
 			try:
-				colourCode, traceValue = getColourCode(speciesName, tempSpecies)
-
+				colourCode, traceValue = getColourCode(speciesName, tempSpecies, decayRate, decayPop)
 				omaName = "NA"
 
 				for j in range(len(hamstrMapFile) - 1):
 					if tempSpecies == hamstrMapFile[j].split('\t')[1]:
 						omaName = hamstrMapFile[j].split('\t')[-1]
 						break
-				#print omaName
-				#print matrixDict[omaName]
+#				print omaName
+#				print matrixDict[omaName]
 				for elements in matrixDict[omaName]:
-					#print elements	
+					#print elements
 					newElement = elements + '#' + str(traceValue)
 					matrixDict[omaName].remove(elements)
 					#print matrixDict[omaName]
@@ -101,7 +99,7 @@ def colourize(speciesName, nexusTreeFile):
 			except:
 				sys.exit("ERROR: Check species %s in species tree and used mapping files" %tempSpecies)
 				pass
-			
+
 		else:
 			fnew.write(tree[i] + '\n')
 			for elements in matrixDict[speciesId]:
@@ -119,7 +117,7 @@ def colourize(speciesName, nexusTreeFile):
 			fnew.write(tree[i] + '\n')
 	fnew.close()
 
-def getColourCode(spName, tempName):
+def getColourCode(spName, tempName, decayRate, decayPop):
 	mlDist = calculateMaxLikDist(spName, tempName)
 	#print mlDist
 	if decayRate < 0.01:
@@ -142,13 +140,12 @@ def getColourCode(spName, tempName):
 
 	return colCode, traceability
 
-def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile, species_id, cache_dir):
-	global sp_max_file, hamstrMapFile, speciesId, speciesTree, decayRate, decayPop, traceResults, cacheDir, matrixFile, fasFile, orthFile, matrixDict
+def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile, speciesId, cache_dir,intended_fas_score_calc):
+	global sp_max_file, hamstrMapFile, cacheDir
 
 	matrixDict = {}
 	fasFile = 'ogSeqs_' + protId + '.fasScore'
 	orthFile = 'ogSeqs_' + protId + '.fa'
-	speciesId = species_id
 	sp_max_file = speciesMaxLikFile
 	decayRate = 0.1
 	decayPop = 0.04
@@ -157,82 +154,42 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 	for line in open(mapFile):
 		orth = "NA"
 		fas = "NA"
+		currentSpecies = line.split()[-1]
+		if currentSpecies not in matrixDict:
+			matrixDict[currentSpecies] = []
 
-		if line.split()[-1] == speciesId:
+		if currentSpecies == speciesId:
 			if os.path.exists(fasFile):
 				if open(fasFile).read().split('\n')[0] != "":
-					#print 'Yes'
 					orth = open(fasFile).read().split('\n')[0].split()[1]
-					fas = "1.00"
-				else:
-					fas = "1.00"
+				fas = "1.00"
 			else:
 				orth = "1"
 
-			if not line.split()[-1] in list(matrixDict.keys()):
-				matrixDict[line.split()[-1]] = []
-				matrixDict[line.split()[-1]].append(orth + '#' + fas)
-			else:
-				matrixDict[line.split()[-1]].append(orth + '#' + fas)				
-
+			matrixDict[currentSpecies].append(orth + '#' + fas)
 		else:
+			foundSpeciesFlag = False
 			if os.path.exists(fasFile):
-				foundSpeciesFlag = False
 				for line2 in open(fasFile):
-					if line2.split()[2].split('_')[1] == line.split()[-1]:
+					line2_species_id = line2.split()[2].split('_')[1] if '_' in line2 else line2.split()[2]
+					if line2_species_id == currentSpecies:
 						foundSpeciesFlag = True
 						orth = line2.split()[3]
 						fas = line2.split()[-1]
-						if not line.split()[-1] in list(matrixDict.keys()):
-							matrixDict[line.split()[-1]] = []
-							matrixDict[line.split()[-1]].append(orth + '#' + fas)
-						else:
-							matrixDict[line.split()[-1]].append(orth + '#' + fas)
-				if not foundSpeciesFlag:
-					if not line.split()[-1] in list(matrixDict.keys()):
-						matrixDict[line.split()[-1]] = []
-						matrixDict[line.split()[-1]].append(orth + '#' + fas)
-					else:
-						matrixDict[line.split()[-1]].append(orth + '#' + fas)
-			
+						matrixDict[currentSpecies].append(orth + '#' + fas)
 			elif os.path.exists(orthFile):
-				foundSpeciesFlag = False
+				orth = "0"
 				for line2 in open(orthFile):
-					if '>' in line2 and '_' in line2:
-						if line2.split()[0].split('_')[1] == line.split()[-1]:
+					if '>' in line2:
+						line2_species_id = line2.split()[0].split('_')[1] if '_' in line2 else line2.split()[0][1:]
+						if line2_species_id == currentSpecies:
 							foundSpeciesFlag = True
 							orth = "1"
-							if not line.split()[-1] in list(matrixDict.keys()):
-								matrixDict[line.split()[-1]] = []
-								matrixDict[line.split()[-1]].append(orth + '#' + fas)
-							else:
-								matrixDict[line.split()[-1]].append(orth + '#' + fas)
-					elif '>' in line2 and not '_' in line2:
-						if line2.split()[0][1:] == line.split()[-1]:
-							foundSpeciesFlag = True
-							orth = "1"
-							if not line.split()[-1] in list(matrixDict.keys()):
-								matrixDict[line.split()[-1]] = []
-								matrixDict[line.split()[-1]].append(orth + '#' + fas)
-							else:
-								matrixDict[line.split()[-1]].append(orth + '#' + fas)
+							matrixDict[currentSpecies].append(orth + '#' + fas)
+			if not foundSpeciesFlag:
+				matrixDict[currentSpecies].append(orth + '#' + fas)
 
-				if not foundSpeciesFlag:
-					orth = "0"
-					if not line.split()[-1] in list(matrixDict.keys()):
-						matrixDict[line.split()[-1]] = []
-						matrixDict[line.split()[-1]].append(orth + '#' + fas)
-					else:
-						matrixDict[line.split()[-1]].append(orth + '#' + fas)
-			else:
-				if not line.split()[-1] in list(matrixDict.keys()):
-					matrixDict[line.split()[-1]] = []
-					matrixDict[line.split()[-1]].append(orth + '#' + fas)
-				else:
-					matrixDict[line.split()[-1]].append(orth + '#' + fas)
-		
-
-	print('Dictionary length: ', len(matrixDict))
+	#print 'Dictionary length: ', len(matrixDict)
 	try:
 		hamstrMapFile = open(mapFile).read().split('\n')
 		speciesTree = open(spTree).read()
@@ -240,9 +197,9 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 		decayPop = float(open('decay_summary_%s.txt_parameter' %protId).read().split('\n')[0])
 
 	except IOError:
-		print('ERROR: Colourizing tree encountered problem!!!')
+		print 'ERROR: Colourizing tree encountered problem!!!'
 
-	traceResults = open('trace_results_%s.txt' %protId, 'w')	
+	traceResults = open('trace_results_%s.txt' %protId, 'w')
 
 	if os.path.exists(nexusTreeFile):
 	#speciesId = nexusTreeFile.split('_')[1].split('.')[0][:5]
@@ -251,23 +208,28 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 				speciesName = hamstrMapFile[i].split('\t')[1]
 				break
 
-		colourize(speciesName, nexusTreeFile)
+		colourize(speciesName, speciesId, nexusTreeFile, speciesTree, decayRate, decayPop, traceResults, matrixDict)
 
 		try:
 			os.system('java -cp %s figtreepdf %s' %(plotFigTree, nexusTreeFile.replace('.nexus', '_edit.nexus')))
 		except:
-			print('WARNING: No representation of traceabilities on tree possible.\nJAVA program figtreepdf not responding!!!')
+			print 'WARNING: No representation of traceabilities on tree possible.\nJAVA program figtreepdf not responding!!!'
 	traceResults.close()
 
-	print('Creating matrix file for PhyloProfile...')
+	print 'Creating matrix file for PhyloProfile...'
 	matrixFile = open('%s_phyloMatrix.txt' %protId, 'w')
-	matrixFile.write('geneID\tncbiID\torthoID\tFAS\tTraceability\n')
-	#matrixFile.write(protId)
+	if intended_fas_score_calc:
+		matrixFile.write('geneID\tncbiID\torthoID\tFAS\tTraceability\n')
+	else:
+		matrixFile.write('geneID\tncbiID\torthoID\tTraceability\n')
 	for j in range(len(hamstrMapFile) - 1):
 		ncbiId = "ncbi" + hamstrMapFile[j].split()[-2]
 		oma_id = hamstrMapFile[j].split()[-1]
 		for elements in matrixDict[oma_id]:
 			#print elements
-			matrixFile.write(protId + '\t' + ncbiId + '\t' + elements.split('#')[0]+ '\t' + elements.split('#')[1]+ '\t' + elements.split('#')[2] + '\n')
+			if intended_fas_score_calc:
+				matrixFile.write(protId + '\t' + ncbiId + '\t' + elements.split('#')[0] + '\t' + elements.split('#')[1] + '\t' + elements.split('#')[2] + '\n')
+			else:
+				matrixFile.write(protId + '\t' + ncbiId + '\t' + elements.split('#')[0] + '\t' + elements.split('#')[2] + '\n')
 	matrixFile.close()
-	
+

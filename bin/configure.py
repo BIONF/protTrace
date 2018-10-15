@@ -106,8 +106,6 @@ class setParams:
 					self.nr_processors = int(line.split(':')[1])
 				if line.split(':')[0] == 'MAFFT_linsi':
 					self.msa = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'RAxML':
-					self.tree_reconstruction = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'REvolver':
 					self.REvolver = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'hmmfetch':
@@ -118,12 +116,8 @@ class setParams:
 					self.iqtree24 = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'clustalw':
 					self.clustalw = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'blastall':
-					self.blastall = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'blastp':
 					self.blastp = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'formatdb':
-					self.formatdb = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'makeblastdb':
 					self.makeblastdb = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'R':
@@ -134,10 +128,6 @@ class setParams:
 					self.hamstrOneSeq = os.path.abspath(line.split(':')[1])
 				#if line.split(':')[0] == 'degapping':
 				#	self.degapping = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'treePuzzle':
-					self.treePuzzle = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'parameters_treePuzzle':
-					self.parameters_treePuzzle = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'species_MaxLikMatrix':
 					self.species_MaxLikMatrix = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'path_work_dir':
@@ -173,6 +163,6 @@ class setParams:
 						self.hamstr_environment = line.split(':')[1]
 					else:
 						self.hamstr_environment = ""
-	
 
-	
+
+

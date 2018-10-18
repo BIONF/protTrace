@@ -199,7 +199,8 @@ def Preprocessing(prot_id, querySeq, config_file):
 		if not os.path.exists(tempDir):
 			os.mkdir(tempDir)
 		os.chdir(tempDir)
-		os.system('cp -avr {0} proteome.fa'.format(proteome_file))
+		print("Creating link to proteome: {0}".format(proteome_file))
+		os.system('ln -sf {0} proteome.fa'.format(proteome_file))
 		print("running makeblastdb")
 		com = '%s -in proteome.fa -dbtype prot' %(prot_config.makeblastdb)
 		os.system(com)
@@ -600,7 +601,7 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
 			print(refSpec_Proteome + "\n")
 			print(refSpec + "\n")
 			print(tempDir)
-			os.system('ln -sf %s .' %(refSpec_Proteome))
+			os.system('cp -avr %s .' %(refSpec_Proteome))
 			com = '%s -in %s -dbtype prot' %(makeblastdb, refSpec_Proteome)
 			#print 'Create blast database for the OMA sequences: ', com
 			os.system(com)
@@ -879,7 +880,7 @@ def findOmaSequences(prot_id, omaSeqs, species_id, mapFile, config_file):
 		sys.exit('ERROR: Cannot find OMA orthologs sequences. OMA sequence file does not exist!')
 
 
-# Read OMA orthologs: groups file and parses the ortholog list for input OMA id
+# Read OMA orthologs groups file and parses the ortholog list for input OMA id
 def findOmaGroup(prot_id, querySeq, omaGroup, omaSeqs, proteome_file, makeblastdb, blastp, delTemp, species_id):
 	try:
 		if not querySeq == 'None':
@@ -1001,18 +1002,18 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
 					break
 
 			if not hamstrEnv == "":
-				blast_dir = hamstrDir + '/blast_dir_' + hamstrEnv
+				genome_dir = hamstrDir + '/genome_dir_' + hamstrEnv
 			else:
-				blast_dir = hamstrDir + '/blast_dir'
+				genome_dir = hamstrDir + '/genome_dir'
 
-			species_blast_file = blast_dir + '/' + hamstr_id + '/' + hamstr_id + '.fa'
+			species_genome_file = genome_dir + '/' + hamstr_id + '/' + hamstr_id + '.fa'
 
-			if os.path.exists(species_blast_file):
-				os.system('cp -ar %s %s' %(species_blast_file, proteome_file))
+			if os.path.exists(species_genome_file):
+				os.system('cp -ar %s %s' %(species_genome_file, proteome_file))
 			else:
 				sys.exit('ERROR: Reference species %s not found in local (HaMStR) BLAST directory!!!' %species_id)
 
-			os.system('ln -sf %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
+			os.system('cp -avr %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
 		print('#####	Making BLAST db of the gene set to be used by the blast search	#####')
 		os.system('%s -in %s -input_type fasta -dbtype prot' %(makeblastdb, proteome_file))
 		#proteome_file = os.path.abspath(proteome_file)

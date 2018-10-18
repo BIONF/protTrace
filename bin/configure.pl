@@ -22,13 +22,13 @@ use List::Util 'first';
 ##A simple perl script to check the dependencies for protTrace and for setting up the configure script
 
 #### Default settings and dependencies ##########
-my @dependencies = qw(linsi hmmscan hmmfetch makeblastdb blastp iqtree R python perl java);
+my @dependencies = qw(linsi hmmscan hmmfetch makeblastdb blastp iqtree Rscript python perl java);
 my @neDependencies = qw(oneseq.pl figtree);
 my $minVersion->{linsi}=6;
 $minVersion->{hmmscan}=3.1;
 $minVersion->{blastp}=2.7;
 $minVersion->{iqtree}=1.671;
-$minVersion->{R} = 3;
+$minVersion->{Rscript} = 3;
 $minVersion->{python}=2.7;
 $minVersion->{java}=1.7;
 $minVersion->{"oneseq.pl"}=1;
@@ -189,8 +189,8 @@ sub testDep {
 			## version check only for the critical programs
 			my $version;
 			my $versionshort;
-			if ($prog eq 'iqtree' or $prog eq 'R' or $prog eq 'python') {
-				$version = `$prog --version 2>&1 2>&1 |head -n 1`;
+			if ($prog eq 'iqtree' or $prog eq 'Rscript' or $prog eq 'python') {
+				$version = `$prog --version 2>&1 |head -n 1`;
 				chomp $version;
 				$version =~ s/.* ([0-9.]{1,}).*/$1/;
 				$versionshort = $version;
@@ -408,7 +408,7 @@ sub userOptions {
 					hmmscan => '/share/applications/bin/hmmscan',
 					blastp => '/share/applications/bin/blastp',
 					makeblastdb => '/share/applications/bin/makeblastdb',
-					R => '/usr/bin/Rscript',
+					Rscript => '/usr/bin/Rscript',
 					hamstr => '',
 					oneseq =>  '');		
 					
@@ -454,7 +454,7 @@ sub userOptions {
 					hmmscan => 'enter full path to hmmscan (including program name)',
 					blastp => 'enter full path to blastp (including program name)',
 					makeblastdb => 'enter full path to makeblastdb (including program name)',
-					R => 'Enter full path to R (including program name)',
+					Rscript => 'Enter full path to Rscript (including program name)',
 					hamstr => 'enter full path to hamstr.pl (leave blank if HaMStR is not installed)',
 					oneseq =>  'enter full path to oneseq.pl (leave blank if HaMStR is not installed)');						
 	@generalOptions = qw(species nr_of_processors delete_temporary_files reuse_cache path_work_dir path_cache);
@@ -463,7 +463,7 @@ sub userOptions {
 	@scaling = qw(calculate_scaling_factor default_scaling_factor);
 	@indel = qw(perform_msa calculate_indel default_indel default_indel_distribution);
 	@trace = qw(traceability_calculation aa_substitution_matrix simulation_runs);
-	@path2Deps = qw(iqtree linsi hmmfetch hmmscan blastp makeblastdb R hamstr oneseq);
+	@path2Deps = qw(iqtree linsi hmmfetch hmmscan blastp makeblastdb Rscript hamstr oneseq);
 	@usedFileList = qw(REvolver simulation_tree decay_script plot_figtree Xref_mapping_file reference_species_tree
 	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database fas_annotations hamstr_environment); 
 
@@ -551,7 +551,7 @@ sub printConfig {
 	print OUT "hmmscan:$prepOptions{hmmscan}\n";
 	print OUT "blastp:$prepOptions{blastp}\n";
 	print OUT "makeblastdb:$prepOptions{makeblastdb}\n";
-	print OUT "R:$prepOptions{R}\n";
+	print OUT "Rscript:$prepOptions{Rscript}\n";
 	print OUT "hamstr:$prepOptions{hamstr}\n";
 	print OUT "oneseq:$prepOptions{oneseq}\n";
 	print OUT "\n###\n";

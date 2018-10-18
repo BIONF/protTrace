@@ -120,7 +120,7 @@ class setParams:
 					self.blastp = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'makeblastdb':
 					self.makeblastdb = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'R':
+				if line.split(':')[0] == 'Rscript':
 					self.R = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'hamstr':
 					self.hamstr = os.path.abspath(line.split(':')[1])

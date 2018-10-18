@@ -118,11 +118,15 @@ def actual_traceability_calculation(run):
 			blastOutput = run_blast(prot_config.blastp, prot_id, proteome_file, revolver_output_dir)
 			for taxa in taxonset:
 				detection = 0
+				linecount = 1
 				for line in blastOutput.split('\n'):
 					#print line
 					if taxa == line.split('\t')[0]:
 						if line.split('\t')[1] == blastHitId:
 							detection = 1
+							break
+						linecount += 1
+						if linecount > 5:
 							break
 				detection_probability[taxa] = detection
 			success = True
@@ -151,7 +155,7 @@ def run_revolver(REvolver, xml_file):
 	os.system(command)
 
 def run_blast(blastp, prot_id, proteome, revolverOut):
-	command = '%s -query %s/out.fa -db %s -outfmt "6 qseqid sseqid" -max_target_seqs 5' %(blastp, revolverOut, proteome)
+	command = '%s -query %s/out.fa -db %s -outfmt "6 qseqid sseqid"' %(blastp, revolverOut, proteome)
 	result = subprocess.check_output(command, shell=True)
 	return result
 

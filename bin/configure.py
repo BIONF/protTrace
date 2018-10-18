@@ -104,7 +104,7 @@ class setParams:
 					self.simulation_runs = int(line.split(':')[1])
 				if line.split(':')[0] == 'nr_of_processors':
 					self.nr_processors = int(line.split(':')[1])
-				if line.split(':')[0] == 'MAFFT_linsi':
+				if line.split(':')[0] == 'linsi':
 					self.msa = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'REvolver':
 					self.REvolver = os.path.abspath(line.split(':')[1])
@@ -112,8 +112,8 @@ class setParams:
 					self.hmmfetch = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'hmmscan':
 					self.hmmscan = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'iqtree24':
-					self.iqtree24 = os.path.abspath(line.split(':')[1])
+				if line.split(':')[0] == 'iqtree':
+					self.iqtree = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'clustalw':
 					self.clustalw = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'blastp':
@@ -124,7 +124,7 @@ class setParams:
 					self.R = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'hamstr':
 					self.hamstr = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'hamstrOneSeq':
+				if line.split(':')[0] == 'oneseq':
 					self.hamstrOneSeq = os.path.abspath(line.split(':')[1])
 				#if line.split(':')[0] == 'degapping':
 				#	self.degapping = os.path.abspath(line.split(':')[1])

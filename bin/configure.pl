@@ -402,6 +402,7 @@ sub userOptions {
 					pfam_database => "$currwd/used_files/Pfam-A.hmm",
 					fas_annotations => 'PROVIDEPATH2HaMStR/weight_dir',
 					hamstr_environment => 'default',
+					iqtree => "$currwd/used_files/iqtree",
 					linsi => '/share/applications/bin/linsi',
 					hmmfetch => '/share/applications/bin/hmmfetch',
 					hmmscan => '/share/applications/bin/hmmscan',
@@ -447,6 +448,7 @@ sub userOptions {
 					pfam_database => "$currwd/used_files/Pfam-A.hmm",
 					fas_annotations => 'Enter path to the weight_dir directory in the HaMStR folder',
 					hamstr_environment => 'default',
+					iqtree => 'enter full path to iqtree (including program name)',
 					linsi => 'enter full path to linsi (including program name)',
 					hmmfetch => 'enter full path to hmmfetch (including program name)',
 					hmmscan => 'enter full path to hmmscan (including program name)',
@@ -461,7 +463,7 @@ sub userOptions {
 	@scaling = qw(calculate_scaling_factor default_scaling_factor);
 	@indel = qw(perform_msa calculate_indel default_indel default_indel_distribution);
 	@trace = qw(traceability_calculation aa_substitution_matrix simulation_runs);
-	@path2Deps = qw(linsi hmmfetch hmmscan blastp makeblastdb R hamstr hamstrOneSeq);
+	@path2Deps = qw(iqtree linsi hmmfetch hmmscan blastp makeblastdb R hamstr hamstrOneSeq);
 	@usedFileList = qw(REvolver simulation_tree decay_script plot_figtree Xref_mapping_file reference_species_tree
 	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database fas_annotations hamstr_environment); 
 
@@ -543,6 +545,7 @@ sub printConfig {
 	print OUT "#####\n";
 	print OUT "###\n";
 	print OUT "#####   Configuring paths for protTrace dependencies    #####\n";
+	print OUT "iqtree:$prepOptions{iqtree}\n";
 	print OUT "linsi:$prepOptions{linsi}\n";
 	print OUT "hmmfetch:$prepOptions{hmmfetch}\n";
 	print OUT "hmmscan:$prepOptions{hmmscan}\n";

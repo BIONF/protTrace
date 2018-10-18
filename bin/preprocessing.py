@@ -271,7 +271,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 				alignmentLength = transformAlignment.main(phy_file, trans_file)
 			except:
 				pass
-			calculateIndels(tree_file, trans_file, alignmentLength, prot_config.iqtree24, prot_config.default_indel, prot_config.default_indel_distribution)
+			calculateIndels(tree_file, trans_file, alignmentLength, prot_config.iqtree, prot_config.default_indel, prot_config.default_indel_distribution)
 
 	# Domain constraint file for REvolver
 
@@ -793,7 +793,7 @@ def hmmscan(hmmscan, orth_file, pfamDB, hmm_file, prot_id, species_id):
 
 
 # Calculates indels rates
-def calculateIndels(tree_file, trans, alnLength, iqtree24, def_indel, def_indel_dist):
+def calculateIndels(tree_file, trans, alnLength, iqtree, def_indel, def_indel_dist):
 	indel = float(def_indel)
 	p = float(def_indel_dist)
 
@@ -806,11 +806,11 @@ def calculateIndels(tree_file, trans, alnLength, iqtree24, def_indel, def_indel_
 
 	result = ''
 	try:
-		command = "%s -s %s %s -tina -st MULTI" %(iqtree24, os.path.abspath(trans), os.path.abspath(tree_file))
-		print('IQ-Tree24 command: ', command)
+		command = "%s -s %s %s -tina -st MULTI" %(iqtree, os.path.abspath(trans), os.path.abspath(tree_file))
+		print('IQ-Tree command: ', command)
 		result = subprocess.check_output(command, shell=True)
 	except:
-		print('WARNING: IQTree-24 did not run properly!!!')
+		print('WARNING: IQ-Tree did not run properly!!!')
 		pass
 
 	for line in result.split('\n'):
@@ -879,7 +879,7 @@ def findOmaSequences(prot_id, omaSeqs, species_id, mapFile, config_file):
 		sys.exit('ERROR: Cannot find OMA orthologs sequences. OMA sequence file does not exist!')
 
 
-# Read OMA orthologs groups file and parses the ortholog list for input OMA id
+# Read OMA orthologs: groups file and parses the ortholog list for input OMA id
 def findOmaGroup(prot_id, querySeq, omaGroup, omaSeqs, proteome_file, makeblastdb, blastp, delTemp, species_id):
 	try:
 		if not querySeq == 'None':

@@ -463,7 +463,7 @@ sub userOptions {
 	@scaling = qw(calculate_scaling_factor default_scaling_factor);
 	@indel = qw(perform_msa calculate_indel default_indel default_indel_distribution);
 	@trace = qw(traceability_calculation aa_substitution_matrix simulation_runs);
-	@path2Deps = qw(iqtree linsi hmmfetch hmmscan blastp makeblastdb R hamstr hamstrOneSeq);
+	@path2Deps = qw(iqtree linsi hmmfetch hmmscan blastp makeblastdb R hamstr oneseq);
 	@usedFileList = qw(REvolver simulation_tree decay_script plot_figtree Xref_mapping_file reference_species_tree
 	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database fas_annotations hamstr_environment); 
 

@@ -482,14 +482,14 @@ sub userOptions {
 	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database fas_annotations hamstr_environment); 
 
 	my @options;
-	@options[0] = \@generalOptions;
-	@options[1] = \@preProcessing;
-	@options[2] = \@prepAdvanced;
-	@options[3] = \@scaling;
-	@options[4] = \@indel;
-	@options[5] = \@trace;
-	@options[6] = \@path2Deps;
-	@options[7] = \@usedFileList;
+	$options[0] = \@generalOptions;
+	$options[1] = \@preProcessing;
+	$options[2] = \@prepAdvanced;
+	$options[3] = \@scaling;
+	$options[4] = \@indel;
+	$options[5] = \@trace;
+	$options[6] = \@path2Deps;
+	$options[7] = \@usedFileList;
 	return(@options);	
 }
 

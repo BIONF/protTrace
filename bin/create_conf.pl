@@ -2,7 +2,7 @@
 use strict;
 use Getopt::Long;
 use List::Util 'first';
-
+use LWP::Simple;
 
 # Copyright (C) 2018 INGO EBERSBERGER, ebersberger@bio.uni-frankfurt.de
 # This program is free software; you can redistribute it and/or modify it
@@ -34,6 +34,10 @@ $minVersion->{java}=1.7;
 $minVersion->{"oneseq.pl"}=1;
 $minVersion->{figtree}=1.4;
 ##################
+my $omaLink = 'https://omabrowser.org/All/oma-groups.txt.gz';
+my $omaSeqLink = 'https://omabrowser.org/All/oma-seqs.fa.gz';
+my $pfamLink = 'ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz';
+##################
 my $currwd = `pwd`;
 chomp $currwd;
 $currwd =~ s/(.*protTrace\/).*/$1/;
@@ -55,12 +59,14 @@ my @checkList;
 my $helpmessage = "SYNOPSIS
 This script checks for the essential program dependencies of protTrace and creates the config file controlling the protTrace run\n
 
-USAGE: create_conf.pl -name [-update -hamstr]
+USAGE: create_conf.pl -name [-update -hamstr -getOma]
 
 OPTIONS
 -name=<>	specify the name of the config file
 -update		set this flag to update an existing config file provided via -name
--hamstr		set this flag if you want to make use of the HaMStR enviromnet. If not set, missing HaMStR dependencies are not traced.";
+-hamstr		set this flag if you want to make use of the HaMStR enviromnet. If not set, missing HaMStR dependencies are not traced.
+-getOma		set this flag to retrieve OMA orthologs from the OMA database
+-getPfam	set this flag to retrieve the Pfam-A database";
 ####################
 ## Options
 my $update; ## update an existing script provided via -name
@@ -72,13 +78,17 @@ my $paths;
 my $hamstr;
 my @log = qw();
 my @textarray = qw();
+my $getOma;
+my $getPfam;
 
 GetOptions (
 	"update" => \$update,
 	"name=s" => \$name,
 	"help" => \$help,
 	"h"	=> \$help,
-	"hamstr" => \$hamstr
+	"hamstr" => \$hamstr,
+	"getOma" => \$getOma,
+	"getPfam" => \$getPfam
 	);
 if ($help){
 	print "\n\n\n$helpmessage\n\n";
@@ -162,7 +172,11 @@ if (1){
 						## The value is a path and we check for its existence
 						if (! -e $newVal){
 							push @log, "You entered a path that does not exist. The configure script will continue but you need to fix this before running protTrace";
-							print "You entered a path that does not exist. The configure script will continue but you need to fix this before running protTrace\n";
+							print "You entered a path that does not exist. The configure script will continue but you need to fix this before running protTrace\n\n";
+						}
+						else {
+							push @log, "You provided $newVal, path exists";
+							print "You provided $newVal, path exists\n\n";
 						}
 					}
 					$prepOptions{$select[$updateKeys[$i]]} = $newVal;
@@ -184,8 +198,41 @@ if (1){
 	}
 }
 checkPaths();
+############## get the OMA orthologs
+if ($getOma){
+	my $message;
+	my $omaret = retrieveData($omaLink, $prepOptions{path_oma_group});
+	my $omaret2= retrieveData($omaSeqLink, $prepOptions{path_oma_seqs});
+	if ($omaret && $omaret2) {
+		$message = "Oma files are in place under $prepOptions{path_oma_group} and $prepOptions{path_oma_seqs}";
+		push @log, $message;
+		print "$message\n";
+	}
+	else {
+		$message = "Problems during retrieval of OMA data. Files under $prepOptions{path_oma_group} and $prepOptions{path_oma_seqs} are not in place. Please solve before running protTrace";
+		push @log, $message;
+		print "$message\n";
+	}
+}
+############# get the Pfam data
+if ($getPfam) {
+	my $message;
+	my $pfamret = retrieveData($pfamLink, $prepOptions{pfam_database});
+	if ($pfamret) {
+		$message = "Pfam HMMs are in place under $prepOptions{pfam_database}";
+                push @log, $message;
+                print "$message\n";
+        }
+        else {  
+                $message = "Problems during retrieval of Pfam data. Files under $prepOptions{pfam_database}. Please solve before running protTrace";
+                push @log, $message;
+                print "$message\n";
+        }
+}
+
 printConfig($name);
 printLog();
+exit;
 
 ############### Start Sub
 sub testDep {
@@ -232,7 +279,7 @@ sub testDep {
 		}
 		if ($issue){
 			my $message = "There is an issue with $prog. Please select [p(path)|q(uit)|s(kip)]: ";
-			print $message . "\n";
+			print $message;
 			push @log, $message;
 			my $q=<>;
 			if ($q =~ /^q/i) {
@@ -375,7 +422,7 @@ sub getCheckList {
 	for (my $i = 0; $i < @checkList; $i++){
 		print "[$i] - $checkList[$i]\n";
 	}
-	my @list = userInput("numeric", "If you select more than one group, separate them by a comma or give a range: ");
+	my @list = userInput("numeric", "If you select more than one group, separate them by a comma or give a range. Leave blank to initialize with default values: ");
 	return(@list); 
 }
 ###################
@@ -598,4 +645,50 @@ sub printLog{
 	print OUT "\n";
 	close OUT or die "could not properly close filehandle of log file\n";
 }
-
+##############
+sub retrieveData {
+	my ($URL, $destination) = @_;
+	my $message = "retrieving data from $URL and copying to $destination";
+	push @log, $message;
+	print $message . "\n";
+	my $answer = getAnswerFile($destination);
+	if ($answer =~ /^y/i){
+		getstore($URL, "$destination.gz");
+		push @log, "Downloading $destination";
+		print "unzipping $destination.gz\n";
+		`gunzip "$destination.gz"`;
+	}
+	else {
+		$message = "$destination already exists, and you chose to keep it";
+		push @log, $message;
+		print "$message\n";
+	}
+	if (-e $destination) {
+		return(1);
+	}
+	else {
+		return (0);
+	}
+}
+###################
+sub getAnswerFile {
+	my $filename = shift;
+	my $answer = 'y';
+	my $message = '';
+	if (-e $filename){
+		$message = "file $filename already exists! Do you want to overwrite?[y|n]: ";
+		push @log, $message;
+		print $message;
+		$answer = '';
+		while ($answer !~ /^[yn]/i){
+			$answer = <>;
+			if ($answer !~ /^[yn]/i){
+				print "please answer with either y(es) or n(o): ";
+			}
+			else {
+				$log[(scalar@log)-1] .= $answer;
+			}
+		}
+	}
+	return($answer);
+}

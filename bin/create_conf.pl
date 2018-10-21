@@ -207,6 +207,9 @@ if ($getOma){
 		$message = "Oma files are in place under $prepOptions{path_oma_group} and $prepOptions{path_oma_seqs}";
 		push @log, $message;
 		print "$message\n";
+                print "Reformatting fasta\n";
+                my $return = reformatFasta($prepOptions{path_oma_seqs});
+
 	}
 	else {
 		$message = "Problems during retrieval of OMA data. Files under $prepOptions{path_oma_group} and $prepOptions{path_oma_seqs} are not in place. Please solve before running protTrace";
@@ -691,4 +694,40 @@ sub getAnswerFile {
 		}
 	}
 	return($answer);
+}
+###################
+sub reformatFasta {
+	my $fileName = shift;
+	open (IN, "$fileName") or die "could not open file $fileName for reformatting\n";
+	my $head;
+	my $seq = '';
+	my @out;
+	while (<IN>){
+		chomp $_;
+		if ($_ =~ /^>/) {
+			if (length($seq) > 0){
+				push @out, $seq;
+				$seq = '';
+			}
+			$head = $_;
+			$head =~ s/ //g;
+			push @out, $head;
+		}
+		else {
+			$seq .=$_;
+		}
+		if (scalar(@out) == 1000) {
+			open (OUT, ">>$fileName.tmp") or die "could not open tmp file for writing\n";
+			print OUT join "\n", @out;
+			@out = qw();
+			close OUT or die "Could not close tmp file after writing\n";
+		}
+	}
+	open (OUT, ">>$fileName.tmp") or die "could not open tmp file for writing\n";
+        print OUT join "\n", @out;
+        @out = qw();
+        close OUT or die "Could not close tmp file after writing\n";
+	my $succ = `mv $fileName.tmp $fileName`;
+	print "return is $succ\n";
+	return($succ);
 }

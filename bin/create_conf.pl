@@ -55,6 +55,7 @@ my @trace;
 my @path2Deps;
 my @usedFileList;
 my @checkList;
+my @OptionList = userOptions();
 ##################
 my $helpmessage = "SYNOPSIS
 This script checks for the essential program dependencies of protTrace and creates the config file controlling the protTrace run\n
@@ -106,12 +107,8 @@ if ($update) {
 	@configDat = readConfig($name);
 	populateDefault(@configDat);	
 }
-#else {
-#	@configDat = configText();
-#}
 
 ################
-my @OptionList = userOptions();
 ## The updating option
 if (! $update){
 	## first time to run the script, do the full check for dependencies
@@ -412,7 +409,7 @@ sub populateDefault {
 ##################
 sub readValue {
 	my ($part, @list) = @_;
-	my $value = first { /$part/ } @configDat;
+	my $value = first { /^$part/ } @configDat;
 	$value =~ s/^$part://;
 	chomp $value;
 	return($value);
@@ -476,7 +473,7 @@ sub userOptions {
 					hamstr => '',
 					oneseq =>  '');		
 					
-	%optionsValues = (species => 'OMA 5 letter Species Identier: e.g. HUMAN',
+	%optionsValues = (species => 'OMA 5 letter Species Identifier: e.g. HUMAN',
 					  nr_of_processors => 'Integer (Default = 1)',
 					  delete_temporary_files => 'YES|NO',
 					  reuse_cache => 'YES|NO',
@@ -564,6 +561,7 @@ sub readConfig {
 	open (IN, "$nameSub2") or die "could not open $nameSub2 for reading\n";
 	my @configText = <IN>;
 	close IN or die "could not close Filenhandle for $nameSub2 after reading\n";
+	return(@configText);
 }
 #########################
 sub printConfig {

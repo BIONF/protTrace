@@ -35,6 +35,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 	species_id = prot_config.species
 	proteome_file = 'proteome_' + prot_id
 	id_file = 'ogIds_' + prot_id + '.txt'
+	print(id_file)
 	work_dir = prot_config.path_work_dir + '/' + prot_id
 	cache_dir = prot_config.path_cache
 	omaIdFile = work_dir + '/omaId.txt'
@@ -863,7 +864,7 @@ def findOmaSequences(prot_id, omaSeqs, species_id, mapFile, config_file):
 		print('#####	Searching OMA ortholog sequences for %s	#####' %prot_id)
 		fnew = open(orth_file, 'w')
 		#print(orth_file)
-		with open(idfile,'r') as id_input:
+		with open(id_file,'r') as id_input:
 			ids = id_input.read().split('\n')
 		#print(omaSeqs)
 		with open(omaSeqs) as f:

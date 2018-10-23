@@ -219,7 +219,15 @@ if ($getPfam) {
 	my $message;
 	my $pfamret = retrieveData($pfamLink, $prepOptions{pfam_database});
 	if ($pfamret) {
-		$message = "Pfam HMMs are in place under $prepOptions{pfam_database}";
+		$message = "running hmmpress on $prepOptions{pfam_database}\n";
+		push @log, $message;
+		my $pressRet = `hmmpress $prepOptions{pfam_database}`;
+		if ($pressRet){
+			$message = "Pfam HMMs are in place under $prepOptions{pfam_database}";
+		}
+		else {
+			$message = "Pfam-A downloaded to $prepOptions{pfam_database}, but hmmpress failed. Please solve before running protTrace";
+		}
                 push @log, $message;
                 print "$message\n";
         }
@@ -518,7 +526,7 @@ sub userOptions {
 					Rscript => 'Enter full path to Rscript (including program name)',
 					hamstr => 'enter full path to hamstr.pl (leave blank if HaMStR is not installed)',
 					oneseq =>  'enter full path to oneseq.pl (leave blank if HaMStR is not installed)');						
-	@generalOptions = qw(species nr_of_processors delete_temporary_files reuse_cache path_work_dir path_cache);
+	@generalOptions = qw(species nr_of_processors delete_temporary_files reuse_cache path_work_dir path_cache map_traceability_tree);
 	@preProcessing = qw(preprocessing orthologs_prediction search_oma_database);
 	@prepAdvanced = qw(run_hamstr run_hamstrOneSeq include_paralogs fas_score);
 	@scaling = qw(calculate_scaling_factor default_scaling_factor);

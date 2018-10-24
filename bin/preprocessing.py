@@ -976,7 +976,7 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
 			os.system('ln -sf {0} {1}'.format(cache_dir + '/proteome_' + species_id, proteome_file))
 		elif search_oma_database:
 			print('#####	Parsing gene set for species %s from OMA database	#####' %species_id)
-
+			## debug ingo
 			fnew = open(proteome_file, 'w')
 
 			speciesFoundInOmaFlag = False

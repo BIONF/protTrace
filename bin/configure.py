@@ -130,7 +130,7 @@ class setParams:
 				#	self.degapping = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'species_MaxLikMatrix':
 					self.species_MaxLikMatrix = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'path_work_dir':
+				if line.split(':')[0] == 'path_output_dir':
 					self.path_work_dir = os.path.abspath(line.split(':')[1])
 					if not os.path.exists(self.path_work_dir):
 						os.mkdir(self.path_work_dir)

@@ -465,7 +465,7 @@ sub userOptions {
 					  traceability_calculation => 'YES',
 					  aa_substitution_matrix => 'WAG',
 					  simulation_runs => 100,
-					  path_work_dir => "$currwd/output",
+					  path_output_dir => "$currwd/output",
 					  path_cache => "$currwd/cache",
 					  map_traceability_tree => 'YES',
 					  REvolver => "$currwd/used_files/REvolver.jar",
@@ -490,52 +490,52 @@ sub userOptions {
 					hamstr => '',
 					oneseq =>  '');		
 					
-	%optionsValues = (species => 'OMA 5 letter Species Identifier: e.g. HUMAN',
-					  nr_of_processors => 'Integer (Default = 1)',
-					  delete_temporary_files => 'YES|NO',
-					  reuse_cache => 'YES|NO',
-					  preprocessing => 'YES|NO',
-					  orthologs_prediction => 'YES|NO',
-					  search_oma_database => 'YES|NO',
-					  run_hamstr => 'YES|NO',
-					  run_hamstrOneSeq => 'YES|NO',
-					  include_paralogs => 'YES|NO',
-					  fas_score => 'YES|NO',
-					  orthologs_tree_reconstruction => 'YES|NO',
-					  calculate_scaling_factor => 'YES|NO',
-					  default_scaling_factor => 'float (Default = 1.57)',
-					  perform_msa => 'YES|NO',
-					  calculate_indel => 'YES|NO',
-					  default_indel => 'float (Default = 0.08)',
-					  default_indel_distribution => 'float (Default = 0.25)',
-					  traceability_calculation => 'YES|NO',
-					  aa_substitution_matrix => 'JTT|WAG|LG|Blosum62|mtMAM|mtREV|mtART',
-					  simulation_runs => 'Integer (Default = 100)',
-					  path_work_dir => "Enter path to output directory (Default $currwd/output)",
-					  path_cache => "Enter path to cache directory (Default $currwd/cache)",
-					  map_traceability_tree => 'YES|NO',
-					  REvolver => "$currwd/used_files/REvolver.jar",
-					simulation_tree => "$currwd/used_files/stepWiseTree.nw",
-					decay_script => "$currwd/used_files/r_nonlinear_leastsquare.R",
-					plot_figtree => "$currwd/used_files/plotPdf.jar",
-					Xref_mapping_file => "$currwd/used_files/speciesTreeMapping.txt",
-					reference_species_tree => "$currwd/used_files/speciesTree.nw",
-					species_MaxLikMatrix => "$currwd/used_files/speciesLikelihoodMatrix.txt",
-					path_oma_seqs => "$currwd/used_files/oma-seqs.fa",
-					path_oma_group => "$currwd/used_files/oma-groups.txt",
-					pfam_database => "$currwd/used_files/Pfam-A.hmm",
-					fas_annotations => 'Enter path to the weight_dir directory in the HaMStR folder',
-					hamstr_environment => 'default',
-					iqtree => 'enter full path to iqtree (including program name)',
-					linsi => 'enter full path to linsi (including program name)',
-					hmmfetch => 'enter full path to hmmfetch (including program name)',
-					hmmscan => 'enter full path to hmmscan (including program name)',
-					blastp => 'enter full path to blastp (including program name)',
-					makeblastdb => 'enter full path to makeblastdb (including program name)',
-					Rscript => 'Enter full path to Rscript (including program name)',
-					hamstr => 'enter full path to hamstr.pl (leave blank if HaMStR is not installed)',
-					oneseq =>  'enter full path to oneseq.pl (leave blank if HaMStR is not installed)');						
-	@generalOptions = qw(species nr_of_processors delete_temporary_files reuse_cache path_work_dir path_cache map_traceability_tree);
+	%optionsValues = (species => 'OMA 5 letter Species Identifier: (Default HUMAN)',
+					  nr_of_processors => 'Integer (Default 1)',
+					  delete_temporary_files => 'YES|NO (Default NO)',
+					  reuse_cache => 'YES|NO (Default YES)',
+					  preprocessing => 'YES|NO (Default YES)',
+					  orthologs_prediction => 'YES|NO (Default YES)',
+					  search_oma_database => 'YES|NO Default YES)',
+					  run_hamstr => 'YES|NO (Default NO)',
+					  run_hamstrOneSeq => 'YES|NO (Default NO)',
+					  include_paralogs => 'YES|NO (Default NO)',
+					  fas_score => 'YES|NO (Default NO)',
+					  orthologs_tree_reconstruction => 'YES|NO (Default YES)',
+					  calculate_scaling_factor => 'YES|NO (Default YES)',
+					  default_scaling_factor => 'float (Default 1.57)',
+					  perform_msa => 'YES|NO (Default YES)',
+					  calculate_indel => 'YES|NO (Default YES)',
+					  default_indel => 'float (Default 0.08)',
+					  default_indel_distribution => 'float (Default 0.25)',
+					  traceability_calculation => 'YES|NO (Default YES)',
+					  aa_substitution_matrix => 'JTT|WAG|LG|Blosum62|mtMAM|mtREV|mtART (Default WAG)',
+					  simulation_runs => 'Integer (Default 100)',
+					  path_output_dir => "Path to output directory (Default $currwd/output)",
+					  path_cache => "Path to cache directory (Default $currwd/cache)",
+					  map_traceability_tree => 'YES|NO (Default NO)',
+					  REvolver => "Path to REvolver (Default $currwd/used_files/REvolver.jar)",
+					simulation_tree => "Path to simulation tree (Default $currwd/used_files/stepWiseTree.nw)",
+					decay_script => "Path to decay script (Default $currwd/used_files/r_nonlinear_leastsquare.)",
+					plot_figtree => "Path to tree plotter (Default $currwd/used_files/plotPdf.jar)",
+					Xref_mapping_file => "Path to mapping file (Default $currwd/used_files/speciesTreeMapping.txt)",
+					reference_species_tree => "Path to species tree (Default $currwd/used_files/speciesTree.nw)",
+					species_MaxLikMatrix => "Path to distance matrix (Default $currwd/used_files/speciesLikelihoodMatrix.txt)",
+					path_oma_seqs => "Path to OMA sequences (Default $currwd/used_files/oma-seqs.fa)",
+					path_oma_group => "Path to OMA groups (Default $currwd/used_files/oma-groups.txt)",
+					pfam_database => "Path to Pfam (Default $currwd/used_files/Pfam-A.hmm)",
+					fas_annotations => 'Path to HaMStR weight_dir (Default NULL)',
+					hamstr_environment => 'Path to HaMStR directory (Default NULL)',
+					iqtree => 'Path to iqtree (Default NULL)',
+					linsi => 'Path to linsi (Default NULL)',
+					hmmfetch => 'Path to hmmfetch (Default NULL)',
+					hmmscan => 'Path to hmmscan (Default NULL)',
+					blastp => 'Path to blastp (Default NULL)',
+					makeblastdb => 'Path to makeblastdb (Default NULL)',
+					Rscript => 'Path to Rscript (Default NULL)',
+					hamstr => 'Path to hamstr.pl (Default NULL)',
+					oneseq =>  'Path to oneseq.pl (Default NULL)');						
+	@generalOptions = qw(species nr_of_processors delete_temporary_files reuse_cache map_traceability_tree);
 	@preProcessing = qw(preprocessing orthologs_prediction search_oma_database);
 	@prepAdvanced = qw(run_hamstr run_hamstrOneSeq include_paralogs fas_score);
 	@scaling = qw(calculate_scaling_factor default_scaling_factor);
@@ -543,7 +543,7 @@ sub userOptions {
 	@trace = qw(traceability_calculation aa_substitution_matrix simulation_runs);
 	@path2Deps = qw(iqtree linsi hmmfetch hmmscan blastp makeblastdb Rscript hamstr oneseq);
 	@usedFileList = qw(REvolver simulation_tree decay_script plot_figtree Xref_mapping_file reference_species_tree
-	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database fas_annotations hamstr_environment); 
+	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database fas_annotations hamstr_environment path_output_dir path_cache); 
 
 	my @options;
 	$options[0] = \@generalOptions;
@@ -652,7 +652,7 @@ sub printConfig {
 ####################\n";
 	print OUT "###\n";
 	print OUT "#####   Path Configuration (Where outputs will be saved) - Change this only if you want output and cache results at a different place then default. #####\n";
-	print OUT "path_work_dir:$prepOptions{path_work_dir}\n";
+	print OUT "path_output_dir:$prepOptions{path_output_dir}\n";
 	print OUT "path_cache:$prepOptions{path_cache}\n";
 	close OUT or die "could not close OUT after writing config file $name\n";
 }

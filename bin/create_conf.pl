@@ -164,7 +164,7 @@ if (1){
 				my $message2 = "\tEnter new value or type k to keep old [$optionsValues{$select[$updateKeys[$i]]}]: ";
 				push @log, $message2;
 				my $newVal=userInput("alpha", $message2);
-				if (defined $newVal and $newVal ne 'k'){
+				if (defined $newVal and $newVal ne '' and $newVal ne 'k'){
 					if ($newVal =~ /\//){
 						## The value is a path and we check for its existence
 						if (! -e $newVal){
@@ -183,6 +183,15 @@ if (1){
 					print "$message\n";
 					push @log, $message;
 				}
+				elsif (defined $newVal and $newVal eq ''){
+					$newVal = $optionsValues{$select[$updateKeys[$i]]};
+					$newVal =~ s/.*\(Default (.*)\)/$1/; 
+					my $message = "Using default value: $newVal\n";
+					push @log, $message;
+					print "$message\n";
+					$prepOptions{$select[$updateKeys[$i]]} = $newVal; 
+				}
+					
 				else {
 					my $message = "You chose to quit";
 					print $message . "\n";

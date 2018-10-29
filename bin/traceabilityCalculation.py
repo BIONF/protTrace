@@ -9,10 +9,16 @@ from multiprocessing import Pool
 ### After every REvolver run, detection probability is checked with reciprocal Blast search and stored in a hash table
 ### Using the final hash table, decay rate is calculated using decay script
 
+#
+# Version history:
+#	1. Arpit
+#	2. Dominik (Bugfixes, changelist below)
+#		- Multiprocessing (utilized in FAS annotation and FAS score calculation) did not receive any exceptions (a bug in python). Now, the main thread handles the CRTL-C induced interruption exception itself by calling pool.terminate and pool.join.
+#######################################
+
 def main(p_id, config_file):
 	global prot_id
 	prot_id = p_id
-
 
 	rootDir = os.getcwd()
 
@@ -42,9 +48,8 @@ def main(p_id, config_file):
 	for element in trees.taxon_namespace:
 		taxonset.append(str(element).replace("'", ""))
 	taxonset = taxonset[::-1]
-	
-	
-	print('##### Running REvolver / BLAST cycles: #####')
+
+	print '##### Running REvolver / BLAST cycles: #####'
 	start_time = time.time()
 
 	if cache and os.path.exists('decay_summary_%s.txt_parameter' %prot_id):
@@ -52,22 +57,25 @@ def main(p_id, config_file):
 	else:
 		try:
 			pool = Pool(processes=nr_proc)
-			results = pool.map(actual_traceability_calculation, list(range(prot_config.simulation_runs)))
+			results = pool.map(actual_traceability_calculation, range(prot_config.simulation_runs))
 		except KeyboardInterrupt as e:
+			pool.terminate()
+			pool.join()
+			print("Interrupting REvolver")
 			sys.exit(e)
 		except:
 			print("ERROR: Multiprocessing step <-> Traceability Calculations.")
 			pass
-	
-		print('#####\tTIME TAKEN: %s mins REvolver/BLAST#####' %((time.time() - start_time) / 60))
+
+		print '#####\tTIME TAKEN: %s mins REvolver/BLAST#####' %((time.time() - start_time) / 60)
 
 		ffull = open('full_decay_results_%s.txt' %prot_id, 'w')
 		fsum = open('decay_summary_%s.txt' %prot_id, 'w')
-	
+
 		detection_probability = {}
 		for res in results:
-			for key, value in res.items():
-				if not key in list(detection_probability.keys()):
+			for key, value in res.iteritems():
+				if not key in detection_probability.keys():
 					detection_probability[key] = []
 					detection_probability[key].append(value)
 				else:
@@ -85,7 +93,7 @@ def main(p_id, config_file):
 		ffull.close()
 		fsum.close()
 
-		print('##### Calculating decay parameters #####')
+		print '##### Calculating decay parameters #####'
 		decayParams(prot_config.R, prot_id, prot_config.decay_script)
 
 	os.chdir(rootDir)
@@ -103,10 +111,8 @@ def actual_traceability_calculation(run):
 		os.mkdir(revolver_output_dir)
 
 	detection_probability = {}
-	
-	print('Run: ', run)
-	command = 'java -Xmx2G -Xms2G -cp "%s" revolver %s' %(prot_config.REvolver, temp_revolver_config_file)
-	print('REvolver calculations command: ', command)
+
+	print 'Run: ', run
 
 	success = False
 	trials = 0
@@ -126,9 +132,10 @@ def actual_traceability_calculation(run):
 				detection_probability[taxa] = detection
 			success = True
 		except KeyboardInterrupt:
-			sys.exit('Keyboard interruption by user!!!')
-		except:
-			pass
+			print('Keyboard interruption by user!')
+			raise Exception
+		#except:
+		#	pass
 	if trials >= 10:
 		print('TOO MANY TRIALS FOR REVOLVER!!! Check REvolver configuration file.')
 
@@ -139,12 +146,11 @@ def actual_traceability_calculation(run):
 	return detection_probability
 
 def decayParams(r, prot_id, decay_script):
-	command = '%s --vanilla --file=%s --args decay_summary_%s.txt' %(r, decay_script, prot_id)
-	print('##### Decay parameter calculation command: ', command)	
+	command = '%s --quiet --vanilla --file=%s --args decay_summary_%s.txt' %(r, decay_script, prot_id)
+	print '##### Decay parameter calculation command: ', command
 	os.system(command)
-		
+
 def run_revolver(REvolver, xml_file):
-	#print 'java -Xmx2G -Xms2G -cp "%s" revolver %s' %(REvolver, xml_file)
 	command = 'java -Xmx2G -Xms2G -cp "%s" revolver %s' %(REvolver, xml_file)
 	#print '##### REvolver calculations command: ', command
 	os.system(command)
@@ -153,4 +159,4 @@ def run_blast(blastp, prot_id, proteome, revolverOut):
 	command = '%s -query %s/out.fa -db %s -outfmt 6 -max_target_seqs 5' %(blastp, revolverOut, proteome)
 	result = subprocess.check_output(command, shell=True)
 	return result
-	
+

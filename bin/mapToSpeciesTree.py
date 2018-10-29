@@ -7,9 +7,15 @@ import colourizeTree
 ### Calculate traceability for every species in the species tree
 ### Colourize the species tree based on traceability
 
-def main(protId, config_file):
-	global prot_config, prot_id, taxonset, nexus_file
+#
+# Version history:
+#	1. Arpit
+#	2. Dominik (Bugfixes, changelist below)
+#		- Passed the intention of calculating FAS scores to colourizeTree
+#		- Removed global variables and passed them directly as arguments to generateNexusFile
+#######################################
 
+def main(protId, config_file):
 	rootDir = os.getcwd()
 
 	prot_id = protId
@@ -29,13 +35,13 @@ def main(protId, config_file):
 	for element in trees.taxon_namespace:
 		taxonset.append(str(element).replace("'", "").replace(" ", "_"))
 
-	generateNexusFile()
-	colourizeTree.main(nexus_file, prot_config.hamstr_oma_tree_map, prot_id, prot_config.species_tree, prot_config.plot_figtree, prot_config.species_MaxLikMatrix, species_id, cache_dir)
+	generateNexusFile(nexus_file,taxonset,prot_config)
+	colourizeTree.main(nexus_file, prot_config.hamstr_oma_tree_map, prot_id, prot_config.species_tree, prot_config.plot_figtree, prot_config.species_MaxLikMatrix, species_id, cache_dir,prot_config.fas_score)
 
 	os.chdir(rootDir)
 
-def generateNexusFile():
-	print('##### Generating nexus file #####')
+def generateNexusFile(nexus_file,taxonset,prot_config):
+	print '##### Generating nexus file #####'
 	fnew = open(nexus_file, 'w')
 	fnew.write('#NEXUS\nbegin taxa;\n\tdimensions ntax=%s;\n\ttaxlabels' %len(taxonset))
 	for taxa in taxonset:

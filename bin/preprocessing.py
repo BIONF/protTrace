@@ -1,6 +1,29 @@
 #
 # Module to perform preprocessing steps in protTrace workflow
 #
+
+#
+# Version history:
+#	1. Arpit
+#	2. Babak (Removes legacyBLAST dependency, bugfixes im HaMStR-OneSeq segment)
+#	3. Dominik (Bugfixes, changelist below)
+#		- Updated to communicate in- and outputs properly with greedyFAS v1.5.1
+#		- cp -avr led to a relative path being copied to different dephts of directories
+#		- Multiprocessing (utilized in FAS annotation and FAS score calculation, [Hamstr search and the actual traceability calculation]([] are located in other python scripts)) did not receive any exceptions (a bug in python). Now, the main thread handles the CRTL-C induced interruption exception itself by calling pool.terminate() and pool.join().
+#		- Changed the prot_config request to the given parameter def_indel_dist at around line 880
+#		- Removed feature architecture file creation. Only feature architecture similarity scores are produced (and needed for the PhyloProfile matrix)
+#		- Unchanged, but discovered unintuitive behavior: If prot_config.calculate_scaling_factor == NO, then prot_config.phylogeneticTreeReconstruction does not matter, even though it is an own category right above the calculate scaling factor option
+#		- Removed ClustalW dependency (only usage was to convert aln to phyip files, but the flag --phylipout, which is only documented in the mafft changelogs, does that itself)
+#	4. Ingo (Modification)
+#		- Removed dependencies on RAxML, and TreePuzzle. Replaced both with IQ-TREE
+#		- got rid of the copying of files into versions named temp_orth.*
+#	5. Dominik (Further Modification)
+#		- Removed redundant (with delTemp=True) or falsely (with delTemp=False) set -cleanup flag for OneSeq execution under core-taxa conditions
+#		- Added -silent to OneSeq executions
+#		- Removed domain architecture gathering
+#		- Reduced number of IO openings during the HaMStR and HaMStR-OneSeq decision making at the beginning
+#######################################
+
 import os, sys
 import glob
 import configure
@@ -30,7 +53,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 	global include_paralogs, hamstr_env, cache, cache_dir, work_dir, omaIdFile, orth_file, fas_file, aln_file, phy_file, id_file, proteome_file, tree_file, trans_file, hmm_file, xml_file, REvolver_output_dir, species_id, indel_file, scale_file, ortholog_tree_reconstruction, nr_processors, hamstr_oma_map_file, delTemp, blastp
 
 	# Getting information from the configuration file
-	# Setting the names for the protTrace temporary and output files	
+	# Setting the names for the protTrace temporary and output files
 	species_id = prot_config.species
 	proteome_file = 'proteome_' + prot_id
 	id_file = 'ogIds_' + prot_id + '.txt'
@@ -42,7 +65,8 @@ def Preprocessing(prot_id, querySeq, config_file):
 	domain_archi_file = 'ogSeqs_' + prot_id + '.domains'
 	aln_file = 'ogSeqs_' + prot_id + '.aln'
 	phy_file = 'ogSeqs_' + prot_id + '.phy'
-	tree_file = 'RAxML_bestTree.' + prot_id 	###	CHANGE HERE IF RAxML OUTPUT NAME CHANGES 	###
+	tree_file = 'ogSeqs_' + prot_id + '.phy.treefile' 	###	CHANGE HERE IF RAxML OUTPUT NAME CHANGES 	###
+
 	trans_file = 'ogSeqs_' + prot_id + '.trans'
 	hmm_file = prot_id + '.hmm'
 	xml_file = 'revolver_config_' + prot_id + '.xml'
@@ -74,13 +98,12 @@ def Preprocessing(prot_id, querySeq, config_file):
 	startProcessTime = time.time()
 	parseProteome(species_id, prot_config.path_oma_seqs, prot_config.makeblastdb, proteome_file, prot_config.hamstr_oma_tree_map, prot_config.hamstr, hamstr_env, prot_config.search_oma_database)
 	proteome_file = os.path.abspath(proteome_file)
-	print('#####\tTIME TAKEN: %s mins\tSpecies %s gene set preparation#####' %((time.time() - startProcessTime) / 60, species_id)) 	
+	print('#####\tTIME TAKEN: %s mins\tSpecies %s gene set preparation#####' %((time.time() - startProcessTime) / 60, species_id))
 
 	# Search ortholog groups for the input OMA id
 	# In case of fasta sequences, first the OMA id is parsed from the OMA database
 	# followed with the extraction of the OMA group
 	if prot_config.orthologs_prediction:
-
 		if cache and os.path.exists(orth_file):
 			print('Orthologs file exist. Reusing it.')
 		elif cache and os.path.exists(cache_dir + '/' + orth_file):
@@ -90,13 +113,13 @@ def Preprocessing(prot_id, querySeq, config_file):
 			# Check if OMA database has to be accessed for an ortholog search.
 			if prot_config.search_oma_database:
 				startProcessTime = time.time()
-				# Find OMA orthologs groups if any	
-				run = findOmaGroup(prot_id, querySeq, prot_config.path_oma_group, prot_config.path_oma_seqs, proteome_file, prot_config.formatdb, prot_config.blastp, delTemp, species_id)		
+				# Find OMA orthologs groups if any
+				run = findOmaGroup(prot_id, querySeq, prot_config.path_oma_group, prot_config.path_oma_seqs, proteome_file, prot_config.makeblastdb, prot_config.blastp, delTemp, species_id)
 
 				# Search for the ortholog sequences for the respective OMA orthologs group
 				# For all the OMA ids in the OMA group, extract sequences from OMA database sequences file
 				if run == 2:
-					findOmaSequences(prot_id, prot_config.path_oma_seqs, species_id, prot_config.hamstr_oma_tree_map)
+					findOmaSequences(prot_id, prot_config.path_oma_seqs, species_id, prot_config.hamstr_oma_tree_map, config_file)
 					print('#####\tTIME TAKEN: %s mins\tOrthologs search in OMA database.\t#####' %((time.time() - startProcessTime) / 60))
 				else:
 					print('#####	Preparing ortholog file	#####')
@@ -112,13 +135,15 @@ def Preprocessing(prot_id, querySeq, config_file):
 					fOrth.write('>' + species_id + '\n' + querySeq)
 					fOrth.close()
 
-				f = open(orth_file).read().split('\n')
+				f = 0
+				with open(orth_file,'r') as of:
+					f = of.read().count('>')
 				# Run HaMStR search if 2 or more sequences are present. Otherwise, run HaMStROneSeq search if only 1 sequence is present
-				if len(f) > 3:
+				if f > 1:
 					if prot_config.run_hamstr:
 						print('#####\tHaMStR search for orthologs\t#####')
 						startProcessTime = time.time()
-						success = hamstr_search.main(prot_config.hamstr, orth_file, prot_id, prot_config.hamstr_oma_tree_map, prot_config.formatdb, prot_config.blastp, delTemp, hamstr_env, include_paralogs, nr_processors)
+						success = hamstr_search.main(prot_config.hamstr, orth_file, prot_id, prot_config.hamstr_oma_tree_map, prot_config.makeblastdb, prot_config.blastp, delTemp, hamstr_env, include_paralogs, nr_processors)
 						if success:
 							print('#####\tTIME TAKEN: %s mins\tHaMStR search in local genome directory.\t#####' %((time.time() - startProcessTime) / 60))
 							os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
@@ -128,50 +153,48 @@ def Preprocessing(prot_id, querySeq, config_file):
 								startProcessTime = time.time()
 
 								# Read the orthologs file and limit it to just the query species id and sequence
-								ortholog_temp = open(orth_file).read().split('\n')
-								rewrite_orth_file = open(orth_file, 'w')
-								for orthLines in range(len(ortholog_temp) - 1):
-									if '>' in ortholog_temp[orthLines] and species_id in ortholog_temp[orthLines]:
-										rewrite_orth_file.write(ortholog_temp[orthLines] + '\n' + ortholog_temp[orthLines + 1])
-										break
-								rewrite_orth_file.close()
-								run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.formatdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs)
+								with open(orth_file,'r+') as rewrite_orth_file:
+									orth_file_all_content = rewrite_orth_file.read().split('\n')
+									rewrite_orth_file.truncate()
+									for orthLines in range(len(orth_file_all_content) - 1):
+										if '>' in orth_file_all_content[orthLines] and species_id in orth_file_all_content[orthLines]:
+											rewrite_orth_file.write(orth_file_all_content[orthLines] + '\n' + orth_file_all_content[orthLines + 1])
+											break
+								run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs)
 								print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
 								os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
 
 					elif prot_config.run_hamstrOneSeq:
 						startProcessTime = time.time()
 						print('#####	HaMStROneSeq search for orthologs	#####')
-						
 						# Read the orthologs file and limit it to just the query species id and sequence
-						ortholog_temp = open(orth_file).read().split('\n')
-						rewrite_orth_file = open(orth_file, 'w')
-						inputTaxaSet = open('inputTaxaSet_oneSeq.txt', 'w')
-						for orthLines in range(len(ortholog_temp) - 1):
-							if '>' in ortholog_temp[orthLines] and species_id in ortholog_temp[orthLines]:
-								rewrite_orth_file.write(ortholog_temp[orthLines] + '\n' + ortholog_temp[orthLines + 1])
-							elif '>' in ortholog_temp[orthLines] and not species_id in ortholog_temp[orthLines]:
-								inOmaId = ortholog_temp[orthLines].split()[0][1:]
-								for mapLine in open(prot_config.hamstr_oma_tree_map):
-									if inOmaId in mapLine:
-										inputTaxaSet.write(mapLine.split()[0] + '\n')
-										break
-
-						inputTaxaSet.close()
-						rewrite_orth_file.close()
-						run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.formatdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs)
+						with open(orth_file,'r+') as rewrite_orth_file:
+							ortholog_temp = rewrite_orth_file.read().split('\n')
+							rewrite_orth_file.truncate()
+							inputTaxaSet = open('inputTaxaSet_oneSeq.txt', 'w')
+							for orthLines in range(len(ortholog_temp) - 1):
+								if '>' in ortholog_temp[orthLines] and species_id in ortholog_temp[orthLines]:
+									rewrite_orth_file.write(ortholog_temp[orthLines] + '\n' + ortholog_temp[orthLines + 1])
+								elif '>' in ortholog_temp[orthLines] and not species_id in ortholog_temp[orthLines]:
+									inOmaId = ortholog_temp[orthLines].split()[0][1:]
+									for mapLine in open(prot_config.hamstr_oma_tree_map):
+										if inOmaId in mapLine:
+											inputTaxaSet.write(mapLine.split()[0] + '\n')
+											break
+							inputTaxaSet.close()
+						run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs)
 						print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
 						os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
-				
 
-				elif len(f) > 0 and len(f) < 4:
+
+				elif f == 1:
 					if prot_config.run_hamstrOneSeq:
 						print('#####	HaMStROneSeq search for orthologs	#####')
 						startProcessTime = time.time()
-						
-						run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.formatdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs)
+
+						run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs)
 						print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
-						os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))		
+						os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
 
 				else:
 					sys.exit('ERROR: No sequence found in OMA sequences! The ortholog sequences file is empty!')
@@ -189,7 +212,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 			os.system('cp %s %s' %(cache_dir + '/' + orth_file, orth_file))
 		elif not os.path.exists(orth_file):
 			sys.exit("ERROR: No orthlog file found in working directory %s. If the file is present in cache directory, please turn ON cache flag in program configuration file.")
-	
+
 	# Check if blast id file is present in the working directory. If not, create it using local blast directory.
 	if not os.path.exists(omaIdFile):
 		print('#####\tPreparing BLAST hit id file for seed protein.\t#####')
@@ -198,8 +221,9 @@ def Preprocessing(prot_id, querySeq, config_file):
 		if not os.path.exists(tempDir):
 			os.mkdir(tempDir)
 		os.chdir(tempDir)
-		os.system('cp -avr %s proteome.fa' %(proteome_file))
-		com = '%s -i proteome.fa' %(prot_config.formatdb)
+		os.system('cp -avr {0} proteome.fa'.format(proteome_file))
+		print("running makeblastdb")
+		com = '%s -in proteome.fa -dbtype prot' %(prot_config.makeblastdb)
 		os.system(com)
 		tempFile = open('temp_inputSeq.fa', 'w')
 		if not querySeq == "None":
@@ -223,7 +247,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 			oma.close()
 		os.chdir(currentWorkDir)
 		if delTemp:
-			os.system('rm -rf %s' %tempDir)			
+			os.system('rm -rf %s' %tempDir)
 
 
 	# Calculate FAS scores for identified orthologs
@@ -242,7 +266,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 	if prot_config.perform_msa:
 		print('#####	Performing MSA of the orthologs sequences	#####')
 		startProcessTime = time.time()
-		performMSA(prot_config.msa, prot_config.clustalw)
+		performMSA(prot_config.msa)
 		print('#####\tTIME TAKEN: %s mins\tMAFFT#####' %((time.time() - startProcessTime) / 60))
 
 	# Calls tree reconstruction module which generates tree using degapped alignment
@@ -253,7 +277,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 		else:
 			print('#####	Tree reconstruction and scaling factor calculation	#####')
 			startProcessTime = time.time()
-			treeReconstruction.main(prot_config.tree_reconstruction, prot_config.msa, prot_config.clustalw, orth_file, prot_config.aa_substitution_matrix, prot_id, prot_config.treePuzzle, prot_config.parameters_treePuzzle, prot_config.hamstr_oma_tree_map, prot_config.species_MaxLikMatrix, scale_file, tree_file, delTemp, prot_config.default_scaling_factor, cache_dir, ortholog_tree_reconstruction, nr_processors, cache)
+			treeReconstruction.main(prot_config.msa, orth_file, prot_config.aa_substitution_matrix, prot_id, prot_config.hamstr_oma_tree_map, prot_config.species_MaxLikMatrix, scale_file, tree_file, delTemp, prot_config.default_scaling_factor, cache_dir, ortholog_tree_reconstruction, nr_processors, cache)
 			print('#####\tTIME TAKEN: %s mins\tRAxML#####' %((time.time() - startProcessTime) / 60))
 
 	# Calculate indels
@@ -272,7 +296,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 			calculateIndels(tree_file, trans_file, alignmentLength, prot_config.iqtree24, prot_config.default_indel, prot_config.default_indel_distribution)
 
 	# Domain constraint file for REvolver
-	
+
 	# Creates a output directory for REvolver
 	print('#####	Generating domain constraints for REvolver	#####')
 	hmmscan(prot_config.hmmscan, orth_file, prot_config.pfam_database, hmm_file, prot_id, species_id)
@@ -302,51 +326,12 @@ def Preprocessing(prot_id, querySeq, config_file):
 		writeIndel.close()
 
 	prepareXML(xml_file, prot_config.pfam_database, prot_config.hmmfetch, prot_config.aa_substitution_matrix, indel, p, scaling_factor, prot_config.simulation_tree, prot_id, hmm_file, REvolver_output_dir)
-	
-	os.chdir(rootDir)
 
-# Feature Architecture parser
-def parseFAS(fasOutputFile,prot_id, sp1, sp2):
-	domainArchiData = []
-	name = prot_id
-	#if not os.path.exists(domainArchiFile):
-	#	out = open(domainArchiFile, "w")
-	#else:
-	#	out = open(domainArchiFile, "a")
-	xmltree = ET.parse(fasOutputFile)
-	root = xmltree.getroot()
-	set_dic = {}
-	if root.attrib["direction"] == "single-->set":
-		
-		for protein in root:
-			if protein.tag == "single_protein":
-				infodump = (sp1 + ':' + protein.attrib["id"], 0, [])
-		for protein in root:
-			if protein.tag == "set_protein":
-				pid = sp2 + ':' + protein.attrib["id"]
-				p_features = []
-				path = []
-				for arc in protein:
-					if arc.tag == "architecture":
-						for feature in arc:
-							ftype = feature.attrib["type"]
-							weight = feature.attrib["weight"]
-							for instance in feature:
-								#out.write(name + "#" + pid + "#" + infodump[0] + "\t" + pid + "\t" + str(ftype) + "\t" + str(instance.attrib["start"]) + "\t" + str(instance.attrib["end"]) + "\t" + str(weight) + "\n")
-								domainArchiData.append(name + "#" + pid + "#" + infodump[0] + "\t" + pid + "\t" + str(ftype) + "\t" + str(instance.attrib["start"]) + "\t" + str(instance.attrib["end"]) + "\t" + str(weight) + "\n")
-					elif arc.tag == "path":
-						for feature in arc:
-							ftype = feature.attrib["type"]
-							weight = feature.attrib["corrected_weight"]
-							for instance in feature:
-								#out.write(name + "#" + pid + "#" + infodump[0] + "\t" + infodump[0] + "\t" + str(ftype) + "\t" + str(instance.attrib["start"]) + "\t" + str(instance.attrib["end"]) + "\t" + str(weight) + "\n")
-								domainArchiData.append(name + "#" + pid + "#" + infodump[0] + "\t" + infodump[0] + "\t" + str(ftype) + "\t" + str(instance.attrib["start"]) + "\t" + str(instance.attrib["end"]) + "\t" + str(weight) + "\n")
-	#out.close()
-	return domainArchiData
+	os.chdir(rootDir)
 
 ### FAS Annotations computation - annotation.pl script works here ###
 def retrieve_FAS_annotations(fasta):
-	# Read the orthologs file and create the FAS annotations for individual protein sequences	
+	# Read the orthologs file and create the FAS annotations for individual protein sequences
 	oma_ids = []
 	mapDict = {}
 	fasCacheData = []
@@ -421,43 +406,38 @@ def retrieve_FAS_annotations(fasta):
 	# Extract FAS annotations for the protein sequence
 	if not os.path.exists(protein_temp_anno_dir):
 		anno_command = 'perl %s -path=%s -name=%s -extract=%s' %(annotation_script, species_anno_dir, hit_id, protein_temp_anno_dir)
-		print('Annotation command: ', anno_command)				
+		#print('Annotation command: ', anno_command)
 		os.system(anno_command)
-	#print oma_ids, mapDict, fasCacheData, logDict
-	
-	return oma_ids, mapDict, fasCacheData, logDict 
+
+	return oma_ids, mapDict, fasCacheData, logDict
 
 ### Actual FAS calculations - GreedyFAS is run from this module ###
-def actual_FAS_exec(elements):
+def actual_FAS_exec(elementsWithFasScoresPath):
+
 	fasFileData = []
-	domainArchiData = []
+
+	elements = elementsWithFasScoresPath[0]
+	fasScoresPath = elementsWithFasScoresPath[1]
 
 	fas_score = "NA"
 	if not elements == species_id:
-		fas_command = 'python %s -s %s -p %s -r %s -o 1 -j temp_fas_score_%s.xml' %(greedy_fas_script, temp_fasAnno + '/' + species_id, temp_fasAnno + '/' + elements, speciesAnnoDir + '/' + mapDict[species_id], elements)				
-		print('FAS command: ', fas_command)
+		fas_command = 'python %s -s %s -q %s -r %s -j temp_fas_score_%s' %(greedy_fas_script, temp_fasAnno + '/' + species_id, temp_fasAnno + '/' + elements, speciesAnnoDir + '/' + mapDict[species_id], elements)
+		#print('FAS command: ', fas_command)
 		os.system(fas_command)
 
 		# Parsing FAS output file
 		print('Parsing FACT score..')
-		if os.path.exists('temp_fas_score_%s.xml' %elements):
-			element = ET.parse('temp_fas_score_%s.xml' %elements).getroot()
-			#print element
-			for atype in element.findall('set_protein'):
-				fas_score = atype.get('score')
+		if os.path.exists('{0}temp_fas_score_{1}.xml'.format(fasScoresPath,elements)):
+			element = ET.parse('{0}temp_fas_score_{1}.xml'.format(fasScoresPath,elements)).getroot()
+			fas_score = element[0][0].attrib['score']
 
 		fasFileData.append(species_id + '\t' + logDict[species_id] + '\t' + elements + '\t' + logDict[elements] + '\t' + fas_score + '\n')
-		
-		print('Extracting feature architecture for PhyloProfile..')
-		domainArchiData = parseFAS('temp_fas_score_%s.xml' %elements, prot_id, species_id, elements)			
 
-		#sys.exit()
 		if delTemp:
-			os.system('rm -rf temp_fas_score_%s.xml' %elements)
+			os.system('rm -rf %s' %'{0}temp_fas_score_{1}.xml'.format(fasScoresPath,elements))
 
 	#print fasFileData
-	#print domainArchiData
-	return fasFileData, domainArchiData
+	return fasFileData
 
 # FAS Calculation
 def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_archi_file, map_file, blastp, protein_id, species_id, delTemp, hamstr_env):
@@ -478,6 +458,7 @@ def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_arc
 	### CHANGE HERE ###
 	# Using default paths for HaMStR BLAST directory (where species gene sets are present)
 	global hamstr_blast_dir
+	#print "Hamstr environment "+hamstr_env
 	if not hamstr_env == "":
 		hamstr_blast_dir = hamstr + '/blast_dir_' + hamstr_env
 	else:
@@ -492,7 +473,7 @@ def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_arc
 
 	# Read ortholog file into an array - Each element has 2 lines
 	orthFileData = []
-
+	#print "Orth File "+orth_file
 	orthFileRead = open(orth_file, "r")
 
 	while True:
@@ -502,13 +483,12 @@ def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_arc
 			break
 		orthFileData.append("\n".join([line1.split()[0], line2.split()[0]]))
 
-	#print orthFileData
-	#sys.exit()
-	
 	try:
 		pool = Pool(processes=nr_processors)
 		results = pool.map(retrieve_FAS_annotations, orthFileData)
 	except KeyboardInterrupt as e:
+		pool.terminate()
+		pool.join()
 		sys.exit(e)
 	except:
 		print("ERROR: Multiprocessing step <-> FAS annotations.")
@@ -536,46 +516,44 @@ def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_arc
 	for data in fasCacheData:
 		fasCacheFile.write(data)
 	fasCacheFile.close()
-	
+
 
 	# Calculate FAS scores between seed protein versus orthologs
 	# Write the output in fas_file
 
+	fasScoresOutputPath = hamstr+"/bin/fas/out/"
+
+	seedList = []
+	for OMAID in oma_ids:
+		seedList.append((OMAID,fasScoresOutputPath))
+
 	try:
 		pool = Pool(processes=nr_processors)
-		results = pool.map(actual_FAS_exec, oma_ids)
+		results = pool.map(actual_FAS_exec,seedList)
 	except KeyboardInterrupt as e:
+		pool.terminate()
+		pool.join()
 		sys.exit(e)
 	except:
 		print("ERROR: Multiprocessing step <-> FAS calculations.")
 		pass
 
 	fasFileData = []
-	domainArchiData = []
 
 	for res in results:
-		if not res[0] == []:
-			fasFileData.append(res[0][0])
-		if not res[1] == []:
-			for resListElements in res[1]:
-				domainArchiData.append(resListElements)
+		if not res == []:
+			fasFileData.append(res[0])
 
 	fasFile = open(fas_file, 'w')
 	for data in fasFileData:
 		fasFile.write(data)
 	fasFile.close()
 
-	domainFile = open(domain_archi_file, 'w')
-	for data in domainArchiData:
-		domainFile.write(data)
-	domainFile.close()	
-
 	if delTemp:
 		os.system('rm -rf %s' %temp_fasAnno)
 
 # HaMStROneSeq run
-def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, formatdb, blastp, proteome, delTemp, hamstr_env, include_paralogs):
-
+def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, proteome, delTemp, hamstr_env, include_paralogs):
 	# Setting default paths for HaMStR-OneSeq
 	hamstrOneSeq = hamstr + '/bin/oneSeq.pl'
 	try:
@@ -583,14 +561,14 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, formatdb, blastp, pro
 		if not hamstr_env == "":
 			taxaPath = hamstr + '/genome_dir_' + hamstr_env
 		else:
-			taxaPath = hamstr + '/genome_dir'	
+			taxaPath = hamstr + '/genome_dir'
 
 		for line in open(orth_file):
 			if line[0] == '>':
 				omaId = line.split('\n')[0][1:6]
 			else:
 				protSeq = line.split('\n')[0]
-		
+
 		for line in open(map_file):
 			if omaId in line.split()[-1]:
 				hamstrId = line.split('\t')[0]
@@ -600,7 +578,7 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, formatdb, blastp, pro
 			if hamstrId in taxas:
 				refSpec = taxas.split('/')[-1]
 				break
-		
+
 		refSpec_Proteome = taxaPath + '/' + refSpec + '/' + refSpec + '.fa'
 		if os.path.exists(refSpec_Proteome + '.mod'):
 			refSpec_Proteome = refSpec_Proteome + '.mod'
@@ -624,10 +602,13 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, formatdb, blastp, pro
 				os.mkdir(tempDir)
 			#print 'Change to the temporary directory..'
 			os.chdir(tempDir)
-			#print 'Create a temporary file with the input sequence..'
-			#print 'Copy the reference proteome file into temporary directory..'
-			os.system('cp -avr %s .' %(refSpec_Proteome))
-			com = '%s -i %s' %(formatdb, refSpec +'.fa')
+			print 'Create a temporary file with the input sequence..'
+			print 'Copy the reference proteome file into temporary directory..'
+			print(refSpec_Proteome + "\n")
+			print(refSpec + "\n")
+			print(tempDir)
+			os.system('ln -sf %s .' %(refSpec_Proteome))
+			com = '%s -in %s -dbtype prot' %(makeblastdb, refSpec_Proteome)
 			#print 'Create blast database for the OMA sequences: ', com
 			os.system(com)
 			#print 'Perform BLAST search and pick up the top hit as query input ID..'
@@ -652,47 +633,48 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, formatdb, blastp, pro
 		try:
 			if not seqId == "NA" and delTemp:
 				if os.path.exists('inputTaxaSet_oneSeq.txt'):
+					coreTaxaFlag = "-coreTaxa=inputTaxaSet_oneSeq.txt"
 					if not hamstr_env == "" and not include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -coreTaxa="inputTaxaSet_oneSeq.txt" -cleanup -fasoff -local -strict -rep -seqName=%s -addenv=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -coreTaxa="inputTaxaSet_oneSeq.txt" -fasoff -local -strict -rep -seqName=%s -addenv=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
 					elif not hamstr_env == "" and include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -coreTaxa="inputTaxaSet_oneSeq.txt" -cleanup -fasoff -local -strict -seqName=%s -addenv=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -coreTaxa="inputTaxaSet_oneSeq.txt" -fasoff -local -strict -seqName=%s -addenv=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
 					elif hamstr_env == "" and not include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -coreTaxa="inputTaxaSet_oneSeq.txt" -cleanup -fasoff -local -strict -rep -seqName=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -coreTaxa="inputTaxaSet_oneSeq.txt" -fasoff -local -strict -rep -seqName=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
 					elif hamstr_env == "" and include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -coreTaxa="inputTaxaSet_oneSeq.txt" -cleanup -fasoff -local -strict -seqName=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -coreTaxa="inputTaxaSet_oneSeq.txt" -fasoff -local -strict -seqName=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
 				else:
 					if not hamstr_env == "" and not include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -fasoff -local -strict -rep -seqName=%s -addenv=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -fasoff -local -strict -rep -seqName=%s -addenv=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
 					elif not hamstr_env == "" and include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -fasoff -local -strict -seqName=%s -addenv=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -fasoff -local -strict -seqName=%s -addenv=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
 					elif hamstr_env == "" and not include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -fasoff -local -strict -rep -seqName=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -fasoff -local -strict -rep -seqName=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
 					elif hamstr_env == "" and include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -fasoff -local -strict -seqName=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
-				
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -fasoff -local -strict -seqName=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
+
 				print('#####	Running hamstrOneSeq command: ', command)
 				os.system(command)
 
 			elif not seqId == "NA" and not delTemp:
 				if os.path.exists('inputTaxaSet_oneSeq.txt'):
 					if not hamstr_env == "" and not include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -coreTaxa="inputTaxaSet_oneSeq.txt" -fasoff -local -strict -rep -seqName=%s -addenv=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -coreTaxa="inputTaxaSet_oneSeq.txt" -fasoff -local -strict -rep -seqName=%s -addenv=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
 					elif not hamstr_env == "" and include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -coreTaxa="inputTaxaSet_oneSeq.txt" -fasoff -local -strict -seqName=%s -addenv=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -coreTaxa="inputTaxaSet_oneSeq.txt" -fasoff -local -strict -seqName=%s -addenv=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
 					elif hamstr_env == "" and not include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -coreTaxa="inputTaxaSet_oneSeq.txt" -fasoff -local -strict -rep -seqName=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -coreTaxa="inputTaxaSet_oneSeq.txt" -fasoff -local -strict -rep -seqName=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
 					elif hamstr_env == "" and include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -cleanup -coreTaxa="inputTaxaSet_oneSeq.txt" -fasoff -local -strict -seqName=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -coreTaxa="inputTaxaSet_oneSeq.txt" -fasoff -local -strict -seqName=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
 				else:
 					if not hamstr_env == "" and not include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -fasoff -local -strict -rep -seqName=%s -addenv=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -fasoff -local -strict -rep -seqName=%s -addenv=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
 					elif not hamstr_env == "" and include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -fasoff -local -strict -seqName=%s -addenv=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -fasoff -local -strict -seqName=%s -addenv=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, hamstr_env, nr_processors)
 					elif hamstr_env == "" and not include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -fasoff -local -strict -rep -seqName=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -fasoff -local -strict -rep -seqName=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
 					elif hamstr_env == "" and include_paralogs:
-						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -fasoff -local -strict -seqName=%s -cpu=%s' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
-				
+						command = 'perl %s -sequence_file=%s -seqid=%s -refSpec=%s -coreOrth=5 -minDist=genus -maxDist=superkingdom -checkCoorthologsRef -fasoff -local -strict -seqName=%s -cpu=%s -silent' %(hamstrOneSeq, orth_file.split('/')[-1], seqId, refSpec, prot_id, nr_processors)
+
 				print('#####	Running hamstrOneSeq command: ', command)
 				os.system(command)
 
@@ -796,7 +778,7 @@ def prepareXML(xml_file, pfamDB, hmmfetch, aaMatrix, indel, p, sf, simTree, prot
 	fnew.write('\t\t<dir path="%s" separateFastaFiles="false" trueAlignment="false" include="leaf"/>\n' %os.path.abspath(output_dir))
 	fnew.write('\t</output>\n')
 	fnew.write('</configdata>')
-	
+
 	fnew.close()
 
 # Runs hmmscan and prepares the domain constraint file for REvolver
@@ -815,7 +797,7 @@ def hmmscan(hmmscan, orth_file, pfamDB, hmm_file, prot_id, species_id):
 	ftemp.close()
 	os.system('%s --notextw -E 0.01 %s seq_%s.fa > %s' %(hmmscan, pfamDB, prot_id, hmm_file))
 	#os.remove('tempFile.fa')
-	
+
 
 # Calculates indels rates
 def calculateIndels(tree_file, trans, alnLength, iqtree24, def_indel, def_indel_dist):
@@ -828,7 +810,7 @@ def calculateIndels(tree_file, trans, alnLength, iqtree24, def_indel, def_indel_
 		tree_lengths = [tree.length() for tree in trees]
 	except:
 		pass
-	
+
 	result = ''
 	try:
 		command = "%s -s %s %s -tina -st MULTI" %(iqtree24, os.path.abspath(trans), os.path.abspath(tree_file))
@@ -837,7 +819,7 @@ def calculateIndels(tree_file, trans, alnLength, iqtree24, def_indel, def_indel_
 	except:
 		print('WARNING: IQTree-24 did not run properly!!!')
 		pass
-	
+
 	for line in result.split('\n'):
 		if line.split(':')[0] == 'mean length':
 			if float(line.split(':')[1].replace(' ', '')) > 0:
@@ -847,7 +829,7 @@ def calculateIndels(tree_file, trans, alnLength, iqtree24, def_indel, def_indel_
 				elif p < 0.02:
 					p = 0.02
 			else:
-				p = float(prot_config.default_indel_distribution)
+				p = float(def_indel_dist)
 		elif line.split(':')[0] == 'Parsimony score is':
 			indel = (float(line.split(':')[1].replace(' ', '')) / (alnLength * tree_lengths[0])) / 2
 	print('Indel: ', indel)
@@ -855,31 +837,30 @@ def calculateIndels(tree_file, trans, alnLength, iqtree24, def_indel, def_indel_
 	fnew = open(indel_file, 'w')
 	fnew.write(str(indel) + '\n' + str(p))
 	fnew.close()
-	
+
 
 # Perform MSA of the ortholog sequences
 # Convert the .aln format to .phy format
-def performMSA(msa, clustalw):
+def performMSA(msa):
 	if cache:
 		if os.path.exists(phy_file):
 			print('Re-using previously compiled orthologs alignment file')
-		else:	
+		else:
 			try:
-				os.system('%s --quiet --thread %s %s > %s' %(msa, nr_processors, orth_file, aln_file))
-				os.system('%s -convert -output=PHYLIP -infile=%s -outfile=%s' %(clustalw, aln_file, phy_file))
+				os.system('%s --quiet --phylipout --thread %s %s > %s' %(msa, nr_processors, orth_file, phy_file))
 			except:
 				pass
 				print('WARNING: MSA didn\'t work. Less than 2 sequences found for alignment!!!')
 	else:
 		try:
-			os.system('%s %s > %s' %(msa, orth_file, aln_file))
-			os.system('%s -convert -output=PHYLIP -infile=%s -outfile=%s' %(clustalw, aln_file, phy_file))
+			os.system('%s --phylipout %s > %s' %(msa, orth_file, phy_file))
 		except:
 			pass
 			print('WARNING: MSA didn\'t work. Less than 2 sequences found for alignment!!!')
 
 # Read OMA sequences file and parse OMA orthologs sequences
-def findOmaSequences(prot_id, omaSeqs, species_id, mapFile):
+def findOmaSequences(prot_id, omaSeqs, species_id, mapFile, config_file):
+	prot_config = configure.setParams(config_file)
 	try:
 		mapIds = []
 		for line in open(mapFile):
@@ -887,22 +868,26 @@ def findOmaSequences(prot_id, omaSeqs, species_id, mapFile):
 
 		print('#####	Searching OMA ortholog sequences for %s	#####' %prot_id)
 		fnew = open(orth_file, 'w')
-		ids = open(id_file).read().split('\n')
+		#print(orth_file)
+		with open(idfile,'r') as id_input:
+			ids = id_input.read().split('\n')
+		#print(omaSeqs)
 		with open(omaSeqs) as f:
-			for line in f:
-				if line[0] == '>' and line.split('\n')[0][1:] in ids and line[1:6] in mapIds:
-					#if line.split('\n')[0][1:6] == species_id:
-						#fnew.write('>' + species_id + '\n' + f.next().replace('*', ''))
-					fnew.write('>' + line[1:6] + '\n' + f.next().replace('*', '').replace('X', ''))
-					#else:
-					#	fnew.write(line + f.next().replace('*', ''))
+			if not prot_config.run_hamstr and not prot_config.run_hamstrOneSeq:
+				for line in f:
+					if line[0] == ">" and line.split('\n')[0][1:] in ids:
+						fnew.write('>' + line[1:6] + '\n' + f.next().replace('*', '').replace('X', ''))
+			else:
+				for line in f:
+					if line[0] == '>' and line.split('\n')[0][1:] in ids and line[1:6] in mapIds:
+						fnew.write('>' + line[1:6] + '\n' + f.next().replace('*', '').replace('X', ''))
 		fnew.close()
 	except IOError:
 		sys.exit('ERROR: Cannot find OMA orthologs sequences. OMA sequence file does not exist!')
-				
-	
+
+
 # Read OMA orthologs groups file and parses the ortholog list for input OMA id
-def findOmaGroup(prot_id, querySeq, omaGroup, omaSeqs, proteome_file, formatdb, blastp, delTemp, species_id):
+def findOmaGroup(prot_id, querySeq, omaGroup, omaSeqs, proteome_file, makeblastdb, blastp, delTemp, species_id):
 	try:
 		if not querySeq == 'None':
 			run = 1
@@ -929,7 +914,7 @@ def findOmaGroup(prot_id, querySeq, omaGroup, omaSeqs, proteome_file, formatdb, 
 					os.mkdir(tempDir)
 				os.chdir(tempDir)
 				os.system('cp -avr %s proteome.fa' %(proteome_file))
-				com = '%s -i proteome.fa' %(formatdb)
+				com = '%s -in proteome.fa -dbtype prot' %(makeblastdb)
 				os.system(com)
 				tempFile = open('temp_inputSeq.fa', 'w')
 				tempFile.write('>' + prot_id + '\n' + querySeq)
@@ -980,7 +965,7 @@ def findOmaGroup(prot_id, querySeq, omaGroup, omaSeqs, proteome_file, formatdb, 
 			if not written:
 				fnew.write(prot_id)
 				fnew.close()
-			
+
 	except IOError:
 		sys.exit('ERROR: Cannot find OMA orthologs id. Check OMA files given as input!')
 
@@ -993,20 +978,24 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
 		# Check whether the parsed proteome in already present in Cache directory
 		if cache and os.path.exists(cache_dir + '/proteome_' + species_id):
 			print('#####	Gene set for species %s found in Cache directory. Reusing it.	#####' %species_id)
-			os.system('cp -avr %s %s' %(cache_dir + '/proteome_' + species_id, proteome_file))
+			os.system('ln -sf {0} {1}'.format(cache_dir + '/proteome_' + species_id, proteome_file))
 		elif search_oma_database:
 			print('#####	Parsing gene set for species %s from OMA database	#####' %species_id)
+
 			fnew = open(proteome_file, 'w')
-			
+
 			speciesFoundInOmaFlag = False
-			with open(omaSeqs) as f:
+			with open(omaSeqs, 'r') as f:
+				#print(omaSeqs)
+				#print(">"+species_id)
 				for line in f:
 					if line[:6] == '>' + species_id:
 						speciesFoundInOmaFlag = True
 						fnew.write(line + next(f))
+				#print(line)
 			fnew.close()
 
-			os.system('cp -avr %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
+			os.system('cp -ar %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
 
 			if not speciesFoundInOmaFlag:
 				sys.exit('ERROR: Species %s not found in OMA database. Please make sure if the species exists in OMA database. If not, please turn off "search_oma_database" flag in program configuration file.' %species_id)
@@ -1024,16 +1013,22 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
 				blast_dir = hamstrDir + '/blast_dir'
 
 			species_blast_file = blast_dir + '/' + hamstr_id + '/' + hamstr_id + '.fa'
-			
+
 			if os.path.exists(species_blast_file):
-				os.system('cp -avr %s %s' %(species_blast_file, proteome_file))
+				os.system('cp -ar %s %s' %(species_blast_file, proteome_file))
 			else:
 				sys.exit('ERROR: Reference species %s not found in local (HaMStR) BLAST directory!!!' %species_id)
-			
+
 			os.system('cp -avr %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
 		print('#####	Making BLAST db of the gene set to be used by the blast search	#####')
 		os.system('%s -in %s -input_type fasta -dbtype prot' %(makeblastdb, proteome_file))
 		#proteome_file = os.path.abspath(proteome_file)
 
 	except IOError:
+
+    		print("*** print_tb:")
+
+		print("*** print_tb_type:", exc_type)
+		print("*** print_tb_value:", exc_value)
+
 		sys.exit('ERROR: Cannot create gene set for species %s. Please check the path of species information contatining file!' %species_id)

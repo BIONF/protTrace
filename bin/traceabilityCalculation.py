@@ -113,6 +113,11 @@ def actual_traceability_calculation(run):
 	detection_probability = {}
 
 	print 'Run: ', run
+<<<<<<< HEAD
+=======
+	#command = 'java -Xmx2G -Xms2G -cp "%s" revolver %s' %(prot_config.REvolver, temp_revolver_config_file)
+	#print 'REvolver calculations command: ', command
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 
 	success = False
 	trials = 0
@@ -123,11 +128,15 @@ def actual_traceability_calculation(run):
 			blastOutput = run_blast(prot_config.blastp, prot_id, proteome_file, revolver_output_dir)
 			for taxa in taxonset:
 				detection = 0
+				linecount = 1
 				for line in blastOutput.split('\n'):
 					#print line
 					if taxa == line.split('\t')[0]:
 						if line.split('\t')[1] == blastHitId:
 							detection = 1
+							break
+						linecount += 1
+						if linecount > 5:
 							break
 				detection_probability[taxa] = detection
 			success = True
@@ -146,7 +155,11 @@ def actual_traceability_calculation(run):
 	return detection_probability
 
 def decayParams(r, prot_id, decay_script):
+<<<<<<< HEAD
 	command = '%s --quiet --vanilla --file=%s --args decay_summary_%s.txt' %(r, decay_script, prot_id)
+=======
+	command = '%s --quiet --vanilla %s decay_summary_%s.txt' %(r, decay_script, prot_id)
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 	print '##### Decay parameter calculation command: ', command
 	os.system(command)
 
@@ -156,7 +169,7 @@ def run_revolver(REvolver, xml_file):
 	os.system(command)
 
 def run_blast(blastp, prot_id, proteome, revolverOut):
-	command = '%s -query %s/out.fa -db %s -outfmt 6 -max_target_seqs 5' %(blastp, revolverOut, proteome)
+	command = '%s -query %s/out.fa -db %s -outfmt "6 qseqid sseqid"' %(blastp, revolverOut, proteome)
 	result = subprocess.check_output(command, shell=True)
 	return result
 

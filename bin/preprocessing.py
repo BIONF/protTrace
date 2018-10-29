@@ -2,6 +2,7 @@
 # Module to perform preprocessing steps in protTrace workflow
 #
 
+<<<<<<< HEAD
 #
 # Version history:
 #	1. Arpit
@@ -24,6 +25,8 @@
 #		- Reduced number of IO openings during the HaMStR and HaMStR-OneSeq decision making at the beginning
 #######################################
 
+=======
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 import os, sys
 import glob
 import configure
@@ -57,6 +60,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 	species_id = prot_config.species
 	proteome_file = 'proteome_' + prot_id
 	id_file = 'ogIds_' + prot_id + '.txt'
+	print(id_file)
 	work_dir = prot_config.path_work_dir + '/' + prot_id
 	cache_dir = prot_config.path_cache
 	omaIdFile = work_dir + '/omaId.txt'
@@ -221,7 +225,12 @@ def Preprocessing(prot_id, querySeq, config_file):
 		if not os.path.exists(tempDir):
 			os.mkdir(tempDir)
 		os.chdir(tempDir)
+<<<<<<< HEAD
 		os.system('cp -avr {0} proteome.fa'.format(proteome_file))
+=======
+		print("Creating link to proteome: {0}".format(proteome_file))
+		os.system('ln -sf {0} proteome.fa'.format(proteome_file))
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 		print("running makeblastdb")
 		com = '%s -in proteome.fa -dbtype prot' %(prot_config.makeblastdb)
 		os.system(com)
@@ -293,7 +302,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 				alignmentLength = transformAlignment.main(phy_file, trans_file)
 			except:
 				pass
-			calculateIndels(tree_file, trans_file, alignmentLength, prot_config.iqtree24, prot_config.default_indel, prot_config.default_indel_distribution)
+			calculateIndels(tree_file, trans_file, alignmentLength, prot_config.iqtree, prot_config.default_indel, prot_config.default_indel_distribution)
 
 	# Domain constraint file for REvolver
 
@@ -408,6 +417,10 @@ def retrieve_FAS_annotations(fasta):
 		anno_command = 'perl %s -path=%s -name=%s -extract=%s' %(annotation_script, species_anno_dir, hit_id, protein_temp_anno_dir)
 		#print('Annotation command: ', anno_command)
 		os.system(anno_command)
+<<<<<<< HEAD
+=======
+	#print oma_ids, mapDict, fasCacheData, logDict
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 
 	return oma_ids, mapDict, fasCacheData, logDict
 
@@ -483,6 +496,12 @@ def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_arc
 			break
 		orthFileData.append("\n".join([line1.split()[0], line2.split()[0]]))
 
+<<<<<<< HEAD
+=======
+	#print orthFileData
+	#sys.exit()
+
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 	try:
 		pool = Pool(processes=nr_processors)
 		results = pool.map(retrieve_FAS_annotations, orthFileData)
@@ -539,16 +558,36 @@ def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_arc
 		pass
 
 	fasFileData = []
+<<<<<<< HEAD
+=======
+#	domainArchiData = []
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 
 	for res in results:
 		if not res == []:
 			fasFileData.append(res[0])
+<<<<<<< HEAD
+=======
+
+			## If you want feature architecture aswell, add another dimension to res in the previous loop part (res[0] -> res[0][0])
+#		if not res[1] == []:
+#			for resListElements in res[1]:
+#				domainArchiData.append(resListElements)
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 
 	fasFile = open(fas_file, 'w')
 	for data in fasFileData:
 		fasFile.write(data)
 	fasFile.close()
 
+<<<<<<< HEAD
+=======
+#	domainFile = open(domain_archi_file, 'w')
+#	for data in domainArchiData:
+#	domainFile.write(data)
+#	domainFile.close()
+
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 	if delTemp:
 		os.system('rm -rf %s' %temp_fasAnno)
 
@@ -607,7 +646,11 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
 			print(refSpec_Proteome + "\n")
 			print(refSpec + "\n")
 			print(tempDir)
+<<<<<<< HEAD
 			os.system('ln -sf %s .' %(refSpec_Proteome))
+=======
+			os.system('cp -avr %s .' %(refSpec_Proteome))
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 			com = '%s -in %s -dbtype prot' %(makeblastdb, refSpec_Proteome)
 			#print 'Create blast database for the OMA sequences: ', com
 			os.system(com)
@@ -800,7 +843,7 @@ def hmmscan(hmmscan, orth_file, pfamDB, hmm_file, prot_id, species_id):
 
 
 # Calculates indels rates
-def calculateIndels(tree_file, trans, alnLength, iqtree24, def_indel, def_indel_dist):
+def calculateIndels(tree_file, trans, alnLength, iqtree, def_indel, def_indel_dist):
 	indel = float(def_indel)
 	p = float(def_indel_dist)
 
@@ -813,11 +856,11 @@ def calculateIndels(tree_file, trans, alnLength, iqtree24, def_indel, def_indel_
 
 	result = ''
 	try:
-		command = "%s -s %s %s -tina -st MULTI" %(iqtree24, os.path.abspath(trans), os.path.abspath(tree_file))
-		print('IQ-Tree24 command: ', command)
+		command = "%s -s %s %s -tina -st MULTI" %(iqtree, os.path.abspath(trans), os.path.abspath(tree_file))
+		print('IQ-Tree command: ', command)
 		result = subprocess.check_output(command, shell=True)
 	except:
-		print('WARNING: IQTree-24 did not run properly!!!')
+		print('WARNING: IQ-Tree did not run properly!!!')
 		pass
 
 	for line in result.split('\n'):
@@ -869,7 +912,11 @@ def findOmaSequences(prot_id, omaSeqs, species_id, mapFile, config_file):
 		print('#####	Searching OMA ortholog sequences for %s	#####' %prot_id)
 		fnew = open(orth_file, 'w')
 		#print(orth_file)
+<<<<<<< HEAD
 		with open(idfile,'r') as id_input:
+=======
+		with open(id_file,'r') as id_input:
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 			ids = id_input.read().split('\n')
 		#print(omaSeqs)
 		with open(omaSeqs) as f:
@@ -981,7 +1028,11 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
 			os.system('ln -sf {0} {1}'.format(cache_dir + '/proteome_' + species_id, proteome_file))
 		elif search_oma_database:
 			print('#####	Parsing gene set for species %s from OMA database	#####' %species_id)
+<<<<<<< HEAD
 
+=======
+			## debug ingo
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 			fnew = open(proteome_file, 'w')
 
 			speciesFoundInOmaFlag = False
@@ -1008,14 +1059,21 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
 					break
 
 			if not hamstrEnv == "":
-				blast_dir = hamstrDir + '/blast_dir_' + hamstrEnv
+				genome_dir = hamstrDir + '/genome_dir_' + hamstrEnv
 			else:
-				blast_dir = hamstrDir + '/blast_dir'
+				genome_dir = hamstrDir + '/genome_dir'
 
+<<<<<<< HEAD
 			species_blast_file = blast_dir + '/' + hamstr_id + '/' + hamstr_id + '.fa'
 
 			if os.path.exists(species_blast_file):
 				os.system('cp -ar %s %s' %(species_blast_file, proteome_file))
+=======
+			species_genome_file = genome_dir + '/' + hamstr_id + '/' + hamstr_id + '.fa'
+
+			if os.path.exists(species_genome_file):
+				os.system('cp -ar %s %s' %(species_genome_file, proteome_file))
+>>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 			else:
 				sys.exit('ERROR: Reference species %s not found in local (HaMStR) BLAST directory!!!' %species_id)
 

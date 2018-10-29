@@ -111,7 +111,7 @@ class setParams:
 					self.simulation_runs = int(line.split(':')[1])
 				if line.split(':')[0] == 'nr_of_processors':
 					self.nr_processors = int(line.split(':')[1])
-				if line.split(':')[0] == 'MAFFT_linsi':
+				if line.split(':')[0] == 'linsi':
 					self.msa = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'REvolver':
 					self.REvolver = os.path.abspath(line.split(':')[1])
@@ -119,25 +119,25 @@ class setParams:
 					self.hmmfetch = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'hmmscan':
 					self.hmmscan = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'iqtree24':
-					self.iqtree24 = os.path.abspath(line.split(':')[1])
+				if line.split(':')[0] == 'iqtree':
+					self.iqtree = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'clustalw':
 					self.clustalw = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'blastp':
 					self.blastp = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'makeblastdb':
 					self.makeblastdb = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'R':
+				if line.split(':')[0] == 'Rscript':
 					self.R = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'hamstr':
 					self.hamstr = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'hamstrOneSeq':
+				if line.split(':')[0] == 'oneseq':
 					self.hamstrOneSeq = os.path.abspath(line.split(':')[1])
 				#if line.split(':')[0] == 'degapping':
 				#	self.degapping = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'species_MaxLikMatrix':
 					self.species_MaxLikMatrix = os.path.abspath(line.split(':')[1])
-				if line.split(':')[0] == 'path_work_dir':
+				if line.split(':')[0] == 'path_output_dir':
 					self.path_work_dir = os.path.abspath(line.split(':')[1])
 					if not os.path.exists(self.path_work_dir):
 						os.mkdir(self.path_work_dir)

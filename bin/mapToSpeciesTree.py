@@ -7,17 +7,6 @@ import colourizeTree
 ### Calculate traceability for every species in the species tree
 ### Colourize the species tree based on traceability
 
-<<<<<<< HEAD
-#
-# Version history:
-#	1. Arpit
-#	2. Dominik (Bugfixes, changelist below)
-#		- Passed the intention of calculating FAS scores to colourizeTree
-#		- Removed global variables and passed them directly as arguments to generateNexusFile
-#######################################
-
-=======
->>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 def main(protId, config_file):
 	rootDir = os.getcwd()
 

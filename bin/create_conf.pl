@@ -490,7 +490,7 @@ sub userOptions {
 					hamstr => '',
 					oneseq =>  '');		
 					
-	%optionsValues = (species => 'OMA 5 letter Species Identifier: (Default HUMAN)',
+	%optionsValues = (species => 'OMA 5 letter Species Identifier: (Default YEAST)',
 					  nr_of_processors => 'Integer (Default 1)',
 					  delete_temporary_files => 'YES|NO (Default NO)',
 					  reuse_cache => 'YES|NO (Default YES)',

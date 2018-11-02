@@ -1,13 +1,6 @@
 # Module to read in program config file and prepare variables
 # to be imported in other modules
 
-#
-# Version history:
-#	1. Arpit
-#	2. Dominik (Bugfixes, changelist below)
-#		- Removed values for RaXML,TREE-PUZZLE,ClustalW,BlastAll and FormatDB to pronounce the dropping of dependencies
-#######################################
-
 import os, sys
 
 class setParams:

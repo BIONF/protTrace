@@ -5,21 +5,6 @@ import maxLikDistMatrix
 
 # Module to reconstruct tree using RAxML and do scaling factor calculation
 
-#
-# Version history:
-#	1. Arpit
-#	2. Dominik (Bugfixes, changelist below)
-#		- Updated communication with TREE-PUZZLE
-#		- Removed handling of orthologous groups containing 3 sequences (required an additional tree file that is never given as a parameter)
-#		- Stripped main out of unused code (see the bullet point above)
-#		- Commented out the rename_raxml() function due to nonexistant utilization
-#		- Replaced ClustalW dependency with the mafft-linsi --phylipout flag (this option is only documented within the mafft changelogs!)
-#	3. Ingo
-#		- Replaced run_raxml with run_iqtree
-#		- removed unused code
-#		- Removed dependency on TREE-PUZZLE
-#######################################
-
 # Calculate the median of a set
 def median(lst):
     even = (0 if len(lst) % 2 else 1) + 1

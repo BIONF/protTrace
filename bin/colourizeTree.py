@@ -10,16 +10,6 @@ import math
 ###	   4. Species tree
 ###	   5. Decay result file
 
-#
-# Version history:
-#	1. Arpit
-#	2. Dominik (Bugfixes, changelist below)
-#		- Allowed OMAIDs to be read in main
-#		- Condensed the code to read in orthID and FAS values into the PhyloProfile proto-matrix
-#		- Trimmed global variables to ones that would be needed to pass down to calculateMaxLikDist
-#		- FAS scores will be added to the PhyloProfile matrix only when desired in prog.config file. Otherwise, a column filled with "NA" breaks PhyloProfile.
-#######################################
-
 def calculateMaxLikDist(species1, species2):
 	#print species1, species2
 	speciesMaxFile = open(sp_max_file).read().split('\n')

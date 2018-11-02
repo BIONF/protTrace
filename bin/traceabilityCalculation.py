@@ -9,13 +9,6 @@ from multiprocessing import Pool
 ### After every REvolver run, detection probability is checked with reciprocal Blast search and stored in a hash table
 ### Using the final hash table, decay rate is calculated using decay script
 
-#
-# Version history:
-#	1. Arpit
-#	2. Dominik (Bugfixes, changelist below)
-#		- Multiprocessing (utilized in FAS annotation and FAS score calculation) did not receive any exceptions (a bug in python). Now, the main thread handles the CRTL-C induced interruption exception itself by calling pool.terminate and pool.join.
-#######################################
-
 def main(p_id, config_file):
 	global prot_id
 	prot_id = p_id
@@ -113,11 +106,8 @@ def actual_traceability_calculation(run):
 	detection_probability = {}
 
 	print 'Run: ', run
-<<<<<<< HEAD
-=======
 	#command = 'java -Xmx2G -Xms2G -cp "%s" revolver %s' %(prot_config.REvolver, temp_revolver_config_file)
 	#print 'REvolver calculations command: ', command
->>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 
 	success = False
 	trials = 0
@@ -155,11 +145,7 @@ def actual_traceability_calculation(run):
 	return detection_probability
 
 def decayParams(r, prot_id, decay_script):
-<<<<<<< HEAD
-	command = '%s --quiet --vanilla --file=%s --args decay_summary_%s.txt' %(r, decay_script, prot_id)
-=======
 	command = '%s --quiet --vanilla %s decay_summary_%s.txt' %(r, decay_script, prot_id)
->>>>>>> 1b295e1fcfd8cd322e31178a2e9e93e0f4d95144
 	print '##### Decay parameter calculation command: ', command
 	os.system(command)
 

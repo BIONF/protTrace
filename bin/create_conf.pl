@@ -22,8 +22,8 @@ use LWP::Simple;
 ##A simple perl script to check the dependencies for protTrace and for setting up the configure script
 
 #### Default settings and dependencies ##########
-my @dependencies = qw(linsi hmmscan hmmfetch makeblastdb blastp iqtree Rscript python perl java);
-my @neDependencies = qw(oneseq.pl figtree);
+my @dependencies = qw(python perl java linsi hmmscan hmmfetch makeblastdb blastp iqtree Rscript);
+my @neDependencies = qw(oneseq.pl);
 my $minVersion->{linsi}=6;
 $minVersion->{hmmscan}=3.1;
 $minVersion->{blastp}=2.7;
@@ -56,6 +56,7 @@ my @path2Deps;
 my @usedFileList;
 my @checkList;
 my @OptionList = userOptions();
+my $message;
 ##################
 my $helpmessage = "SYNOPSIS
 This script checks for the essential program dependencies of protTrace and creates the config file controlling the protTrace run\n
@@ -91,9 +92,37 @@ GetOptions (
 	"getOma" => \$getOma,
 	"getPfam" => \$getPfam
 	);
-if ($help){
+if ($help or !defined $name){
 	print "\n\n\n$helpmessage\n\n";
 	exit;
+}
+################
+## create paths if not exist
+if (! -e "$currwd/output") {
+	my $suc = `mkdir $currwd/output`;
+	if ($suc) {
+		$message = "Could not create directory $currwd/output. Make sure to solve this issue before running protTrace\n";
+		push @log, $message;
+		print "$message\n";
+	}
+	else {
+		$message = "Successfully created output dir $currwd/output";
+		push @log, $message;
+		print "$message\n";
+	}
+}
+if (! -e "$currwd/cache") {
+        my $suc = `mkdir $currwd/cache`;
+        if ($suc) {
+                $message = "Could not create directory $currwd/cache. Make sure to solve this issue before running protTrace\n";
+                push @log, $message;
+                print "$message\n";
+        }
+        else {
+                $message = "Successfully created output dir $currwd/cache";
+                push @log, $message;
+                print "$message\n";
+        }
 }
 ################
 ($name, @textarray) = processInput($name);

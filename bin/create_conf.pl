@@ -244,6 +244,11 @@ if ($getOma){
 		print "$message\n";
                 print "Reformatting fasta\n";
                 my $return = reformatFasta($prepOptions{path_oma_seqs});
+		if ($return) {
+			$message = "Something went wrong during reformatting of the oma sequences. Please check\n";
+			push @log, $message;
+			print "$message\n";
+		}
 
 	}
 	else {
@@ -746,23 +751,32 @@ sub reformatFasta {
 	my $head;
 	my $seq = '';
 	my @out;
+	my $count = 0;
+	## remove an tmp file if it exists
+	if (-e "$fileName.tmp"){
+		print "Found an existing tmp file $fileName.tmp. Removing it...\n";
+		`rm -f $fileName.tmp`;
+	}
 	while (<IN>){
 		chomp $_;
 		if ($_ =~ /^>/) {
 			if (length($seq) > 0){
+				push @out, $head;
+				$head = '';
 				push @out, $seq;
 				$seq = '';
 			}
 			$head = $_;
 			$head =~ s/ //g;
-			push @out, $head;
 		}
 		else {
 			$seq .=$_;
 		}
-		if (scalar(@out) == 1000) {
+		if (scalar(@out) == 100000) {
+			$count += 100000;
 			open (OUT, ">>$fileName.tmp") or die "could not open tmp file for writing\n";
 			print OUT join "\n", @out;
+			print "$count sequences processed\n";
 			@out = qw();
 			close OUT or die "Could not close tmp file after writing\n";
 		}
@@ -772,6 +786,5 @@ sub reformatFasta {
         @out = qw();
         close OUT or die "Could not close tmp file after writing\n";
 	my $succ = `mv $fileName.tmp $fileName`;
-	print "return is $succ\n";
 	return($succ);
 }

@@ -59,14 +59,14 @@ my @OptionList = userOptions();
 my $message;
 ##################
 my $helpmessage = "SYNOPSIS
-This script checks for the essential program dependencies of protTrace and creates the config file controlling the protTrace run\n
+This script checks for the essential program dependencies of protTrace and creates the config file controlling the protTrace run
 
 USAGE: create_conf.pl -name [-update -hamstr -getOma]
 
 OPTIONS
 -name=<>	specify the name of the config file
 -update		set this flag to update an existing config file provided via -name
--hamstr		set this flag if you want to make use of the HaMStR enviromnet. If not set, missing HaMStR dependencies are not traced.
+-hamstr		set this flag if you want to make use of the HaMStR package. If not set, missing HaMStR dependencies are not traced.
 -getOma		set this flag to retrieve OMA orthologs from the OMA database
 -getPfam	set this flag to retrieve the Pfam-A database";
 ####################
@@ -306,7 +306,7 @@ sub testDep {
 				$versionshort =~ s/_/./;
 				if ($versionshort < $minversion){
 					## problem
-					my $message = "Issue: I found $prog, but the versison number $versionshort is below the minimal requirement $minversion. You can continue with the configure script, but you will have to upgrade $prog manually";
+					my $message = "Issue: I found $prog, but the version number $versionshort is below the minimal requirement $minversion. You can continue with the configure script, but you will have to upgrade $prog manually";
 					push @log, $message;
 					print "$message\n";
 					$issue = 1;
@@ -381,7 +381,7 @@ sub userInput {
 	}
 	if ($type eq 'numeric'){
 		while ($answer =~ /[^0-9,-]/ and $answer !~ /^q/i){
-			print "pleaese enter only a (comma separated) list of digits or a range: ";
+			print "please enter only a (comma separated) list of digits or a range: ";
 			$answer = <STDIN>;
 			$answer =~ s/ //g;
 			chomp $answer;
@@ -464,7 +464,7 @@ sub readValue {
 sub getCheckList {
 	@checkList = ("General Options", "Preprocessing Settings", "Advanced Preprocessing Settings", "Scaling factors",
 	"Indel parameter", "Traceability calculation", "Program paths", "Paths to files");	
-	print "\nPlease select from the list the groups you whish to update or enter q to quit. To use defaults, just hit enter:\n";
+	print "\nPlease select from the list the groups you wish to update or enter q to quit. To use defaults, just hit enter:\n";
 	for (my $i = 0; $i < @checkList; $i++){
 		print "[$i] - $checkList[$i]\n";
 	}

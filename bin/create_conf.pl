@@ -773,7 +773,7 @@ sub reformatFasta {
 			$seq .=$_;
 		}
 		if (scalar(@out) == 100000) {
-			$count += 100000;
+			$count += scalar(@out)/2;
 			open (OUT, ">>$fileName.tmp") or die "could not open tmp file for writing\n";
 			print OUT join "\n", @out;
 			print "$count sequences processed\n";
@@ -783,7 +783,11 @@ sub reformatFasta {
 	}
 	open (OUT, ">>$fileName.tmp") or die "could not open tmp file for writing\n";
         print OUT join "\n", @out;
-        @out = qw();
+	$count += scalar(@out)/2;
+	my $message = "A total of $count sequences have been reformatted";
+	print "$message\n";
+	push @log, $message;
+	@out = qw();
         close OUT or die "Could not close tmp file after writing\n";
 	my $succ = `mv $fileName.tmp $fileName`;
 	return($succ);

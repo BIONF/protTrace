@@ -1,12 +1,8 @@
-# protTrace
-A simulation based framework to estimate the evolutionary traceability of protein.
+# protTrace - A simulation based framework to estimate the evolutionary traceability of protein.
 [![language: Python](https://img.shields.io/badge/language-Python-blue.svg?style=flat)](https://www.python.org/)
 [![presented at: GCB2018](https://img.shields.io/badge/presented%20at-GCB2018-green.svg?style=flat)](http://gcb2018.de/)
 [![published in: BioRxiv](https://img.shields.io/badge/published%20in-BioRxiv-ff69b4.svg?style=flat)](https://doi.org/10.1101/302109)
 [![license: MIT](https://img.shields.io/badge/license-MIT-lightgrey.svg)](https://opensource.org/licenses/MIT)
-
-[![](www/posterSub.png)](https://f1000research.com/posters/6-1782)
-[Click for the full PDF version of the poster](https://f1000research.com/posters/6-1782)
 
 ProtTrace is a simulation based approach to assess for a protein, the seed, over what evolutionary distances its orthologs can 
 be found by means of sharing a significant sequence similarity. By doing so, it helps to differentiate between the true absence 

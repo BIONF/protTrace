@@ -9,6 +9,7 @@ be found by means of sharing a significant sequence similarity. By doing so, it 
 of an ortholog in a given species, and its non-detection due to a limited search sensitivity.
 
 # Table of Contents
+* [Workflow](#Workflow)
 * [Installation &amp; Usage](#installation--usage)
    * [protTrace &amp; Accessory Software](#prottrace--accessory-software)
    * [Configuring protTrace](#configuring-prottrace)
@@ -20,6 +21,11 @@ of an ortholog in a given species, and its non-detection due to a limited search
 * [Acknowledgements](#acknowledgements)
 * [Code of Conduct &amp; License](#code-of-conduct--license)
 * [Contact](#contact)
+
+# Workflow
+A high resolution PDF of the image is available [HERE](https://github.com/BIONF/protTrace/wiki/images/Workflow-ProtTrace.v1.cap.pdf).
+
+![Alt Text](https://github.com/BIONF/protTrace/wiki/images/Workflow-ProtTrace.v1.png "Workflow of the protTrace analysis** The workflow is distinguished into the categories Parameterization, Traceability calculation, and visualization. Boxes in green denote input files, boxes in orange represent meta-information, which is generated in the course of the analysis, and yellow boxes indicate output files that are generated as a result of an analysis. Arrows represent individual analysis steps, where the arrow style indicates whether the analysis step is obligatory (solid), or optional (dashed). Analysis steps that require the calling of external programs are indicated by the program name next to the corresponding arrow. Obligatory dependencies on 3d party software are represented by bold face black program names, those that are optional are indicated by grey font color.") 
 
 # Installation & Usage
 *protTrace* is written in Python 2.7, some helper scripts in Perl and R. Find below a the 3rd party software that is required by protTrace:

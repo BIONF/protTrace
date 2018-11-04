@@ -10,8 +10,12 @@ of an ortholog in a given species, and its non-detection due to a limited search
 
 # Table of Contents
 * [Installation &amp; Usage](#installation--usage)
+   * [protTrace &amp; Accessory Software](#prottrace--accessory-software)
+   * [Configuring protTrace](#configuring-prottrace)
+   * [Calling protTrace](#calling-prottrace)
 * [Input Data](#input-data)
-* [Walkthrough](#walkthrough)
+* [Test Run](#test-run)
+* [WIKI](#wiki)
 * [Bugs](#bugs)
 * [Acknowledgements](#acknowledgements)
 * [Code of Conduct &amp; License](#code-of-conduct--license)
@@ -30,7 +34,7 @@ of an ortholog in a given species, and its non-detection due to a limited search
   * R v3 or higher
   * [wget](https://www.gnu.org/software/wget/)
   
-## Accessory Software
+## protTrace & Accessory Software
 
 | Program name | Version | Description | Mandatory | BioConda |
 |------------- | ------- | ----------- | --------- | -------- |
@@ -48,6 +52,7 @@ Once that is out of the way (we suggest to use the [conda package management sys
 git clone https://github.com/BIONF/protTrace
 ```
 
+## Configuring protTrace
 To configure protTrace simply move into the protTrace directory and run the [configure script](https://github.com/BIONF/protTrace/wiki#the-configuration-script)
 
 ```
@@ -63,7 +68,7 @@ where this data is located.
 
 Once everything is set, you are ready to run protTest
 
-# Calling protTest
+## Calling protTest
 Enter the protTest directory and type
 ```
 python bin/protTrace.py -h
@@ -116,8 +121,8 @@ We would like to thank
 * [Arpit Jain](https://github.com/aj87)
 * [Ingo Ebersberger](https://github.com/BIONF)
 
-# Code of Conduct & License
-This tool is released with a [Contributor Code of Conduct](https://github.com/BIONF/PhyloProfile/blob/master/CODE_OF_CONDUCT.md) & under [MIT license](https://github.com/BIONF/protTrace/blob/master/LICENSE).
+# License
+This tool is released under [MIT license](https://github.com/BIONF/protTrace/blob/master/LICENSE).
 
 # How-To Cite
 Arpit Jain, Dominik Perisa, Fabian Fliedner, Ingo Ebersberger The evolutionary Traceability of protein [BioRxiv](https://doi.org/10.1101/302109) 

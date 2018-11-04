@@ -134,7 +134,7 @@ We would like to thank
 This tool is released under [MIT license](https://github.com/BIONF/protTrace/blob/master/LICENSE).
 
 # How-To Cite
-Arpit Jain, Arndt von Haeseler, Ingo Ebersberger The evolutionary Traceability of protein [BioRxiv](https://doi.org/10.1101/302109) 
+Arpit Jain, Arndt von Haeseler, Ingo Ebersberger The evolutionary Traceability of protein (2018) [BioRxiv](https://doi.org/10.1101/302109) 
 
 # Contact
 Ingo Ebersberger

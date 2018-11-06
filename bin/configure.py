@@ -1,6 +1,6 @@
 # Module to read in program config file and prepare variables
 # to be imported in other modules
-# test
+
 import os, sys
 
 class setParams:

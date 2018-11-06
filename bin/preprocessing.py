@@ -28,14 +28,13 @@ def Preprocessing(prot_id, querySeq, config_file):
 	prot_config = configure.setParams(config_file)
 
 	# Declares global variables which will be used by all methods in the module
-	global include_paralogs, hamstr_env, cache, cache_dir, work_dir, omaIdFile, orth_file, fas_file, aln_file, phy_file, id_file, proteome_file, tree_file, trans_file, hmm_file, xml_file, REvolver_output_dir, species_id, indel_file, scale_file, ortholog_tree_reconstruction, nr_processors, hamstr_oma_map_file, delTemp, blastp
+	global omaIdFile, species_id, ortholog_tree_reconstruction, nr_processors, hamstr_oma_map_file, delTemp, blastp
 
 	# Getting information from the configuration file
 	# Setting the names for the protTrace temporary and output files
 	species_id = prot_config.species
 	proteome_file = 'proteome_' + prot_id
 	id_file = 'ogIds_' + prot_id + '.txt'
-	print(id_file)
 	work_dir = prot_config.path_work_dir + '/' + prot_id
 	cache_dir = prot_config.path_cache
 	omaIdFile = work_dir + '/omaId.txt'
@@ -44,7 +43,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 	domain_archi_file = 'ogSeqs_' + prot_id + '.domains'
 	aln_file = 'ogSeqs_' + prot_id + '.aln'
 	phy_file = 'ogSeqs_' + prot_id + '.phy'
-	tree_file = 'ogSeqs_' + prot_id + '.phy.treefile' 	###	CHANGE HERE IF RAxML OUTPUT NAME CHANGES 	###
+	tree_file = 'ogSeqs_' + prot_id + '.phy.treefile' 	###	CHANGE HERE IF IQTree OUTPUT NAME CHANGES 	###
 
 	trans_file = 'ogSeqs_' + prot_id + '.trans'
 	hmm_file = prot_id + '.hmm'
@@ -60,10 +59,11 @@ def Preprocessing(prot_id, querySeq, config_file):
 	nr_processors = prot_config.nr_processors
 	hamstr_oma_map_file = prot_config.hamstr_oma_tree_map
 	blastp = prot_config.blastp
+	run_spartaABC = prot_config.run_spartaABC
 
 	# Creates a working directory where temporary and output files will be stored
 	if not os.path.exists(work_dir):
-		print('#####	Creating working directory:\n', work_dir)
+		print('#####\tCreating working directory:\n{0}'.format(work_dir))
 		try:
 			os.mkdir(work_dir)
 		except:
@@ -75,7 +75,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 	# Parse proteome of the input species given in program configuration file
 	# The proteome is extracted from the OMA database sequences file
 	startProcessTime = time.time()
-	parseProteome(species_id, prot_config.path_oma_seqs, prot_config.makeblastdb, proteome_file, prot_config.hamstr_oma_tree_map, prot_config.hamstr, hamstr_env, prot_config.search_oma_database)
+	parseProteome(species_id, prot_config.path_oma_seqs, prot_config.makeblastdb, proteome_file, prot_config.hamstr_oma_tree_map, prot_config.hamstr, hamstr_env, prot_config.search_oma_database,cache,cache_dir)
 	proteome_file = os.path.abspath(proteome_file)
 	print('#####\tTIME TAKEN: %s mins\tSpecies %s gene set preparation#####' %((time.time() - startProcessTime) / 60, species_id))
 
@@ -93,12 +93,12 @@ def Preprocessing(prot_id, querySeq, config_file):
 			if prot_config.search_oma_database:
 				startProcessTime = time.time()
 				# Find OMA orthologs groups if any
-				run = findOmaGroup(prot_id, querySeq, prot_config.path_oma_group, prot_config.path_oma_seqs, proteome_file, prot_config.makeblastdb, prot_config.blastp, delTemp, species_id)
+				run = findOmaGroup(prot_id, id_file, querySeq, prot_config.path_oma_group, prot_config.path_oma_seqs, proteome_file, prot_config.makeblastdb, prot_config.blastp, delTemp, species_id)
 
 				# Search for the ortholog sequences for the respective OMA orthologs group
 				# For all the OMA ids in the OMA group, extract sequences from OMA database sequences file
 				if run == 2:
-					findOmaSequences(prot_id, prot_config.path_oma_seqs, species_id, prot_config.hamstr_oma_tree_map, config_file)
+					findOmaSequences(prot_id, id_file, prot_config.path_oma_seqs, species_id, prot_config.hamstr_oma_tree_map, config_file,orth_file)
 					print('#####\tTIME TAKEN: %s mins\tOrthologs search in OMA database.\t#####' %((time.time() - startProcessTime) / 60))
 				else:
 					print('#####	Preparing ortholog file	#####')
@@ -139,7 +139,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 										if '>' in orth_file_all_content[orthLines] and species_id in orth_file_all_content[orthLines]:
 											rewrite_orth_file.write(orth_file_all_content[orthLines] + '\n' + orth_file_all_content[orthLines + 1])
 											break
-								run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs)
+								run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs,work_dir)
 								print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
 								os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
 
@@ -161,7 +161,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 											inputTaxaSet.write(mapLine.split()[0] + '\n')
 											break
 							inputTaxaSet.close()
-						run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs)
+						run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs,work_dir)
 						print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
 						os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
 
@@ -171,7 +171,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 						print('#####	HaMStROneSeq search for orthologs	#####')
 						startProcessTime = time.time()
 
-						run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs)
+						run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs,work_dir)
 						print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
 						os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
 
@@ -246,7 +246,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 	if prot_config.perform_msa:
 		print('#####	Performing MSA of the orthologs sequences	#####')
 		startProcessTime = time.time()
-		performMSA(prot_config.msa)
+		performPhylipMSA(prot_config.msa,nr_processors,orth_file,phy_file,cache)
 		print('#####\tTIME TAKEN: %s mins\tMAFFT#####' %((time.time() - startProcessTime) / 60))
 
 	# Calls tree reconstruction module which generates tree using degapped alignment
@@ -261,19 +261,26 @@ def Preprocessing(prot_id, querySeq, config_file):
 			print('#####\tTIME TAKEN: %s mins\tRAxML#####' %((time.time() - startProcessTime) / 60))
 
 	# Calculate indels
+	def_indel = prot_config.default_indel
+	def_indel_dist = prot_config.default_indel_distribution
 	if prot_config.calculate_indel:
 		if cache and os.path.exists(indel_file):
 			print('Pre-computed indel found for re-use!')
+		elif os.path.exists(tree_file):
+			if run_spartaABC:
+				performFastaMSA(prot_config.msa,nr_processors,orth_file,aln_file,cache)
+				calculateIndelsSparta(prot_config.sparta,prot_config.evolve_dawg,orth_file,aln_file,tree_file,def_indel, def_indel_dist,delTemp,cache,indel_file)
+			else:
+				# Transform alignment
+				print('#####	Transforming MSA based on indel blocks	#####')
+				alignmentLength = 0
+				try:
+					alignmentLength = transformAlignment.main(phy_file, trans_file)
+				except:
+					pass
+				calculateIndels(tree_file, trans_file, alignmentLength, prot_config.iqtree24, def_indel, def_indel_dist,indel_file)
 		else:
-
-			# Transform alignment
-			print('#####	Transforming MSA based on indel blocks	#####')
-			alignmentLength = 0
-			try:
-				alignmentLength = transformAlignment.main(phy_file, trans_file)
-			except:
-				pass
-			calculateIndels(tree_file, trans_file, alignmentLength, prot_config.iqtree, prot_config.default_indel, prot_config.default_indel_distribution)
+			writeIndels(def_indel,def_indel_dist,indel_file)
 
 	# Domain constraint file for REvolver
 
@@ -299,13 +306,13 @@ def Preprocessing(prot_id, querySeq, config_file):
 		p = f[1]
 	else:
 		print('WARNING: Indel file not found. Using default value:', prot_config.default_indel)
-		indel = prot_config.default_indel
-		p = prot_config.default_indel_distribution
+		indel = def_indel
+		p = def_indel_dist
 		writeIndel = open(indel_file, 'w')
 		writeIndel.write(indel + '\n' + p)
 		writeIndel.close()
 
-	prepareXML(xml_file, prot_config.pfam_database, prot_config.hmmfetch, prot_config.aa_substitution_matrix, indel, p, scaling_factor, prot_config.simulation_tree, prot_id, hmm_file, REvolver_output_dir)
+	prepareXML(xml_file, prot_config.pfam_database, prot_config.hmmfetch, prot_config.aa_substitution_matrix, indel, p, scaling_factor, prot_config.simulation_tree, prot_id, hmm_file, REvolver_output_dir,run_spartaABC)
 
 	os.chdir(rootDir)
 
@@ -548,7 +555,7 @@ def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_arc
 		os.system('rm -rf %s' %temp_fasAnno)
 
 # HaMStROneSeq run
-def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, proteome, delTemp, hamstr_env, include_paralogs):
+def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, proteome, delTemp, hamstr_env, include_paralogs,work_dir):
 	# Setting default paths for HaMStR-OneSeq
 	hamstrOneSeq = hamstr + '/bin/oneSeq.pl'
 	try:
@@ -743,7 +750,7 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
 
 
 # Prepares input configuration file for REvolver
-def prepareXML(xml_file, pfamDB, hmmfetch, aaMatrix, indel, p, sf, simTree, prot_id, hmm_file, output_dir):
+def prepareXML(xml_file, pfamDB, hmmfetch, aaMatrix, indel, p, sf, simTree, prot_id, hmm_file, output_dir,run_spartaABC):
 	fnew = open(xml_file, 'w')
 	fnew.write('<?xml version="1.0" encoding="UTF-8" ?>\n')
 	fnew.write('<configdata  xsi:schemaLocation="http://www.cibiv.at/Revolver ./input_schema.xsd" xmlns="http://www.cibiv.at/Revolver" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" >\n')
@@ -753,14 +760,26 @@ def prepareXML(xml_file, pfamDB, hmmfetch, aaMatrix, indel, p, sf, simTree, prot
 	fnew.write('\t</config>\n')
 	fnew.write('\t<model>\n')
 	fnew.write('\t\t<substitution name="%s"/>\n' %aaMatrix)
-	fnew.write('\t\t<indel>\n')
-	fnew.write('\t\t\t<insertion rate="%s">\n' %str(indel))
-	fnew.write('\t\t\t\t<length distribution="geometric" p="%s"/>\n' %str(p))
-	fnew.write('\t\t\t</insertion>\n')
-	fnew.write('\t\t\t<deletion rate="%s">\n' %str(indel))
-	fnew.write('\t\t\t\t<length distribution="geometric" p="%s"/>\n' %str(p))
-	fnew.write('\t\t\t</deletion>\n')
-	fnew.write('\t\t</indel>\n')
+	if float(p) > 1.0:
+		if not run_spartaABC:
+			print("Warning: The indel distribution is greater than 1, indicating a zipfian slope used by Sparta. This contradicts the run_spartaABC option being turned off!")
+		fnew.write('\t\t<indel>\n')
+		fnew.write('\t\t\t<insertion rate="%s">\n' %str(indel))
+		fnew.write('\t\t\t\t<length distribution="zipfian_M" z="%s" max="50"/>\n' %str(p))
+		fnew.write('\t\t\t</insertion>\n')
+		fnew.write('\t\t\t<deletion rate="%s">\n' %str(indel))
+		fnew.write('\t\t\t\t<length distribution="zipfian_M" z="%s" max="50"/>\n' %str(p))
+		fnew.write('\t\t\t</deletion>\n')
+		fnew.write('\t\t</indel>\n')
+	else:
+		fnew.write('\t\t<indel>\n')
+		fnew.write('\t\t\t<insertion rate="%s">\n' %str(indel))
+		fnew.write('\t\t\t\t<length distribution="geometric" p="%s"/>\n' %str(p))
+		fnew.write('\t\t\t</insertion>\n')
+		fnew.write('\t\t\t<deletion rate="%s">\n' %str(indel))
+		fnew.write('\t\t\t\t<length distribution="geometric" p="%s"/>\n' %str(p))
+		fnew.write('\t\t\t</deletion>\n')
+		fnew.write('\t\t</indel>\n')
 	fnew.write('\t</model>\n')
 	fnew.write('\t<tree scalingFactor="%s" path="%s"  />\n' %(str(sf), os.path.abspath(simTree)))
 	fnew.write('\t<root>\n')
@@ -795,7 +814,7 @@ def hmmscan(hmmscan, orth_file, pfamDB, hmm_file, prot_id, species_id):
 
 
 # Calculates indels rates
-def calculateIndels(tree_file, trans, alnLength, iqtree, def_indel, def_indel_dist):
+def calculateIndels(tree_file, trans, alnLength, iqtree, def_indel, def_indel_dist,indel_file):
 	indel = float(def_indel)
 	p = float(def_indel_dist)
 
@@ -833,28 +852,206 @@ def calculateIndels(tree_file, trans, alnLength, iqtree, def_indel, def_indel_di
 	fnew.write(str(indel) + '\n' + str(p))
 	fnew.close()
 
+def calculateIndelsSparta(sparta,seq_evolve_dawg,orth_file,aln_file,tree_file,def_indel,def_indel_dist,delTemp,reuse_cache,indel_file):
+	posterior_params_filename = 'SpartaABC_raw_output.posterior_params'
+
+	if reuse_cache and os.path.exists(posterior_params_filename):
+		print("Re-using already computed posterior estimates")
+
+		# Due to the interrogation of available files by the delete temporary files option, those variables have to be named
+		indelible_control_file = "indelible_control.txt"
+		dawg_control_file = "dawg_control.txt"
+	else:
+		# Implementation of Sparta's helper script to determine little less than min sequence length and little more than max sequence length
+		RLVals = calculateSpartaRLValues(orth_file)
+
+		# Both sequence evolution programs are to be specified inside the config file. The left out one is specified with blanks
+		indelible_control_file = ""
+		dawg_control_file = ""
+
+		# The entire newick tree of the orthologous group must be written inside the respective control file
+		written_out_tree = ""
+		try:
+			with open(tree_file,'r') as tree:
+				written_out_tree = tree.read().rstrip('\n')
+		except IOError:
+			print("There is no orthology tree file available! Make sure the option orthologs_tree_reconstruction has been executed before.")
+
+		if seq_evolve_dawg:
+			# Uses Dawg
+			dawg_simulator = "1"
+			dawg_control_file = "dawg_control.txt"
+			with open(dawg_control_file,'w') as dawg_control:
+				dawg_control.write("[Tree]\n")
+				dawg_control.write("Tree = \"{0}\"\n".format(written_out_tree))
+				dawg_control.write("\n")
+				dawg_control.write("[Indel]\n")
+				dawg_control.write("Subst.Model = \"WAG\"\n")
+				dawg_control.write("Model.Ins = \"POWER-LAW\"\n")
+				dawg_control.write("Model.Del = \"POWER-LAW\"\n")
+				dawg_control.write("Rate.Ins = ?\n")
+				dawg_control.write("Rate.Del = ?\n")
+				dawg_control.write("Params.Ins = ?, 50.0\n")
+				dawg_control.write("Params.Del = ?, 50.0\n")
+				dawg_control.write("Max.Ins = 50.0 # necessary to avoid bad_alloc error for now\n")
+				dawg_control.write("Max.Del = 50.0\n")
+				dawg_control.write("\n")
+				dawg_control.write("[Sim]\n")
+				dawg_control.write("Reps = 1\n")
+				dawg_control.write("[Output]\n")
+				dawg_control.write("File = \"fasta:-\"\n")
+				dawg_control.write("[Root]\n")
+				dawg_control.write("Length = ?\n")
+		else:
+			# Uses INDELible
+			dawg_simulator = "0"
+			indelible_control_file = "indelible_control.txt"
+			with open(indelible_control_file,'w') as indelible_control:
+				indelible_control.write("//  INDELible control file\n")
+				indelible_control.write("\n")
+				indelible_control.write("[TYPE] AMINOACID 2\n")
+				indelible_control.write("\n")
+				indelible_control.write("[SETTINGS]\n")
+				indelible_control.write("    [output] FASTA\n")
+				indelible_control.write("    [fileperrep] TRUE\n")
+				indelible_control.write("\n")
+				indelible_control.write("[MODEL]    modelname\n")
+				indelible_control.write("  [submodel]    WAG\n")
+				indelible_control.write("  [indelmodel]  POW  ? 50\n")
+				indelible_control.write("  [indelrate]   ?\n")
+				indelible_control.write("\n")
+				indelible_control.write("[TREE] treename {0}\n".format(written_out_tree))
+				indelible_control.write("\n")
+				indelible_control.write("[PARTITIONS]   partitionname\n")
+				indelible_control.write("    [treename modelname  1]\n")
+				indelible_control.write("\n")
+				indelible_control.write("[EVOLVE]     partitionname  1  ?\n")
+
+		# Writes the Sparta config file, using SpartaABC's amino acid specific values
+		with open("Sparta.conf",'w') as sconfig:
+			sconfig.write("\n")
+			sconfig.write("_indelibleTemplateControlFile {0}\n".format(indelible_control_file))
+			sconfig.write("_dawgTemplateControlFile {0}\n".format(dawg_control_file))
+			sconfig.write("_dawgSimulator {0}\n".format(dawg_simulator))
+			sconfig.write("_inputRealMSAFile {0}\n".format(aln_file))
+			sconfig.write("_outputGoodParamsFile {0}\n".format(posterior_params_filename))
+			sconfig.write("_numberOfSamplesToKeep 100000\n")
+			sconfig.write("_alignmentMode 0\n")
+			sconfig.write("_similarity_mode 0\n")
+			sconfig.write("_minRLVal {0:.1f}\n".format(RLVals[0]))
+			sconfig.write("_maxRLVal {0:.1f}\n".format(RLVals[1]))
+			sconfig.write("_minIRVal 0.0\n")
+			sconfig.write("_maxIRVal 0.15\n")
+			sconfig.write("\n")
+			sconfig.write("_wAvgUniqueGapSize 0.0608829560660657\n")
+			sconfig.write("_wMSAMin 0.00191213860761342\n")
+			sconfig.write("_wNumGapsLenTwo 0.000864182910616497\n")
+			sconfig.write("_wAvgGapSize 0.161663134960216\n")
+			sconfig.write("_wTotNumGaps 0.000139867523540041\n")
+			sconfig.write("_wNumGapsLenAtLeastFour 0.000273522492154681\n")
+			sconfig.write("_wNumGapsLenOne 0.000439656531427027\n")
+			sconfig.write("_wMSAMax 0.00160268570388424\n")
+			sconfig.write("_wMSALen 0.000241093525341335\n")
+			sconfig.write("_wTotNumUniqueGaps 0.00115596033397199\n")
+			sconfig.write("_wNumGapsLenThree 0.00142589360646065\n")
+			sconfig.write("\n")
+
+		os.system('{0} Sparta.conf'.format(sparta))
+
+	posterior_estimates = extract50ClosestDistancePosteriorMean(posterior_params_filename)
+	indel = posterior_estimates[0]
+	indel_distribution = posterior_estimates[1]
+
+	if indel_distribution < 1:
+		print("Indel distribution estimated to be lower than 1. This is not compatible to REvolver Zipfian distribution. Default of 1.1 is used.")
+		indel_distribution = 1.1
+
+	# Since REvolver uses geometric indel distribution, but at least INDELible natively uses Zipfian distribution, we pass the default indel distribution value.
+	writeIndels(indel,indel_distribution,indel_file)
+
+	if delTemp:
+		os.system('rm {0} Sparta.conf'.format(posterior_params_filename))
+		if indelible_control_file != "" and os.path.exists(indelible_control_file):
+			os.system('rm indelible_control.txt')
+		if dawg_control_file != "" and os.path.exists(dawg_control_file):
+			os.system('rm dawg_control.txt')
+
+def calculateSpartaRLValues(orth_file):
+	minLength = 0
+	maxLength = 0
+	with open(orth_file,'r') as orthologs_list:
+		for count,line in enumerate(orthologs_list,start=1):
+			if count == 1 and line[0] != ">":
+				raise IOError('Orthologs Fasta file does not start with a Fasta header! Affected file: {0}'.format(orth_file))
+			if count % 2 == 0:
+				if count == 2:
+					minLength = len(line)
+					maxLength = len(line)
+				else:
+					if len(line) > maxLength:
+						maxLength = len(line)
+					if len(line) < minLength:
+						minLength = len(line)
+
+	less_than_min = int(minLength - 0.1*minLength)
+	if less_than_min < 10:
+		less_than_min = 10
+	more_than_max = int(maxLength + 0.1*maxLength)
+
+	return (less_than_min,more_than_max)
+
+def extract50ClosestDistancePosteriorMean(sparta_output_file):
+	simulations = []
+	with open(sparta_output_file,'r') as raw:
+		# First line are headers, second line represents initial MSA
+		simulations = raw.readlines()[2:]
+	# Extract the first (distance) and fourth (indel rate) element of each tab-delimited line. Then sort by distance (element 0 of resulting pair list).
+	distance_indel_zipfianSlope = [[float(line.split('\t',1)[0]),float(line.split('\t',4)[3]),float(line.split('\t',4)[2])] for line in simulations]
+	distance_indel_zipfianSlope.sort(key=lambda x:x[0])
+
+	# Sum up the 50 lowest distance's indel rates
+	fifty_best_posteriors = [i[1:] for i in distance_indel_zipfianSlope[:50]]
+	fifty_best_indel_sum = 0
+	fifty_best_zipfianSlope_sum = 0
+	for distance_sorted_indel_zipfianSlope in fifty_best_posteriors:
+		fifty_best_indel_sum += distance_sorted_indel_zipfianSlope[0]
+		fifty_best_zipfianSlope_sum += distance_sorted_indel_zipfianSlope[1]
+
+	# Return the mean of the 50 closest distance's indel rates
+	return (fifty_best_indel_sum / 50,fifty_best_zipfianSlope_sum / 50)
+
+def writeIndels(indel_rate,indel_distribution,indel_file):
+	with open(indel_file,'w') as fnew:
+		fnew.write(str(indel_rate)+'\n'+str(indel_distribution))
 
 # Perform MSA of the ortholog sequences
-# Convert the .aln format to .phy format
-def performMSA(msa):
-	if cache:
-		if os.path.exists(phy_file):
-			print('Re-using previously compiled orthologs alignment file')
-		else:
-			try:
-				os.system('%s --quiet --phylipout --thread %s %s > %s' %(msa, nr_processors, orth_file, phy_file))
-			except:
-				pass
-				print('WARNING: MSA didn\'t work. Less than 2 sequences found for alignment!!!')
+# Produces msa in .phy format
+def performPhylipMSA(msa,nr_processors,orth_file,phy_file,cache):
+	if cache and os.path.exists(phy_file):
+		print('Re-using previously compiled orthologs alignment phylip file')
+		pass
 	else:
 		try:
-			os.system('%s --phylipout %s > %s' %(msa, orth_file, phy_file))
+			os.system('%s --quiet --phylipout --thread %s %s > %s' %(msa, nr_processors, orth_file, phy_file))
+		except:
+			pass
+			print('WARNING: MSA didn\'t work. Less than 2 sequences found for alignment!!!')
+
+# Perform MSA of the ortholog sequences
+# Produces msa in .aln format
+def performFastaMSA(msa,nr_processors,orth_file,aln_file,cache):
+	if cache and os.path.exists(aln_file):
+		print('Re-using previously compiled orthologs alignment fasta file')
+		pass
+	else:
+		try:
+			os.system('%s --quiet --thread %s %s > %s' %(msa, nr_processors, orth_file, aln_file))
 		except:
 			pass
 			print('WARNING: MSA didn\'t work. Less than 2 sequences found for alignment!!!')
 
 # Read OMA sequences file and parse OMA orthologs sequences
-def findOmaSequences(prot_id, omaSeqs, species_id, mapFile, config_file):
+def findOmaSequences(prot_id, id_file, omaSeqs, species_id, mapFile, config_file,orth_file):
 	prot_config = configure.setParams(config_file)
 	try:
 		mapIds = []
@@ -866,23 +1063,30 @@ def findOmaSequences(prot_id, omaSeqs, species_id, mapFile, config_file):
 		#print(orth_file)
 		with open(id_file,'r') as id_input:
 			ids = id_input.read().split('\n')
+		# This counter serves to not read more lines than necessary
+		ids_count = len(ids)
 		#print(omaSeqs)
 		with open(omaSeqs) as f:
 			if not prot_config.run_hamstr and not prot_config.run_hamstrOneSeq:
 				for line in f:
 					if line[0] == ">" and line.split('\n')[0][1:] in ids:
 						fnew.write('>' + line[1:6] + '\n' + f.next().replace('*', '').replace('X', ''))
+						ids_count -= 1
+						if ids_count == 0:
+							break
 			else:
 				for line in f:
 					if line[0] == '>' and line.split('\n')[0][1:] in ids and line[1:6] in mapIds:
 						fnew.write('>' + line[1:6] + '\n' + f.next().replace('*', '').replace('X', ''))
+						ids_count -= 1
+						if ids_count == 0:
+							break
 		fnew.close()
 	except IOError:
 		sys.exit('ERROR: Cannot find OMA orthologs sequences. OMA sequence file does not exist!')
 
-
 # Read OMA orthologs groups file and parses the ortholog list for input OMA id
-def findOmaGroup(prot_id, querySeq, omaGroup, omaSeqs, proteome_file, makeblastdb, blastp, delTemp, species_id):
+def findOmaGroup(prot_id, id_file, querySeq, omaGroup, omaSeqs, proteome_file, makeblastdb, blastp, delTemp, species_id):
 	try:
 		if not querySeq == 'None':
 			run = 1
@@ -968,7 +1172,7 @@ def findOmaGroup(prot_id, querySeq, omaGroup, omaSeqs, proteome_file, makeblastd
 
 # Read in OMA sequences file and create a new proteome file for the species id
 # Performs formatdb on the proteome to be later used in reciprocal BLAST search
-def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile, hamstrDir, hamstrEnv, search_oma_database):
+def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile, hamstrDir, hamstrEnv, search_oma_database,cache,cache_dir):
 	try:
 		# Check whether the parsed proteome in already present in Cache directory
 		if cache and os.path.exists(cache_dir + '/proteome_' + species_id):
@@ -976,7 +1180,6 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
 			os.system('ln -sf {0} {1}'.format(cache_dir + '/proteome_' + species_id, proteome_file))
 		elif search_oma_database:
 			print('#####	Parsing gene set for species %s from OMA database	#####' %species_id)
-			## debug ingo
 			fnew = open(proteome_file, 'w')
 
 			speciesFoundInOmaFlag = False

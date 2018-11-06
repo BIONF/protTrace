@@ -22,8 +22,8 @@ use LWP::Simple;
 ##A simple perl script to check the dependencies for protTrace and for setting up the configure script
 
 #### Default settings and dependencies ##########
-my @dependencies = qw(python perl java linsi hmmscan hmmfetch makeblastdb blastp iqtree Rscript);
-my @neDependencies = qw(oneseq.pl);
+my @dependencies = qw(linsi hmmscan hmmfetch makeblastdb blastp iqtree Rscript python perl java);
+my @neDependencies = qw(oneseq.pl figtree);
 my $minVersion->{linsi}=6;
 $minVersion->{hmmscan}=3.1;
 $minVersion->{blastp}=2.7;
@@ -56,17 +56,16 @@ my @path2Deps;
 my @usedFileList;
 my @checkList;
 my @OptionList = userOptions();
-my $message;
 ##################
 my $helpmessage = "SYNOPSIS
-This script checks for the essential program dependencies of protTrace and creates the config file controlling the protTrace run
+This script checks for the essential program dependencies of protTrace and creates the config file controlling the protTrace run\n
 
 USAGE: create_conf.pl -name [-update -hamstr -getOma]
 
 OPTIONS
 -name=<>	specify the name of the config file
 -update		set this flag to update an existing config file provided via -name
--hamstr		set this flag if you want to make use of the HaMStR package. If not set, missing HaMStR dependencies are not traced.
+-hamstr		set this flag if you want to make use of the HaMStR enviromnet. If not set, missing HaMStR dependencies are not traced.
 -getOma		set this flag to retrieve OMA orthologs from the OMA database
 -getPfam	set this flag to retrieve the Pfam-A database";
 ####################
@@ -92,37 +91,9 @@ GetOptions (
 	"getOma" => \$getOma,
 	"getPfam" => \$getPfam
 	);
-if ($help or !defined $name){
+if ($help){
 	print "\n\n\n$helpmessage\n\n";
 	exit;
-}
-################
-## create paths if not exist
-if (! -e "$currwd/output") {
-	my $suc = `mkdir $currwd/output`;
-	if ($suc) {
-		$message = "Could not create directory $currwd/output. Make sure to solve this issue before running protTrace\n";
-		push @log, $message;
-		print "$message\n";
-	}
-	else {
-		$message = "Successfully created output dir $currwd/output";
-		push @log, $message;
-		print "$message\n";
-	}
-}
-if (! -e "$currwd/cache") {
-        my $suc = `mkdir $currwd/cache`;
-        if ($suc) {
-                $message = "Could not create directory $currwd/cache. Make sure to solve this issue before running protTrace\n";
-                push @log, $message;
-                print "$message\n";
-        }
-        else {
-                $message = "Successfully created output dir $currwd/cache";
-                push @log, $message;
-                print "$message\n";
-        }
 }
 ################
 ($name, @textarray) = processInput($name);
@@ -134,7 +105,7 @@ if (!defined $name){
 my @configDat = qw();
 if ($update) {
 	@configDat = readConfig($name);
-	populateDefault(@configDat);	
+	populateDefault(@configDat);
 }
 
 ################
@@ -170,7 +141,7 @@ if (1){
 	}
 	else {
 		my $count = 0;
-		for (my $i = 0; $i < @toCheck; $i++){			
+		for (my $i = 0; $i < @toCheck; $i++){
 			print "$checkList[$toCheck[$i]]\n";
 			$entry = $OptionList[$toCheck[$i]];
 			for (my $j = 0; $j < @$entry; $j++){
@@ -214,13 +185,13 @@ if (1){
 				}
 				elsif (defined $newVal and $newVal eq ''){
 					$newVal = $optionsValues{$select[$updateKeys[$i]]};
-					$newVal =~ s/.*\(Default (.*)\)/$1/; 
+					$newVal =~ s/.*\(Default (.*)\)/$1/;
 					my $message = "Using default value: $newVal\n";
 					push @log, $message;
 					print "$message\n";
-					$prepOptions{$select[$updateKeys[$i]]} = $newVal; 
+					$prepOptions{$select[$updateKeys[$i]]} = $newVal;
 				}
-					
+
 				else {
 					my $message = "You chose to quit";
 					print $message . "\n";
@@ -244,11 +215,6 @@ if ($getOma){
 		print "$message\n";
                 print "Reformatting fasta\n";
                 my $return = reformatFasta($prepOptions{path_oma_seqs});
-		if ($return) {
-			$message = "Something went wrong during reformatting of the oma sequences. Please check\n";
-			push @log, $message;
-			print "$message\n";
-		}
 
 	}
 	else {
@@ -274,7 +240,7 @@ if ($getPfam) {
                 push @log, $message;
                 print "$message\n";
         }
-        else {  
+        else {
                 $message = "Problems during retrieval of Pfam data. Files under $prepOptions{pfam_database}. Please solve before running protTrace";
                 push @log, $message;
                 print "$message\n";
@@ -311,7 +277,7 @@ sub testDep {
 				$versionshort =~ s/_/./;
 				if ($versionshort < $minversion){
 					## problem
-					my $message = "Issue: I found $prog, but the version number $versionshort is below the minimal requirement $minversion. You can continue with the configure script, but you will have to upgrade $prog manually";
+					my $message = "Issue: I found $prog, but the versison number $versionshort is below the minimal requirement $minversion. You can continue with the configure script, but you will have to upgrade $prog manually";
 					push @log, $message;
 					print "$message\n";
 					$issue = 1;
@@ -322,8 +288,8 @@ sub testDep {
 					printLog();
 					exit;
 				}
-			} 
-				  
+			}
+
 		}
 		else {
 			$issue = 1;
@@ -357,7 +323,7 @@ sub testDep {
 						$prog = $path2prog;
 					}
 				}
-				$exist = 1;				
+				$exist = 1;
 			}
 			elsif ($q =~ /^s/i) {
 				$jump = 1;
@@ -369,15 +335,15 @@ sub testDep {
 		}
 	}
 	return ($path2prog);
-}	
-				 
+}
+
 ###################
 ## get user input
 sub userInput {
 	my ($type, $message) = @_;
 	if (defined $message) {
 		print "$message";
-	} 
+	}
 	my $answer;
 	$answer = <STDIN>;
 	chomp $answer;
@@ -386,7 +352,7 @@ sub userInput {
 	}
 	if ($type eq 'numeric'){
 		while ($answer =~ /[^0-9,-]/ and $answer !~ /^q/i){
-			print "please enter only a (comma separated) list of digits or a range: ";
+			print "pleaese enter only a (comma separated) list of digits or a range: ";
 			$answer = <STDIN>;
 			$answer =~ s/ //g;
 			chomp $answer;
@@ -407,11 +373,11 @@ sub userInput {
 					}
 				}
 			}
-			return(@listret); 
+			return(@listret);
 		}
 	}
 	elsif ($type eq 'alpha'){
-		return($answer); 
+		return($answer);
 	}
 }
 ################################
@@ -427,7 +393,7 @@ sub processInput {
 		}
 	}
 	if (defined $update && ! (-e $nameSub)) {
-		my $message = "You specified the option -update but the file $name seems to not exist in $currwd. You can provide the path or enter (q) to cancel: "; 
+		my $message = "You specified the option -update but the file $name seems to not exist in $currwd. You can provide the path or enter (q) to cancel: ";
 		push @log, $message;
 		print "$message\n";
 		my $stop = 0;
@@ -468,13 +434,13 @@ sub readValue {
 ##################
 sub getCheckList {
 	@checkList = ("General Options", "Preprocessing Settings", "Advanced Preprocessing Settings", "Scaling factors",
-	"Indel parameter", "Traceability calculation", "Program paths", "Paths to files");	
-	print "\nPlease select from the list the groups you wish to update or enter q to quit. To use defaults, just hit enter:\n";
+	"Indel parameter", "Traceability calculation", "Program paths", "Paths to files");
+	print "\nPlease select from the list the groups you whish to update or enter q to quit. To use defaults, just hit enter:\n";
 	for (my $i = 0; $i < @checkList; $i++){
 		print "[$i] - $checkList[$i]\n";
 	}
 	my @list = userInput("numeric", "If you select more than one group, separate them by a comma or give a range. Leave blank to initialize with default values: ");
-	return(@list); 
+	return(@list);
 }
 ###################
 sub userOptions {
@@ -494,6 +460,8 @@ sub userOptions {
 					  default_scaling_factor => 1,
 					  perform_msa => 'YES',
 					  calculate_indel => 'YES',
+					  run_spartaABC => 'NO',
+					  dawg_instead_of_indelible => 'NO',
 					  default_indel => 0.08,
 					  default_indel_distribution => 0.25,
 					  traceability_calculation => 'YES',
@@ -522,9 +490,10 @@ sub userOptions {
 					makeblastdb => '/share/applications/bin/makeblastdb',
 					Rscript => '/usr/bin/Rscript',
 					hamstr => '',
-					oneseq =>  '');		
-					
-	%optionsValues = (species => 'OMA 5 letter Species Identifier: (Default YEAST)',
+					oneseq =>  '',
+					spartaABC => '');
+
+	%optionsValues = (species => 'OMA 5 letter Species Identifier: (Default HUMAN)',
 					  nr_of_processors => 'Integer (Default 1)',
 					  delete_temporary_files => 'YES|NO (Default NO)',
 					  reuse_cache => 'YES|NO (Default YES)',
@@ -540,6 +509,8 @@ sub userOptions {
 					  default_scaling_factor => 'float (Default 1.57)',
 					  perform_msa => 'YES|NO (Default YES)',
 					  calculate_indel => 'YES|NO (Default YES)',
+					  run_spartaABC => 'YES|NO (Default NO)',
+					  dawg_instead_of_indelible => 'YES|NO (Default NO)',
 					  default_indel => 'float (Default 0.08)',
 					  default_indel_distribution => 'float (Default 0.25)',
 					  traceability_calculation => 'YES|NO (Default YES)',
@@ -561,6 +532,7 @@ sub userOptions {
 					fas_annotations => 'Path to HaMStR weight_dir (Default NULL)',
 					hamstr_environment => 'Path to HaMStR directory (Default NULL)',
 					iqtree => 'Path to iqtree (Default NULL)',
+					spartaABC => 'Path to spartaABC (Default NULL)',
 					linsi => 'Path to linsi (Default NULL)',
 					hmmfetch => 'Path to hmmfetch (Default NULL)',
 					hmmscan => 'Path to hmmscan (Default NULL)',
@@ -568,16 +540,16 @@ sub userOptions {
 					makeblastdb => 'Path to makeblastdb (Default NULL)',
 					Rscript => 'Path to Rscript (Default NULL)',
 					hamstr => 'Path to hamstr.pl (Default NULL)',
-					oneseq =>  'Path to oneseq.pl (Default NULL)');						
+					oneseq =>  'Path to oneseq.pl (Default NULL)');
 	@generalOptions = qw(species nr_of_processors delete_temporary_files reuse_cache map_traceability_tree);
 	@preProcessing = qw(preprocessing orthologs_prediction search_oma_database);
 	@prepAdvanced = qw(run_hamstr run_hamstrOneSeq include_paralogs fas_score);
 	@scaling = qw(calculate_scaling_factor default_scaling_factor);
-	@indel = qw(perform_msa calculate_indel default_indel default_indel_distribution);
+	@indel = qw(perform_msa calculate_indel run_spartaABC dawg_instead_of_indelible default_indel default_indel_distribution);
 	@trace = qw(traceability_calculation aa_substitution_matrix simulation_runs);
-	@path2Deps = qw(iqtree linsi hmmfetch hmmscan blastp makeblastdb Rscript hamstr oneseq);
+	@path2Deps = qw(iqtree spartaABC linsi hmmfetch hmmscan blastp makeblastdb Rscript hamstr oneseq);
 	@usedFileList = qw(REvolver simulation_tree decay_script plot_figtree Xref_mapping_file reference_species_tree
-	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database fas_annotations hamstr_environment path_output_dir path_cache); 
+	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database fas_annotations hamstr_environment path_output_dir path_cache);
 
 	my @options;
 	$options[0] = \@generalOptions;
@@ -588,7 +560,7 @@ sub userOptions {
 	$options[5] = \@trace;
 	$options[6] = \@path2Deps;
 	$options[7] = \@usedFileList;
-	return(@options);	
+	return(@options);
 }
 
 ##########################
@@ -643,6 +615,8 @@ sub printConfig {
 	print OUT "perform_msa:$prepOptions{perform_msa}\n";
 	print OUT "###     Calculate Indel rates   ###\n";
 	print OUT "calculate_indel:$prepOptions{calculate_indel}\n";
+	print OUT "run_spartaABC:$prepOptions{run_spartaABC}\n";
+	print OUT "dawg_instead_of_indelible:$prepOptions{dawg_instead_of_indelible}\n";
 	print OUT "default_indel:$prepOptions{default_indel}\n";
 	print OUT "default_indel_distribution:$prepOptions{default_indel_distribution}\n";
 	print OUT "#####\n";
@@ -667,6 +641,7 @@ sub printConfig {
 	print OUT "Rscript:$prepOptions{Rscript}\n";
 	print OUT "hamstr:$prepOptions{hamstr}\n";
 	print OUT "oneseq:$prepOptions{oneseq}\n";
+	print OUT "spartaABC:$prepOptions{spartaABC}\n";
 	print OUT "\n###\n";
 	print OUT "#####   Used files / directories #####\n";
 	print OUT "REvolver:$prepOptions{REvolver}\n";
@@ -751,44 +726,32 @@ sub reformatFasta {
 	my $head;
 	my $seq = '';
 	my @out;
-	my $count = 0;
-	## remove an tmp file if it exists
-	if (-e "$fileName.tmp"){
-		print "Found an existing tmp file $fileName.tmp. Removing it...\n";
-		`rm -f $fileName.tmp`;
-	}
 	while (<IN>){
 		chomp $_;
 		if ($_ =~ /^>/) {
 			if (length($seq) > 0){
-				push @out, $head;
-				$head = '';
 				push @out, $seq;
 				$seq = '';
 			}
 			$head = $_;
 			$head =~ s/ //g;
+			push @out, $head;
 		}
 		else {
 			$seq .=$_;
 		}
-		if (scalar(@out) == 100000) {
-			$count += scalar(@out)/2;
+		if (scalar(@out) == 1000) {
 			open (OUT, ">>$fileName.tmp") or die "could not open tmp file for writing\n";
 			print OUT join "\n", @out;
-			print "$count sequences processed\n";
 			@out = qw();
 			close OUT or die "Could not close tmp file after writing\n";
 		}
 	}
 	open (OUT, ">>$fileName.tmp") or die "could not open tmp file for writing\n";
         print OUT join "\n", @out;
-	$count += scalar(@out)/2;
-	my $message = "A total of $count sequences have been reformatted";
-	print "$message\n";
-	push @log, $message;
-	@out = qw();
+        @out = qw();
         close OUT or die "Could not close tmp file after writing\n";
 	my $succ = `mv $fileName.tmp $fileName`;
+	print "return is $succ\n";
 	return($succ);
 }

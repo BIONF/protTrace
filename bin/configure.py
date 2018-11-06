@@ -21,11 +21,6 @@ class setParams:
 						self.orthologs_prediction = True
 					else:
 						self.orthologs_prediction = False
-			#	if line.split(':')[0] == 'search_ortholog_sequences':
-			#		if line.split(':')[1] == 'YES':
-			#			self.search_ortholog_sequences = True
-			#		else:
-			#			self.search_ortholog_sequences = False
 				if line.split(':')[0] == 'run_hamstr':
 					if line.split(':')[1] == 'YES':
 						self.run_hamstr = True
@@ -92,6 +87,16 @@ class setParams:
 						self.phylogeneticTreeReconstruction = True
 					else:
 						self.phylogeneticTreeReconstruction = False
+				if line.split(':')[0] == 'run_spartaABC':
+					if line.split(':')[1] == 'YES':
+						self.run_spartaABC = True
+					else:
+						self.run_spartaABC = False
+				if line.split(':')[0] == 'dawg_instead_of_indelible':
+					if line.split(':')[1] == 'YES':
+						self.evolve_dawg = True
+					else:
+						self.evolve_dawg = False
 				if line.split(':')[0] == 'aa_substitution_matrix':
 					self.aa_substitution_matrix = line.split(':')[1]
 				if line.split(':')[0] == 'default_indel':
@@ -104,6 +109,8 @@ class setParams:
 					self.simulation_runs = int(line.split(':')[1])
 				if line.split(':')[0] == 'nr_of_processors':
 					self.nr_processors = int(line.split(':')[1])
+				if line.split(':')[0] == 'spartaABC':
+					self.sparta = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'linsi':
 					self.msa = os.path.abspath(line.split(':')[1])
 				if line.split(':')[0] == 'REvolver':

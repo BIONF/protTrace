@@ -219,7 +219,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 			else:
 				sys.exit("ERROR: No reciprocal BLAST hit ID found. Please check if file %s/omaID.txt exists." %work_dir)
 		tempFile.close()
-		os.system('%s -query temp_inputSeq.fa -db proteome.fa -evalue 0.00001 -outfmt 6 -max_target_seqs 1 -out temp.txt' %(prot_config.blastp))
+		os.system('%s -query temp_inputSeq.fa -db proteome.fa -evalue 0.00001 -outfmt 6 -out temp.txt' %(prot_config.blastp))
 		if os.path.exists('temp.txt') and len(open('temp.txt').read().split('\n')) > 1:
 			prot_id_temp = open('temp.txt').read().split('\n')[0].split('\t')[1]
 			oma = open(omaIdFile, 'w')
@@ -374,7 +374,7 @@ def retrieve_FAS_annotations(fasta):
 	ftemp = open(temporary_file_1, "w")
 	ftemp.write('>' + fasOmaId + '\n' + sequence)
 	ftemp.close()
-	blast_command = '%s -query %s -db %s -evalue 0.00001 -outfmt 6 -max_target_seqs 1 -out %s' %(blastp, temporary_file_1, species_blast_dir, temporary_file_2)
+	blast_command = '%s -query %s -db %s -evalue 0.00001 -outfmt 6 -out %s' %(blastp, temporary_file_1, species_blast_dir, temporary_file_2)
 	os.system(blast_command)
 	#print open(temporary_file_2).read()
 	if os.path.exists(temporary_file_2) and len(open(temporary_file_2).read().split('\n')) > 1:
@@ -614,11 +614,10 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
 			#print 'Create blast database for the OMA sequences: ', com
 			os.system(com)
 			#print 'Perform BLAST search and pick up the top hit as query input ID..'
-			os.system('%s -query %s -db %s -evalue 0.00001 -outfmt 6 -max_target_seqs 1 -out temp.txt' %(blastp, orth_file, refSpec + '.fa'))
-			#os.system('%s -query %s -db %s -evalue 0.00001 -outfmt 6 -max_target_seqs 1 -out temp.txt' %(blastp, orth_file, proteome))
+			os.system('%s -query %s -db %s -evalue 0.00001 -outfmt 6 -out temp.txt' %(blastp, orth_file, refSpec + '.fa'))
 			if os.path.exists('temp.txt') and len(open('temp.txt').read().split('\n')) > 1:
 				seqId = open('temp.txt').read().split('\n')[0].split('\t')[1]
-			os.system('%s -query %s -db %s -evalue 0.00001 -outfmt 6 -max_target_seqs 1 -out temp.txt' %(blastp, orth_file, proteome))
+			os.system('%s -query %s -db %s -evalue 0.00001 -outfmt 6 -out temp.txt' %(blastp, orth_file, proteome))
 			if os.path.exists('temp.txt') and len(open('temp.txt').read().split('\n')) > 1:
 				omaId = open('temp.txt').read().split('\n')[0].split('\t')[1]
 			#print 'Writing OMA id into file'
@@ -1118,7 +1117,7 @@ def findOmaGroup(prot_id, id_file, querySeq, omaGroup, omaSeqs, proteome_file, m
 				tempFile = open('temp_inputSeq.fa', 'w')
 				tempFile.write('>' + prot_id + '\n' + querySeq)
 				tempFile.close()
-				os.system('%s -query temp_inputSeq.fa -db proteome.fa -evalue 0.00001 -outfmt 6 -max_target_seqs 1 -out temp.txt' %(blastp))
+				os.system('%s -query temp_inputSeq.fa -db proteome.fa -evalue 0.00001 -outfmt 6 -out temp.txt' %(blastp))
 				if os.path.exists('temp.txt') and len(open('temp.txt').read().split('\n')) > 1:
 					prot_id_temp = open('temp.txt').read().split('\n')[0].split('\t')[1]
 					oma = open(omaIdFile, 'w')

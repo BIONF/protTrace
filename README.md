@@ -34,7 +34,7 @@ A high resolution PDF of the image is available [HERE](https://github.com/BIONF/
 *protTrace* is written in Python 2.7, some helper scripts in Perl and R. Find below a the 3rd party software that is required by protTrace:
   * The ProtTrace package contains scripts written in different languages. In order to run ProtTrace you need the following resources:
   * Python v2.7.13 or higher. **Note, ProtTrace will not run under Python 3**
-     * Install also the [[https://www.dendropy.org/ DendroPy]] module (can be done via [Conda](https://github.com/BIONF/protTrace/wiki/EnvironmentSetUp).
+     * Install also the [DendroPy module ](https://www.dendropy.org/) (can be done via [Conda](https://github.com/BIONF/protTrace/wiki/EnvironmentSetUp).
   *. Perl v5 or higher including the following modules
      * Getopt::Long
      * List::Util

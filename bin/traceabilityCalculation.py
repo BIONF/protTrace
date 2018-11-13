@@ -133,8 +133,8 @@ def actual_traceability_calculation(run):
 		except KeyboardInterrupt:
 			print('Keyboard interruption by user!')
 			raise Exception
-		#except:
-		#	pass
+		except:
+			pass
 	if trials >= 10:
 		print('TOO MANY TRIALS FOR REVOLVER!!! Check REvolver configuration file.')
 

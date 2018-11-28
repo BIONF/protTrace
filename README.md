@@ -26,7 +26,7 @@ of an ortholog in a given species, and its non-detection due to a limited search
 
 
 # Workflow
-The workflow of protTrace to infer the evolutionary traceability of a seed protein consists of three main steps (see figure below).
+The workflow of protTrace to infer the evolutionary traceability of a seed protein is shown in the figure below (mouse over to see details). It consists of three main steps
   1. **Parameterization:** The compilation of an orthologous group for this protein. In the standard setting, OMA orthologous groups are used. The sequences in the ortholog group are then used to infer the parameters of substitution and the insertion- and deletion process. 
   1. **Traceability calculation:** The in-silico evolution of the seed protein using the simulation software [REvolver](https://academic.oup.com/mbe/article/29/9/2133/1074669), and the determination of the traceability curve.
   1. **Visualization:** The inference of the traceability index for the protein in 233 species from all domains of life, and the generation of a colored tree.

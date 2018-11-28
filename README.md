@@ -26,6 +26,10 @@ of an ortholog in a given species, and its non-detection due to a limited search
 
 
 # Workflow
+The workflow of protTrace to infer the evolutionary traceability of a seed protein consists of three main steps (see figure below).
+  1. **Parameterization:** The compilation of an orthologous group for this protein. In the standard setting, OMA orthologous groups are used. The sequences in the ortholog group are then used to infer the parameters of substitution and the insertion- and deletion process. 
+  1. **SimulationL:** The in-silico evolution of the seed protein using the simulation software [REvolver](https://academic.oup.com/mbe/article/29/9/2133/1074669), and the determination of the traceability curve.
+  1. **Visualization:** The inference of the traceability index for the protein in 233 species from all domains of life, and the generation of a colored tree.
 A high resolution PDF of the image is available [HERE](https://github.com/BIONF/protTrace/wiki/images/Workflow-ProtTrace.v1.cap.pdf).
 
 ![Alt Text](https://github.com/BIONF/protTrace/wiki/images/Workflow-ProtTrace.v1.png "Workflow of the protTrace analysis** The workflow is distinguished into the categories Parameterization, Traceability calculation, and visualization. Boxes in green denote input files, boxes in orange represent meta-information, which is generated in the course of the analysis, and yellow boxes indicate output files that are generated as a result of an analysis. Arrows represent individual analysis steps, where the arrow style indicates whether the analysis step is obligatory (solid), or optional (dashed). Analysis steps that require the calling of external programs are indicated by the program name next to the corresponding arrow. Obligatory dependencies on 3d party software are represented by bold face black program names, those that are optional are indicated by grey font color.") 

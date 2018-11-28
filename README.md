@@ -2,7 +2,7 @@
 [![language: Python](https://img.shields.io/badge/language-Python-blue.svg?style=flat)](https://www.python.org/)
 [![presented at: GCB2018](https://img.shields.io/badge/presented%20at-GCB2018-green.svg?style=flat)](http://gcb2018.de/)
 [![published in: BioRxiv](https://img.shields.io/badge/published%20in-BioRxiv-ff69b4.svg?style=flat)](https://doi.org/10.1101/302109)
-[![license: GPL-3.0](https://img.shields.io/badge/license-MIT-lightgrey.svg)](https://opensource.org/licenses/MIT)
+[![license: GPL-3.0](https://img.shields.io/badge/license-GNU--GPL3.0-lightgrey.svg)](https://opensource.org/licenses/MIT)
 
 # Table of Contents
 * [Scientific Context](#scientific-context)

@@ -16,7 +16,7 @@
 * [WIKI](#wiki)
 * [Bugs](#bugs)
 * [Acknowledgements](#acknowledgements)
-* [Code of Conduct &amp; License](#code-of-conduct--license)
+* [License](#license)
 * [Contact](#contact)
 # Scientific context
 *ProtTrace* is a simulation based approach to assess for a protein, the seed, over what evolutionary distances its orthologs can 

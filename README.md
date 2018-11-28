@@ -134,7 +134,7 @@ We would like to thank the members of [Ebersberger group](http://www.bio.uni-fra
 * [Ingo Ebersberger](https://github.com/BIONF)
 
 # License
-This tool is released under [MIT license](https://github.com/BIONF/protTrace/blob/master/LICENSE).
+This tool is released under [GNU-GPL3.0 license](https://github.com/BIONF/protTrace/blob/master/LICENSE).
 
 # How-To Cite
 Arpit Jain, Arndt von Haeseler, Ingo Ebersberger The evolutionary Traceability of protein (2018) [BioRxiv](https://doi.org/10.1101/302109) 

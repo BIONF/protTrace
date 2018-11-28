@@ -123,8 +123,7 @@ Read the [WIKI](https://github.com/BIONF/protTrace/wiki/home) to explore the fun
 Any bug reports or comments, suggestions are highly appreciated. Please open an issue on GitHub or be in touch via email.
 
 # Acknowledgements
-We would like to thank
-2) Members of [Ebersberger group](http://www.bio.uni-frankfurt.de/43045195/ak-ebersberger) for many valuable suggestions and ...bug reports :)
+We would like to thank the members of [Ebersberger group](http://www.bio.uni-frankfurt.de/43045195/ak-ebersberger) for many valuable suggestions and ...bug reports :)
 
 # Contributors
 * [Arpit Jain](https://github.com/aj87)

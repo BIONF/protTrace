@@ -36,7 +36,7 @@ $minVersion->{figtree}=1.4;
 ##################
 my $omaLink = 'https://omabrowser.org/All/oma-groups.txt.gz';
 my $omaSeqLink = 'https://omabrowser.org/All/oma-seqs.fa.gz';
-my $pfamLink = 'ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz';
+my $pfamLink = 'http://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz';
 ##################
 my $currwd = `pwd`;
 chomp $currwd;

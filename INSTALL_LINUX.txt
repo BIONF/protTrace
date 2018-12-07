@@ -1,21 +1,23 @@
-### INSTALLING ANACONDA
+To install protTrace including all dependencies on a freshly set up linux system follow the steps below. 
+
+### 1. INSTALLING ANACONDA
 bash Anaconda2-5.3.1-Linux-x86_64.sh
 conda config --add channels bioconda
-### INSTALLING THE ACCESSORY SOFTWARE VIA CONDA
+### 2. INSTALLING THE ACCESSORY SOFTWARE VIA CONDA
 conda install -c cyclus java-jdk
 conda install dendropy mafft blast hmmer iqtree
 conda clean --all
-### INSTALLING SYSTEM TOOLS
+### 3. INSTALLING SYSTEM TOOLS (gcc, make, git, R)
 sudo apt-get update
 sudo apt-get install build-essential
 sudo apt-get install git
 sudo apt-get r-base
-### INSTALLING NON-STANDARD PERL MODULES
+### 4. INSTALLING NON-STANDARD PERL MODULES
 cpan install LWP::Simple
 cpan install List::Util
-### RETREAVING PROTTRACE VIA GIT
+### 5. RETREAVING PROTTRACE VIA GIT
 git clone https://github.com/BIONF/protTrace.git
-### CONFIGURING PROTTRACE
+### 6. CONFIGURING PROTTRACE
 cd protTrace
 perl bin/create_config.pl -name=prog.config -getOma -getPfam
 

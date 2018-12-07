@@ -1,8 +1,11 @@
-To install protTrace including all dependencies on a freshly set up linux system follow the steps below. 
+To install protTrace including all dependencies on a freshly set up 64 bit linux system follow the steps below. We assume that you have root privileges on your system.
 
 ### 1. INSTALLING ANACONDA
-bash Anaconda2-5.3.1-Linux-x86_64.sh
-conda config --add channels bioconda
+Download anaconda version 2.7 from https://www.anaconda.com/download
+Install anaconda by running the the installer script. Move to the directory to which you downloaded the anaconda distribution
+$ bash Anaconda2-5.3.1-Linux-x86_64.sh
+$ conda config --add channels bioconda
+$ source ~/.bashrc
 ### 2. INSTALLING THE ACCESSORY SOFTWARE VIA CONDA
 conda install -c cyclus java-jdk
 conda install dendropy mafft blast hmmer iqtree
@@ -20,5 +23,7 @@ git clone https://github.com/BIONF/protTrace.git
 ### 6. CONFIGURING PROTTRACE
 cd protTrace
 perl bin/create_config.pl -name=prog.config -getOma -getPfam
+### 7. TEST RUN OF PROTTRACE
+move into the toy_examples directory
+$ python ../bin/protTrace.py -i test.id -c ../prog.config
 
-IF ALL STEPS COMPLETED SUCCESSFULLY, YOU ARE READY TO RUN PROTTRACE

@@ -22,7 +22,7 @@ cpan install List::Util
 git clone https://github.com/BIONF/protTrace.git
 ### 6. CONFIGURING PROTTRACE
 cd protTrace
-perl bin/create_config.pl -name=prog.config -getOma -getPfam
+perl bin/create_conf.pl -name=prog.config -getOma -getPfam
 ### 7. TEST RUN OF PROTTRACE
 move into the toy_examples directory
 $ python ../bin/protTrace.py -i test.id -c ../prog.config

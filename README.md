@@ -134,6 +134,7 @@ We would like to thank the members of [Ebersberger group](http://www.bio.uni-fra
 # Contributors
 * [Arpit Jain](https://github.com/aj87)
 * [Ingo Ebersberger](https://github.com/BIONF)
+* Dominik Perisa
 
 # License
 This tool is released under [GNU-GPL3.0 license](https://opensource.org/licenses/GPL-3.0).

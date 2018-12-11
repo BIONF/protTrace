@@ -35,6 +35,8 @@ A high resolution PDF of the image is available [HERE](https://github.com/BIONF/
 ![Alt Text](https://github.com/BIONF/protTrace/wiki/images/Workflow-ProtTrace.v1.png "Workflow of the protTrace analysis** The workflow is distinguished into the categories Parameterization, Traceability calculation, and visualization. Boxes in green denote input files, boxes in orange represent meta-information, which is generated in the course of the analysis, and yellow boxes indicate output files that are generated as a result of an analysis. Arrows represent individual analysis steps, where the arrow style indicates whether the analysis step is obligatory (solid), or optional (dashed). Analysis steps that require the calling of external programs are indicated by the program name next to the corresponding arrow. Obligatory dependencies on 3d party software are represented by bold face black program names, those that are optional are indicated by grey font color.") 
 
 # Installation & Usage
+Please refer to the [protTrace WIKI](https://github.com/BIONF/protTrace/wiki) for a full description of the installation and usage guidlines. Below, we will provide a quick excerpt.
+
 *protTrace* is written in Python 2.7, some helper scripts in Perl and R. Find below a the 3rd party software that is required by protTrace:
   * The ProtTrace package contains scripts written in different languages. In order to run ProtTrace you need the following resources:
   * Python v2.7.13 or higher. **Note, ProtTrace will not run under Python 3**

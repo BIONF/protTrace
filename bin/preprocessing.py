@@ -278,7 +278,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 					alignmentLength = transformAlignment.main(phy_file, trans_file)
 				except:
 					pass
-				calculateIndels(tree_file, trans_file, alignmentLength, prot_config.iqtree24, def_indel, def_indel_dist,indel_file)
+				calculateIndels(tree_file, trans_file, alignmentLength, prot_config.iqtree, def_indel, def_indel_dist,indel_file)
 		else:
 			writeIndels(def_indel,def_indel_dist,indel_file)
 

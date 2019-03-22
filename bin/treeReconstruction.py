@@ -7,9 +7,9 @@ import maxLikDistMatrix
 
 # Calculate the median of a set
 def median(lst):
-    even = (0 if len(lst) % 2 else 1) + 1
-    half = (len(lst) - 1) / 2
-    return sum(sorted(lst)[half:half + even]) / float(even)
+	even = (0 if len(lst) % 2 else 1) + 1
+	half = (len(lst) - 1) / 2
+	return sum(sorted(lst)[half:half + even]) / float(even)
 
 # Rename the ortholog group sequences into oma ids
 # (cut down every fasta header to 5 character long names)
@@ -32,11 +32,11 @@ def msa_convert():
 def run_iqtree():
 	if makeTree:
 		if reuse_cache and os.path.exists('ogSeqs_' + protein_id + '.phy.treefile') and os.path.exists('ogSeqs_' + protein_id + '.phy.ckp.gz'):
-                        print('ML tree already exists. Reusing it.')
-                else:
-                        os.system('rm -rf RAxML_*')
-                        os.system('iqtree -nt %s -s ogSeqs_%s.phy -m %s -keep-ident -redo' %(nr_proc, protein_id, aaMatrix))
-        #print 'complete..'
+			print('ML tree already exists. Reusing it.')
+		else:
+			os.system('rm -rf RAxML_*')
+			os.system('iqtree -nt %s -s ogSeqs_%s.phy -m %s -keep-ident -redo' %(nr_proc, protein_id, aaMatrix))
+		#print 'complete..'
 # Remove all the temp files generated
 def rm_temp():
 

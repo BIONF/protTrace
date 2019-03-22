@@ -1223,7 +1223,7 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
 
 	except IOError:
 
-    		print("*** print_tb:")
+		print("*** print_tb:")
 
 		print("*** print_tb_type:", exc_type)
 		print("*** print_tb_value:", exc_value)

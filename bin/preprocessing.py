@@ -1066,20 +1066,12 @@ def findOmaSequences(prot_id, id_file, omaSeqs, species_id, mapFile, config_file
 		ids_count = len(ids)
 		#print(omaSeqs)
 		with open(omaSeqs) as f:
-			if not prot_config.run_hamstr and not prot_config.run_hamstrOneSeq:
-				for line in f:
-					if line[0] == ">" and line.split('\n')[0][1:] in ids:
-						fnew.write('>' + line[1:6] + '\n' + f.next().replace('*', '').replace('X', ''))
-						ids_count -= 1
-						if ids_count == 0:
-							break
-			else:
-				for line in f:
-					if line[0] == '>' and line.split('\n')[0][1:] in ids and line[1:6] in mapIds:
-						fnew.write('>' + line[1:6] + '\n' + f.next().replace('*', '').replace('X', ''))
-						ids_count -= 1
-						if ids_count == 0:
-							break
+			for line in f:
+				if line[0] == '>' and line.split('\n')[0][1:] in ids and line[1:6] in mapIds:
+					fnew.write('>' + line[1:6] + '\n' + f.next().replace('*', '').replace('X', ''))
+					ids_count -= 1
+					if ids_count == 0:
+						break
 		fnew.close()
 	except IOError:
 		sys.exit('ERROR: Cannot find OMA orthologs sequences. OMA sequence file does not exist!')

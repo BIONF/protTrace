@@ -1153,7 +1153,6 @@ def findOmaGroup(prot_id, id_file, querySeq, omaGroup, omaSeqs, proteome_file, m
 					written = True
 					break
 			if not written:
-				run = 1
 				fnew.write(prot_id)
 				fnew.close()
 

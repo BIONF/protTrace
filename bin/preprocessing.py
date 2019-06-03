@@ -282,6 +282,17 @@ def Preprocessing(prot_id, querySeq, config_file):
 		else:
 			writeIndels(def_indel,def_indel_dist,indel_file)
 
+	# Prepares the usage of REvolver
+	# Checks for necessary file paths.
+	if not os.path.exists(os.path.abspath(prot_config.pfam_database)):
+		sys.exit('ERROR: The file %s does not exist. Check the path to the Pfam database file.' %os.path.abspath(prot_config.pfam_database))
+	if not os.path.exists(prot_config.hmmfetch):
+		sys.exit('ERROR: The file %s does not exist. Check the path to the hmmfetch program.' %prot_config.hmmfetch)
+	if not os.path.exists('seq_%s.fa' %prot_id):
+		sys.exit('ERROR: The file seq_%s.fa does not exist. Check the path to the input sequence file.' %prot_id)
+	if not os.path.exists(os.path.abspath(hmm_file)):
+		sys.exit('ERROR: The file %s does not exist. Check the path to the hmm file.' %os.path.abspath(hmm_file))
+
 	# Domain constraint file for REvolver
 
 	# Creates a output directory for REvolver
@@ -750,6 +761,7 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
 
 # Prepares input configuration file for REvolver
 def prepareXML(xml_file, pfamDB, hmmfetch, aaMatrix, indel, p, sf, simTree, prot_id, hmm_file, output_dir,run_spartaABC):
+	# Writes the REvolver configuration XML-file.
 	fnew = open(xml_file, 'w')
 	fnew.write('<?xml version="1.0" encoding="UTF-8" ?>\n')
 	fnew.write('<configdata  xsi:schemaLocation="http://www.cibiv.at/Revolver ./input_schema.xsd" xmlns="http://www.cibiv.at/Revolver" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" >\n')

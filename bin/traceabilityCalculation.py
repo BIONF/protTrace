@@ -73,7 +73,6 @@ def main(p_id, config_file):
 					detection_probability[key].append(value)
 				else:
 					detection_probability[key].append(value)
-		#print detection_probability
 
 		for taxa in taxonset:
 			ffull.write(taxa + ' ')
@@ -106,8 +105,6 @@ def actual_traceability_calculation(run):
 	detection_probability = {}
 
 	print 'Run: ', run
-	#command = 'java -Xmx2G -Xms2G -cp "%s" revolver %s' %(prot_config.REvolver, temp_revolver_config_file)
-	#print 'REvolver calculations command: ', command
 
 	success = False
 	trials = 0
@@ -151,7 +148,6 @@ def decayParams(r, prot_id, decay_script):
 
 def run_revolver(REvolver, xml_file):
 	command = 'java -Xmx2G -Xms2G -cp "%s" revolver %s' %(REvolver, xml_file)
-	#print '##### REvolver calculations command: ', command
 	os.system(command)
 
 def run_blast(blastp, prot_id, proteome, revolverOut):

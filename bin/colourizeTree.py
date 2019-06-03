@@ -70,10 +70,9 @@ def colourize(speciesName, speciesId, nexusTreeFile, speciesTree, decayRate, dec
 	fnew = open(nexusTreeFile.replace('.nexus', '_edit.nexus'), 'w')
 	for i in range(startTaxa):
 		fnew.write(tree[i] + '\n')
-	#c = 1
+
 	for i in range(startTaxa, stopTaxa):
 		tempSpecies = tree[i].split()[-1]
-		#print tempSpecies
 		if not tempSpecies == speciesName:
 			try:
 				colourCode, traceValue = getColourCode(speciesName, tempSpecies, decayRate, decayPop)
@@ -83,17 +82,10 @@ def colourize(speciesName, speciesId, nexusTreeFile, speciesTree, decayRate, dec
 					if tempSpecies == hamstrMapFile[j].split('\t')[1]:
 						omaName = hamstrMapFile[j].split('\t')[-1]
 						break
-#				print omaName
-#				print matrixDict[omaName]
 				for elements in matrixDict[omaName]:
-					#print elements
 					newElement = elements + '#' + str(traceValue)
 					matrixDict[omaName].remove(elements)
-					#print matrixDict[omaName]
 					matrixDict[omaName].insert(0, newElement)
-					#print matrixDict[omaName]
-				#c += 1
-				#print 'yes'
 				traceResults.write(speciesName + '\t' + tempSpecies + '\t' + str(traceValue) +'\n')
 				fnew.write(tree[i] + '[&!color=#-' + colourCode + ']' + '\n')
 			except:
@@ -226,7 +218,6 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 		ncbiId = "ncbi" + hamstrMapFile[j].split()[-2]
 		oma_id = hamstrMapFile[j].split()[-1]
 		for elements in matrixDict[oma_id]:
-			#print elements
 			if intended_fas_score_calc:
 				matrixFile.write(protId + '\t' + ncbiId + '\t' + elements.split('#')[0] + '\t' + elements.split('#')[1] + '\t' + elements.split('#')[2] + '\n')
 			else:

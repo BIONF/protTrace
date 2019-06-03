@@ -269,7 +269,7 @@ def Preprocessing(prot_id, querySeq, config_file):
 		elif os.path.exists(tree_file):
 			if run_spartaABC:
 				performFastaMSA(prot_config.msa,nr_processors,orth_file,aln_file,cache)
-				calculateIndelsSparta(prot_config.sparta,prot_config.evolve_dawg,orth_file,aln_file,tree_file,def_indel, def_indel_dist,delTemp,cache,indel_file)
+				calculateIndelsSpartaABC(prot_config.sparta,prot_config.evolve_dawg,orth_file,aln_file,tree_file,def_indel, def_indel_dist,delTemp,cache,indel_file)
 			else:
 				# Transform alignment
 				print('#####	Transforming MSA based on indel blocks	#####')
@@ -863,7 +863,7 @@ def calculateIndels(tree_file, trans, alnLength, iqtree, def_indel, def_indel_di
 	fnew.write(str(indel) + '\n' + str(p))
 	fnew.close()
 
-def calculateIndelsSparta(sparta,seq_evolve_dawg,orth_file,aln_file,tree_file,def_indel,def_indel_dist,delTemp,reuse_cache,indel_file):
+def calculateIndelsSpartaABC(sparta,seq_evolve_dawg,orth_file,aln_file,tree_file,def_indel,def_indel_dist,delTemp,reuse_cache,indel_file):
 	posterior_params_filename = 'SpartaABC_raw_output.posterior_params'
 
 	if reuse_cache and os.path.exists(posterior_params_filename):
@@ -938,7 +938,7 @@ def calculateIndelsSparta(sparta,seq_evolve_dawg,orth_file,aln_file,tree_file,de
 				indelible_control.write("\n")
 				indelible_control.write("[EVOLVE]     partitionname  1  ?\n")
 
-		# Writes the Sparta config file, using SpartaABC's amino acid specific values
+		# Writes the SpartaABC config file, using SpartaABC's amino acid specific values
 		with open("Sparta.conf",'w') as sconfig:
 			sconfig.write("\n")
 			sconfig.write("_indelibleTemplateControlFile {0}\n".format(indelible_control_file))
@@ -946,7 +946,7 @@ def calculateIndelsSparta(sparta,seq_evolve_dawg,orth_file,aln_file,tree_file,de
 			sconfig.write("_dawgSimulator {0}\n".format(dawg_simulator))
 			sconfig.write("_inputRealMSAFile {0}\n".format(aln_file))
 			sconfig.write("_outputGoodParamsFile {0}\n".format(posterior_params_filename))
-			sconfig.write("_numberOfSamplesToKeep 100000\n")
+			sconfig.write("_numberOfSamplesToKeep 100\n")
 			sconfig.write("_alignmentMode 0\n")
 			sconfig.write("_similarity_mode 0\n")
 			sconfig.write("_minRLVal {0:.1f}\n".format(RLVals[0]))
@@ -967,11 +967,22 @@ def calculateIndelsSparta(sparta,seq_evolve_dawg,orth_file,aln_file,tree_file,de
 			sconfig.write("_wNumGapsLenThree 0.00142589360646065\n")
 			sconfig.write("\n")
 
-		os.system('{0} Sparta.conf'.format(sparta))
+		# Runs SpartaABC
+		sparta_exit_code = os.system('{0} Sparta.conf'.format(sparta))
+
+		# Evaluates the exit code to make keyboard interruptions of the subprocess possible without introducing the subprocess module.
+		if sparta_exit_code == 2:
+			# Removes the posterior params file to make a restart possible.
+			os.remove(posterior_params_filename)
+			sys.exit("Keyboard interruption!")
+		if sparta_exit_code != 0:
+			sys.exit("ERROR: SpartaABC threw an error! The exit code was {0}.".format(sparta_exit_code))
 
 	posterior_estimates = extract50ClosestDistancePosteriorMean(posterior_params_filename)
 	indel = posterior_estimates[0]
 	indel_distribution = posterior_estimates[1]
+
+	print("Passed")
 
 	if indel_distribution < 1:
 		print("Indel distribution estimated to be lower than 1. This is not compatible to REvolver Zipfian distribution. Default of 1.1 is used.")

@@ -288,10 +288,6 @@ def Preprocessing(prot_id, querySeq, config_file):
 		sys.exit('ERROR: The file %s does not exist. Check the path to the Pfam database file.' %os.path.abspath(prot_config.pfam_database))
 	if not os.path.exists(prot_config.hmmfetch):
 		sys.exit('ERROR: The file %s does not exist. Check the path to the hmmfetch program.' %prot_config.hmmfetch)
-	if not os.path.exists('seq_%s.fa' %prot_id):
-		sys.exit('ERROR: The file seq_%s.fa does not exist. Check the path to the input sequence file.' %prot_id)
-	if not os.path.exists(os.path.abspath(hmm_file)):
-		sys.exit('ERROR: The file %s does not exist. Check the path to the hmm file.' %os.path.abspath(hmm_file))
 
 	# Domain constraint file for REvolver
 

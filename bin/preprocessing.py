@@ -1164,60 +1164,56 @@ def findOmaGroup(prot_id, id_file, querySeq, omaGroup, omaSeqs, proteome_file, m
 # Read in OMA sequences file and create a new proteome file for the species id
 # Performs formatdb on the proteome to be later used in reciprocal BLAST search
 def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile, hamstrDir, hamstrEnv, search_oma_database,cache,cache_dir):
-	try:
-		# Check whether the parsed proteome in already present in Cache directory
-		if cache and os.path.exists(cache_dir + '/proteome_' + species_id):
-			print('#####	Gene set for species %s found in Cache directory. Reusing it.	#####' %species_id)
-			os.system('ln -sf {0} {1}'.format(cache_dir + '/proteome_' + species_id, proteome_file))
-		elif search_oma_database:
-			print('#####	Parsing gene set for species %s from OMA database	#####' %species_id)
-			fnew = open(proteome_file, 'w')
+	# Check whether the parsed proteome in already present in Cache directory
+	if cache and os.path.exists(cache_dir + '/proteome_' + species_id):
+		print('#####	Gene set for species %s found in Cache directory. Reusing it.	#####' %species_id)
+		os.system('ln -sf {0} {1}'.format(cache_dir + '/proteome_' + species_id, proteome_file))
+	elif search_oma_database:
+		print('#####	Parsing gene set for species %s from OMA database	#####' %species_id)
+		fnew = open(proteome_file, 'w')
 
-			speciesFoundInOmaFlag = False
+		speciesFoundInOmaFlag = False
+		try:
 			with open(omaSeqs, 'r') as f:
-				#print(omaSeqs)
-				#print(">"+species_id)
 				for line in f:
 					if line[:6] == '>' + species_id:
 						speciesFoundInOmaFlag = True
 						fnew.write(line + next(f))
-				#print(line)
+			failed_IO_flag = False
+		except IOError:
+			failed_IO_flag = True
+			print('ERROR: Cannot parse the proteome of species %s. Please check the path of the OMA-seqs file!' %species_id)
+		finally:
 			fnew.close()
+			if failed_IO_flag:
+				sys.exit()
 
-			os.system('cp -ar %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
+		os.system('cp -ar %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
 
-			if not speciesFoundInOmaFlag:
-				sys.exit('ERROR: Species %s not found in OMA database. Please make sure if the species exists in OMA database. If not, please turn off "search_oma_database" flag in program configuration file.' %species_id)
+		if not speciesFoundInOmaFlag:
+			sys.exit('ERROR: Species %s not found in OMA database. Please make sure if the species exists in OMA database. If not, please turn off "search_oma_database" flag in program configuration file.' %species_id)
 
-		else:
-			print(('#####	Parsing gene set for species %s in local (HaMStR) blast directory.	#####' %species_id))
+	else:
+		print(('#####	Parsing gene set for species %s in local (HaMStR) blast directory.	#####' %species_id))
+		try:
 			for line in open(crossRefFile):
 				if species_id == line.split()[-1]:
 					hamstr_id = line.split()[0]
 					break
+		except IOError:
+			sys.exit('ERROR: Could not open %s. Please check the path.' %crossRefFile)
+		if not hamstrEnv == "":
+			genome_dir = hamstrDir + '/genome_dir_' + hamstrEnv
+		else:
+			genome_dir = hamstrDir + '/genome_dir'
 
-			if not hamstrEnv == "":
-				genome_dir = hamstrDir + '/genome_dir_' + hamstrEnv
-			else:
-				genome_dir = hamstrDir + '/genome_dir'
+		species_genome_file = genome_dir + '/' + hamstr_id + '/' + hamstr_id + '.fa'
 
-			species_genome_file = genome_dir + '/' + hamstr_id + '/' + hamstr_id + '.fa'
+		if os.path.exists(species_genome_file):
+			os.system('cp -ar %s %s' %(species_genome_file, proteome_file))
+		else:
+			sys.exit('ERROR: Reference species %s not found in local (HaMStR) BLAST directory!!!' %species_id)
 
-			if os.path.exists(species_genome_file):
-				os.system('cp -ar %s %s' %(species_genome_file, proteome_file))
-			else:
-				sys.exit('ERROR: Reference species %s not found in local (HaMStR) BLAST directory!!!' %species_id)
-
-			os.system('cp -avr %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
-		print('#####	Making BLAST db of the gene set to be used by the blast search	#####')
-		os.system('%s -in %s -input_type fasta -dbtype prot' %(makeblastdb, proteome_file))
-		#proteome_file = os.path.abspath(proteome_file)
-
-	except IOError:
-
-		print("*** print_tb:")
-
-		print("*** print_tb_type:", exc_type)
-		print("*** print_tb_value:", exc_value)
-
-		sys.exit('ERROR: Cannot create gene set for species %s. Please check the path of species information contatining file!' %species_id)
+		os.system('cp -avr %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
+	print('#####	Making BLAST db of the gene set to be used by the blast search	#####')
+	os.system('%s -in %s -input_type fasta -dbtype prot' %(makeblastdb, proteome_file))

@@ -116,12 +116,14 @@ def actual_traceability_calculation(run):
 			try:
 				run_revolver(prot_config.REvolver, temp_revolver_config_file)
 			except Exception as e:
+				# The exception is raised by the subprocess routine that calles REvolver
 				print("REvolver threw an exception!")
 				print(e)
 				break
 			try:
 				blastOutput = run_blast(prot_config.blastp, prot_id, proteome_file, revolver_output_dir)
 			except Exception as e:
+				# The exception is raised by the subprocess routine that calles BLASTP
 				print("BLASTP threw an exception during the reblast!")
 				print(e)
 				break
@@ -158,10 +160,18 @@ def decayParams(r, prot_id, decay_script):
 
 def run_revolver(REvolver, xml_file):
 	command = 'java -Xmx2G -Xms2G -cp "%s" revolver %s' %(REvolver, xml_file)
-	os.system(command)
+	try:
+		subprocess.check_output(command, shell=True)
+	except subprocess.CalledProcessError as e:
+		print(e.output)
+		raise e
 
 def run_blast(blastp, prot_id, proteome, revolverOut):
 	command = '%s -query %s/out.fa -db %s -outfmt "6 qseqid sseqid"' %(blastp, revolverOut, proteome)
-	result = subprocess.check_output(command, shell=True)
+	try:
+		result = subprocess.check_output(command, shell=True)
+	except subprocess.CalledProcessError as e:
+		print(e.output)
+		raise e
 	return result
 

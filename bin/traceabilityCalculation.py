@@ -51,14 +51,16 @@ def main(p_id, config_file):
 		try:
 			pool = Pool(processes=nr_proc)
 			results = pool.map(actual_traceability_calculation, range(prot_config.simulation_runs))
-		except KeyboardInterrupt as e:
+		except KeyboardInterrupt:
 			pool.terminate()
-			pool.join()
-			print("Interrupting REvolver")
-			sys.exit(e)
+			pool.close()
+			sys.exit("Interrupting REvolver")
 		except:
 			print("ERROR: Multiprocessing step <-> Traceability Calculations.")
 			pass
+		finally:
+			pool.terminate()
+			pool.join()
 
 		print '#####\tTIME TAKEN: %s mins REvolver/BLAST#####' %((time.time() - start_time) / 60)
 
@@ -111,8 +113,18 @@ def actual_traceability_calculation(run):
 	while(not success and trials < 10):
 		trials += 1
 		try:
-			run_revolver(prot_config.REvolver, temp_revolver_config_file)
-			blastOutput = run_blast(prot_config.blastp, prot_id, proteome_file, revolver_output_dir)
+			try:
+				run_revolver(prot_config.REvolver, temp_revolver_config_file)
+			except Exception as e:
+				print("REvolver threw an exception!")
+				print(e)
+				break
+			try:
+				blastOutput = run_blast(prot_config.blastp, prot_id, proteome_file, revolver_output_dir)
+			except Exception as e:
+				print("BLASTP threw an exception during the reblast!")
+				print(e)
+				break
 			for taxa in taxonset:
 				detection = 0
 				linecount = 1
@@ -130,8 +142,6 @@ def actual_traceability_calculation(run):
 		except KeyboardInterrupt:
 			print('Keyboard interruption by user!')
 			raise Exception
-		except:
-			pass
 	if trials >= 10:
 		print('TOO MANY TRIALS FOR REVOLVER!!! Check REvolver configuration file.')
 

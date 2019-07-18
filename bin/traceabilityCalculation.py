@@ -118,7 +118,6 @@ def actual_traceability_calculation(run):
 			except Exception as e:
 				# The exception is raised by the subprocess routine that calles REvolver
 				print("REvolver threw an exception!")
-				print(e)
 				break
 			try:
 				blastOutput = run_blast(prot_config.blastp, prot_id, proteome_file, revolver_output_dir)
@@ -161,17 +160,31 @@ def decayParams(r, prot_id, decay_script):
 def run_revolver(REvolver, xml_file):
 	command = 'java -Xmx2G -Xms2G -cp "%s" revolver %s' %(REvolver, xml_file)
 	try:
-		subprocess.check_output(command, shell=True)
+		subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
 	except subprocess.CalledProcessError as e:
-		print(e.output)
+		# The exception gets caught to not halt the entire ProtTrace process.
+		# This is especially important when processing multiple query proteins.
+		# Since each protein is processed consecutively.
+		# Any exception, that originates from deleting the entire sequence
+		# and trying to evolving it further with feature constraints,
+		# is reduced to few sentences to not clutter the log.
+		unique_exception_message_lines = set(e.output.splitlines())
+		if "	at controller.seqGeneration.HmmSeqEvolver.simulateDeletion_waitingTime(HmmSeqEvolver.java:431)" in unique_exception_message_lines:
+			print("A sequence with features got deleted to zero amino-acid length.\nThe feature-dependent HmmSeqEvolver cannot simulate the deletion waiting time anymore.")
+		elif "	at controller.seqGeneration.HmmSeqEvolver.evolveSequence_waitingTime(HmmSeqEvolver.java:297)" in unique_exception_message_lines:
+			print("An uninvestigated error occured while evolving the sequence at assumingly rapid speeds. No output fasta file has been generated.")
+		else:
+			print(e.output)
+		## TODO: There is also an possible, but rare simulateInsertion_waitingTime exception.
 		raise e
 
 def run_blast(blastp, prot_id, proteome, revolverOut):
 	command = '%s -query %s/out.fa -db %s -outfmt "6 qseqid sseqid"' %(blastp, revolverOut, proteome)
-	try:
-		result = subprocess.check_output(command, shell=True)
-	except subprocess.CalledProcessError as e:
-		print(e.output)
-		raise e
+	blast_process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	result, error = blast_process.communicate()
+	# This error message is caught and printed only once.
+	if error[0:54] == "BLAST engine error: Warning: Sequence contains no data":
+		print("BLAST engine error: Warning: Sequence contains no data")
+		print("Either an sequence in the simulation step was deleted to zero amino-acids or REvolver did not execute properly.")
 	return result
 

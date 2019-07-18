@@ -55,9 +55,9 @@ def main(p_id, config_file):
 			pool.terminate()
 			pool.close()
 			sys.exit("Interrupting REvolver")
-		except:
-			print("ERROR: Multiprocessing step <-> Traceability Calculations.")
-			pass
+		#except:
+		#	print("ERROR: Multiprocessing step <-> Traceability Calculations.")
+		#	pass
 		finally:
 			pool.terminate()
 			pool.join()
@@ -165,18 +165,20 @@ def run_revolver(REvolver, xml_file):
 		# The exception gets caught to not halt the entire ProtTrace process.
 		# This is especially important when processing multiple query proteins.
 		# Since each protein is processed consecutively.
+
 		# Any exception, that originates from deleting the entire sequence
 		# and trying to evolving it further with feature constraints,
 		# is reduced to few sentences to not clutter the log.
-		unique_exception_message_lines = set(e.output.splitlines())
-		if "	at controller.seqGeneration.HmmSeqEvolver.simulateDeletion_waitingTime(HmmSeqEvolver.java:431)" in unique_exception_message_lines:
-			print("A sequence with features got deleted to zero amino-acid length.\nThe feature-dependent HmmSeqEvolver cannot simulate the deletion waiting time anymore.")
-		elif "	at controller.seqGeneration.HmmSeqEvolver.evolveSequence_waitingTime(HmmSeqEvolver.java:297)" in unique_exception_message_lines:
-			print("An uninvestigated error occured while evolving the sequence at assumingly rapid speeds. No output fasta file has been generated.")
+		# For this, the message is splitted for each sentence and then stripped off the
+		# sometimes varying line numbers in the java sourcecode.
+		message_lines = set([m.split("(")[0] for m in e.output.split("\n")])
+		if "	at controller.seqGeneration.HmmSeqEvolver.evolveSequence_waitingTime" in message_lines:
+			print("The feature-dependent HmmSeqEvolver cannot simulate the evolution/deletion/insertion waiting time!\n\
+The sequence evolved most likely at rapid speeds and got fully deleted!")
+			pass
 		else:
 			print(e.output)
-		## TODO: There is also an possible, but rare simulateInsertion_waitingTime exception.
-		raise e
+			raise e
 
 def run_blast(blastp, prot_id, proteome, revolverOut):
 	command = '%s -query %s/out.fa -db %s -outfmt "6 qseqid sseqid"' %(blastp, revolverOut, proteome)
@@ -185,6 +187,10 @@ def run_blast(blastp, prot_id, proteome, revolverOut):
 	# This error message is caught and printed only once.
 	if error[0:54] == "BLAST engine error: Warning: Sequence contains no data":
 		print("BLAST engine error: Warning: Sequence contains no data")
-		print("Either an sequence in the simulation step was deleted to zero amino-acids or REvolver did not execute properly.")
+		print("Either an sequence in the simulation step was deleted to zero amino-acids or REvolver did not execute properly!")
+	elif error == "Command line argument error: Argument \"query\". File is not accessible:  `{0}/out.fa'\n".format(revolverOut):
+		print("REvolver did not produce an output fasta file!")
+	elif error != "":
+		print(error)
 	return result
 

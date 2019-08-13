@@ -89,98 +89,101 @@ def Preprocessing(prot_id, querySeq, config_file):
 			print('Orthologs file found in cache_dir. Reusing it.')
 			os.system('cp %s %s' %(cache_dir + '/' + orth_file, orth_file))
 		else:
-			# Check if OMA database has to be accessed for an ortholog search.
-			if prot_config.search_oma_database:
-				startProcessTime = time.time()
-				# Find OMA orthologs groups if any
-				run = findOmaGroup(prot_id, id_file, querySeq, prot_config.path_oma_group, prot_config.path_oma_seqs, proteome_file, prot_config.makeblastdb, prot_config.blastp, delTemp, species_id)
-
-				# Search for the ortholog sequences for the respective OMA orthologs group
-				# For all the OMA ids in the OMA group, extract sequences from OMA database sequences file
-				if run == 2:
-					findOmaSequences(prot_id, id_file, prot_config.path_oma_seqs, species_id, prot_config.hamstr_oma_tree_map, config_file,orth_file)
-					print('#####\tTIME TAKEN: %s mins\tOrthologs search in OMA database.\t#####' %((time.time() - startProcessTime) / 60))
-				else:
-					print('#####	Preparing ortholog file	#####')
-					fOrth = open(orth_file, 'w')
-					fOrth.write('>' + species_id + '\n' + querySeq)
-					fOrth.close()
-
-			# HaMStR / HaMStR-OneSeq search
-			# The orthologs sequences by OMA is used as core-ortholog set
 			try:
-				if not os.path.exists(orth_file):
-					fOrth = open(orth_file, 'w')
-					fOrth.write('>' + species_id + '\n' + querySeq)
-					fOrth.close()
+				# Check if OMA database has to be accessed for an ortholog search.
+				if prot_config.search_oma_database:
+					startProcessTime = time.time()
+					# Find OMA orthologs groups if any
+					run = findOmaGroup(prot_id, id_file, querySeq, prot_config.path_oma_group, prot_config.path_oma_seqs, proteome_file, prot_config.makeblastdb, prot_config.blastp, delTemp, species_id)
 
-				f = 0
-				with open(orth_file,'r') as of:
-					f = of.read().count('>')
-				# Run HaMStR search if 2 or more sequences are present. Otherwise, run HaMStROneSeq search if only 1 sequence is present
-				if f > 1:
-					if prot_config.run_hamstr:
-						print('#####\tHaMStR search for orthologs\t#####')
-						startProcessTime = time.time()
-						success = hamstr_search.main(prot_config.hamstr, orth_file, prot_id, prot_config.hamstr_oma_tree_map, prot_config.makeblastdb, prot_config.blastp, delTemp, hamstr_env, include_paralogs, nr_processors)
-						if success:
-							print('#####\tTIME TAKEN: %s mins\tHaMStR search in local genome directory.\t#####' %((time.time() - startProcessTime) / 60))
-							os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
-						else:
-							if prot_config.run_hamstrOneSeq:
-								print('#####\tHaMStROneSeq search for orthologs\t#####')
-								startProcessTime = time.time()
+					# Search for the ortholog sequences for the respective OMA orthologs group
+					# For all the OMA ids in the OMA group, extract sequences from OMA database sequences file
+					if run == 2:
+						findOmaSequences(prot_id, id_file, prot_config.path_oma_seqs, species_id, prot_config.hamstr_oma_tree_map, config_file,orth_file)
+						print('#####\tTIME TAKEN: %s mins\tOrthologs search in OMA database.\t#####' %((time.time() - startProcessTime) / 60))
+					else:
+						print('#####	Preparing ortholog file	#####')
+						fOrth = open(orth_file, 'w')
+						fOrth.write('>' + species_id + '\n' + querySeq)
+						fOrth.close()
 
-								# Read the orthologs file and limit it to just the query species id and sequence
-								with open(orth_file,'r+') as rewrite_orth_file:
-									orth_file_all_content = rewrite_orth_file.read().split('\n')
-									rewrite_orth_file.truncate()
-									for orthLines in range(len(orth_file_all_content) - 1):
-										if '>' in orth_file_all_content[orthLines] and species_id in orth_file_all_content[orthLines]:
-											rewrite_orth_file.write(orth_file_all_content[orthLines] + '\n' + orth_file_all_content[orthLines + 1])
-											break
-								run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs,work_dir)
-								print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
+				# HaMStR / HaMStR-OneSeq search
+				# The orthologs sequences by OMA is used as core-ortholog set
+				try:
+					if not os.path.exists(orth_file):
+						fOrth = open(orth_file, 'w')
+						fOrth.write('>' + species_id + '\n' + querySeq)
+						fOrth.close()
+
+					f = 0
+					with open(orth_file,'r') as of:
+						f = of.read().count('>')
+					# Run HaMStR search if 2 or more sequences are present. Otherwise, run HaMStROneSeq search if only 1 sequence is present
+					if f > 1:
+						if prot_config.run_hamstr:
+							print('#####\tHaMStR search for orthologs\t#####')
+							startProcessTime = time.time()
+							success = hamstr_search.main(prot_config.hamstr, orth_file, prot_id, prot_config.hamstr_oma_tree_map, prot_config.makeblastdb, prot_config.blastp, delTemp, hamstr_env, include_paralogs, nr_processors)
+							if success:
+								print('#####\tTIME TAKEN: %s mins\tHaMStR search in local genome directory.\t#####' %((time.time() - startProcessTime) / 60))
 								os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
+							else:
+								if prot_config.run_hamstrOneSeq:
+									print('#####\tHaMStROneSeq search for orthologs\t#####')
+									startProcessTime = time.time()
 
-					elif prot_config.run_hamstrOneSeq:
-						startProcessTime = time.time()
-						print('#####	HaMStROneSeq search for orthologs	#####')
-						# Read the orthologs file and limit it to just the query species id and sequence
-						with open(orth_file,'r+') as rewrite_orth_file:
-							ortholog_temp = rewrite_orth_file.read().split('\n')
-							rewrite_orth_file.truncate()
-							inputTaxaSet = open('inputTaxaSet_oneSeq.txt', 'w')
-							for orthLines in range(len(ortholog_temp) - 1):
-								if '>' in ortholog_temp[orthLines] and species_id in ortholog_temp[orthLines]:
-									rewrite_orth_file.write(ortholog_temp[orthLines] + '\n' + ortholog_temp[orthLines + 1])
-								elif '>' in ortholog_temp[orthLines] and not species_id in ortholog_temp[orthLines]:
-									inOmaId = ortholog_temp[orthLines].split()[0][1:]
-									for mapLine in open(prot_config.hamstr_oma_tree_map):
-										if inOmaId in mapLine:
-											inputTaxaSet.write(mapLine.split()[0] + '\n')
-											break
-							inputTaxaSet.close()
-						run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs,work_dir)
-						print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
-						os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
+									# Read the orthologs file and limit it to just the query species id and sequence
+									with open(orth_file,'r+') as rewrite_orth_file:
+										orth_file_all_content = rewrite_orth_file.read().split('\n')
+										rewrite_orth_file.truncate()
+										for orthLines in range(len(orth_file_all_content) - 1):
+											if '>' in orth_file_all_content[orthLines] and species_id in orth_file_all_content[orthLines]:
+												rewrite_orth_file.write(orth_file_all_content[orthLines] + '\n' + orth_file_all_content[orthLines + 1])
+												break
+									run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs,work_dir)
+									print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
+									os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
+
+						elif prot_config.run_hamstrOneSeq:
+							startProcessTime = time.time()
+							print('#####	HaMStROneSeq search for orthologs	#####')
+							# Read the orthologs file and limit it to just the query species id and sequence
+							with open(orth_file,'r+') as rewrite_orth_file:
+								ortholog_temp = rewrite_orth_file.read().split('\n')
+								rewrite_orth_file.truncate()
+								inputTaxaSet = open('inputTaxaSet_oneSeq.txt', 'w')
+								for orthLines in range(len(ortholog_temp) - 1):
+									if '>' in ortholog_temp[orthLines] and species_id in ortholog_temp[orthLines]:
+										rewrite_orth_file.write(ortholog_temp[orthLines] + '\n' + ortholog_temp[orthLines + 1])
+									elif '>' in ortholog_temp[orthLines] and not species_id in ortholog_temp[orthLines]:
+										inOmaId = ortholog_temp[orthLines].split()[0][1:]
+										for mapLine in open(prot_config.hamstr_oma_tree_map):
+											if inOmaId in mapLine:
+												inputTaxaSet.write(mapLine.split()[0] + '\n')
+												break
+								inputTaxaSet.close()
+							run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs,work_dir)
+							print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
+							os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
 
 
-				elif f == 1:
-					if prot_config.run_hamstrOneSeq:
-						print('#####	HaMStROneSeq search for orthologs	#####')
-						startProcessTime = time.time()
+					elif f == 1:
+						if prot_config.run_hamstrOneSeq:
+							print('#####	HaMStROneSeq search for orthologs	#####')
+							startProcessTime = time.time()
 
-						run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs,work_dir)
-						print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
-						os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
+							run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs,work_dir)
+							print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
+							os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
 
-				else:
-					sys.exit('ERROR: No sequence found in OMA sequences! The ortholog sequences file is empty!')
-			except IOError:
-				sys.exit('ERROR: Orthologs sequences file is invalid!')
+					else:
+						sys.exit('ERROR: No sequence found in OMA sequences! The ortholog sequences file is empty!')
+				except IOError:
+					sys.exit('ERROR: Orthologs sequences file is invalid!')
 
 			except KeyboardInterrupt:
+				# Removes the unfinished ortho_file to not corrupt a rerun.
+				os.system('rm -f {0}'.format(orth_file))
 				sys.exit('Keyboard interruption by user!!!')
 
 	else:

@@ -103,17 +103,15 @@ def Preprocessing(prot_id, querySeq, config_file):
 						print('#####\tTIME TAKEN: %s mins\tOrthologs search in OMA database.\t#####' %((time.time() - startProcessTime) / 60))
 					else:
 						print('#####	Preparing ortholog file	#####')
-						fOrth = open(orth_file, 'w')
-						fOrth.write('>' + species_id + '\n' + querySeq)
-						fOrth.close()
+						with open(orth_file, 'w') as fOrth:
+							fOrth.write('>' + species_id + '\n' + querySeq)
 
 				# HaMStR / HaMStR-OneSeq search
 				# The orthologs sequences by OMA is used as core-ortholog set
 				try:
 					if not os.path.exists(orth_file):
-						fOrth = open(orth_file, 'w')
-						fOrth.write('>' + species_id + '\n' + querySeq)
-						fOrth.close()
+						with open(orth_file, 'w') as fOrth:
+							fOrth.write('>' + species_id + '\n' + querySeq)
 
 					f = 0
 					with open(orth_file,'r') as of:
@@ -133,13 +131,16 @@ def Preprocessing(prot_id, querySeq, config_file):
 									startProcessTime = time.time()
 
 									# Read the orthologs file and limit it to just the query species id and sequence
-									with open(orth_file,'r+') as rewrite_orth_file:
+									with open(orth_file,'r') as rewrite_orth_file:
 										orth_file_all_content = rewrite_orth_file.read().split('\n')
-										rewrite_orth_file.truncate()
-										for orthLines in range(len(orth_file_all_content) - 1):
-											if '>' in orth_file_all_content[orthLines] and species_id in orth_file_all_content[orthLines]:
-												rewrite_orth_file.write(orth_file_all_content[orthLines] + '\n' + orth_file_all_content[orthLines + 1])
-												break
+									orth_file_new_content = ""
+									for orthLines in range(len(orth_file_all_content) - 1):
+										if '>' in orth_file_all_content[orthLines] and species_id in orth_file_all_content[orthLines]:
+											orth_file_new_content += orth_file_all_content[orthLines] + '\n' + orth_file_all_content[orthLines + 1]
+											break
+									with open(orth_file,'w') as rewrite_orth_file:
+										rewrite_orth_file.write(orth_file_new_content)
+
 									run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs,work_dir)
 									print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
 									os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
@@ -148,20 +149,24 @@ def Preprocessing(prot_id, querySeq, config_file):
 							startProcessTime = time.time()
 							print('#####	HaMStROneSeq search for orthologs	#####')
 							# Read the orthologs file and limit it to just the query species id and sequence
-							with open(orth_file,'r+') as rewrite_orth_file:
+							with open(orth_file,'r') as rewrite_orth_file:
 								ortholog_temp = rewrite_orth_file.read().split('\n')
-								rewrite_orth_file.truncate()
-								inputTaxaSet = open('inputTaxaSet_oneSeq.txt', 'w')
-								for orthLines in range(len(ortholog_temp) - 1):
-									if '>' in ortholog_temp[orthLines] and species_id in ortholog_temp[orthLines]:
-										rewrite_orth_file.write(ortholog_temp[orthLines] + '\n' + ortholog_temp[orthLines + 1])
-									elif '>' in ortholog_temp[orthLines] and not species_id in ortholog_temp[orthLines]:
-										inOmaId = ortholog_temp[orthLines].split()[0][1:]
-										for mapLine in open(prot_config.hamstr_oma_tree_map):
-											if inOmaId in mapLine:
-												inputTaxaSet.write(mapLine.split()[0] + '\n')
-												break
-								inputTaxaSet.close()
+							orth_file_new_content = ""
+							for orthLines in range(len(ortholog_temp) - 1):
+								if '>' in ortholog_temp[orthLines] and species_id in ortholog_temp[orthLines]:
+									orth_file_new_content += ortholog_temp[orthLines] + '\n' + ortholog_temp[orthLines + 1]
+								elif '>' in ortholog_temp[orthLines] and not species_id in ortholog_temp[orthLines]:
+									inOmaId = ortholog_temp[orthLines].split()[0][1:]
+									for mapLine in open(prot_config.hamstr_oma_tree_map):
+										if inOmaId in mapLine:
+											inputTaxaSet = mapLine.split()[0] + '\n'
+											break
+							with open(orth_file,'w') as rewrite_orth_file:
+								rewrite_orth_file.write(orth_file_new_content)
+							if inputTaxaSet != "":
+								with open('inputTaxaSet_oneSeq.txt', 'w') as iFile:
+									iFile.write(inputTaxaSet)
+
 							run_hamstrOneSeq(prot_config.hamstr, os.path.abspath(orth_file), prot_config.hamstr_oma_tree_map, prot_id, prot_config.makeblastdb, prot_config.blastp, proteome_file, delTemp, hamstr_env, include_paralogs,work_dir)
 							print('#####\tTIME TAKEN: %s mins\tHaMStR-OneSeq#####' %((time.time() - startProcessTime) / 60))
 							os.system('cp %s %s' %(orth_file, cache_dir + '/' + orth_file))
@@ -1192,7 +1197,7 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
 		os.system('ln -sf {0} {1}'.format(cache_dir + '/proteome_' + species_id, proteome_file))
 	elif search_oma_database:
 		print('#####	Parsing gene set for species %s from OMA database	#####' %species_id)
-		fnew = open(proteome_file, 'w')
+		proteome_file_content = ""
 
 		speciesFoundInOmaFlag = False
 		try:
@@ -1200,15 +1205,17 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
 				for line in f:
 					if line[:6] == '>' + species_id:
 						speciesFoundInOmaFlag = True
-						fnew.write(line + next(f))
-			failed_IO_flag = False
+						proteome_file_content += line + next(f)
 		except IOError:
-			failed_IO_flag = True
 			print('ERROR: Cannot parse the proteome of species %s. Please check the path of the OMA-seqs file!' %species_id)
-		finally:
-			fnew.close()
-			if failed_IO_flag:
-				sys.exit()
+			sys.exit()
+
+		try:
+			with open(proteome_file, 'w') as fnew:
+				fnew.write(proteome_file_content)
+		except KeyboardInterrupt:
+			os.system('rm {0}'.format(proteome_file))
+			sys.exit()
 
 		os.system('cp -ar %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
 

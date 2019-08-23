@@ -813,7 +813,8 @@ def prepareXML(xml_file, pfamDB, hmmfetch, aaMatrix, indel, p, sf, simTree, prot
 # Runs hmmscan and prepares the domain constraint file for REvolver
 def hmmscan(hmmscan, orth_file, pfamDB, hmm_file, prot_id, species_id):
 	ftemp = open('seq_%s.fa' %prot_id, 'w')
-	with open(orth_file) as f:
+
+	with open(orth_file,'r') as f:
 		for line in f:
 			if '>' in line:
 				hmmOmaId = line.split()[0][1:]
@@ -862,10 +863,8 @@ def calculateIndels(tree_file, trans, alnLength, iqtree, def_indel, def_indel_di
 		elif line.split(':')[0] == 'Parsimony score is':
 			indel = (float(line.split(':')[1].replace(' ', '')) / (alnLength * tree_lengths[0])) / 2
 	print('Indel: ', indel)
-
-	fnew = open(indel_file, 'w')
-	fnew.write(str(indel) + '\n' + str(p))
-	fnew.close()
+	with open(indel_file,'w') as fnew:
+		fnew.write(str(indel) + '\n' + str(p))
 
 def calculateIndelsSpartaABC(sparta,seq_evolve_dawg,orth_file,aln_file,tree_file,def_indel,def_indel_dist,delTemp,reuse_cache,indel_file):
 	posterior_params_filename = 'SpartaABC_raw_output.posterior_params'
@@ -1081,48 +1080,45 @@ def findOmaSequences(prot_id, id_file, omaSeqs, species_id, mapFile, config_file
 	prot_config = configure.setParams(config_file)
 	try:
 		mapIds = []
-		for line in open(mapFile):
+		for line in open(mapFile,'r'):
 			mapIds.append(line.split()[-1])
 
 		print('#####	Searching OMA ortholog sequences for %s	#####' %prot_id)
-		fnew = open(orth_file, 'w')
-		#print(orth_file)
+		orth_file_content = ""
 		with open(id_file,'r') as id_input:
 			ids = id_input.read().split('\n')
 		# This counter serves to not read more lines than necessary
 		ids_count = len(ids)
-		#print(omaSeqs)
-		with open(omaSeqs) as f:
+		with open(omaSeqs,'r') as f:
 			for line in f:
 				if line[0] == '>' and line.split('\n')[0][1:] in ids and line[1:6] in mapIds:
-					fnew.write('>' + line[1:6] + '\n' + f.next().replace('*', '').replace('X', ''))
+					orth_file_content += '>' + line[1:6] + '\n' + f.next().replace('*', '').replace('X', '')
 					ids_count -= 1
 					if ids_count == 0:
 						break
-		fnew.close()
+		with open(orth_file, 'w') as fnew:
+			fnew.write(orth_file_content)
 	except IOError:
 		sys.exit('ERROR: Cannot find OMA orthologs sequences. OMA sequence file does not exist!')
 
 # Read OMA orthologs groups file and parses the ortholog list for input OMA id
 def findOmaGroup(prot_id, id_file, querySeq, omaGroup, omaSeqs, proteome_file, makeblastdb, blastp, delTemp, species_id):
 	try:
+		# If the query protein has a sequence attached, search for the identifier by sequence similarity
 		if not querySeq == 'None':
 			run = 1
 			sequenceFoundFlag = False
-			with open(omaSeqs) as f:
+			# Search for an identical sequence for finding the identifier
+			with open(omaSeqs,'r') as f:
 				for line in f:
+					# If the species identifer of the config file is present, compare for sequence identity minus asterisks
 					if '>' in line and species_id in line:
 						if f.next().split()[0].replace('*', "") == querySeq.split()[0].replace('*', ''):
 							prot_id_temp = line.split('\n')[0][1:]
-							oma = open(omaIdFile, 'w')
-							oma.write(prot_id_temp)
-							oma.close()
-							#print 'Found OMA id:', inputId
 							sequenceFoundFlag = True
-							#fnew.write(inputId + '\n')
-							#fnew.close()
 							break
 
+			# If no identical sequence has been found, search for the identifer by sequence similarity with BLASTP
 			if not sequenceFoundFlag:
 				print('#####	WARNING: The input sequence is not present in OMA sequences. Performing a BLAST search to get the closest best hit.	#####')
 				currentWorkDir = os.getcwd()
@@ -1139,49 +1135,50 @@ def findOmaGroup(prot_id, id_file, querySeq, omaGroup, omaSeqs, proteome_file, m
 				os.system('%s -query temp_inputSeq.fa -db proteome.fa -evalue 0.00001 -outfmt 6 -out temp.txt' %(blastp))
 				if os.path.exists('temp.txt') and len(open('temp.txt').read().split('\n')) > 1:
 					prot_id_temp = open('temp.txt').read().split('\n')[0].split('\t')[1]
-					oma = open(omaIdFile, 'w')
-					oma.write(prot_id_temp)
-					oma.close()
 					sequenceFoundFlag = True
 				os.chdir(currentWorkDir)
 				if delTemp:
 					os.system('rm -rf %s' %tempDir)
 
+			# If a comparable sequence has been found by means of identity or similarity,
+			# write down any predicted OMA orthologous group members
 			if sequenceFoundFlag:
 				run = 2
 				print('#####	Searching OMA ortholog group for %s	#####' %prot_id)
-				fnew = open(id_file, 'w')
+				id_file_content = ""
 				written = False
-				for line in open(omaGroup):
+				for line in open(omaGroup,'r'):
 					if not '#' in line and prot_id_temp in line:
 						for ids in line.split('\n')[0].split('\t')[2:]:
-							fnew.write(ids + '\n')
-						fnew.close()
+							id_file_content += ids + '\n'
 						written = True
 						break
 				if not written:
 					run = 1
-					fnew.write(prot_id_temp)
-					fnew.close()
+					id_file_content = prot_id_temp
+				with open(id_file, 'w') as fnew:
+					fnew.write(id_file_content)
 		else:
 			print('OMA ids given..')
 			run = 2
 			print('#####	Searching OMA ortholog group for given OMA id %s	#####' %prot_id)
-			oma = open(omaIdFile, 'w')
-			oma.write(prot_id)
-			oma.close()
-			fnew = open(id_file, 'w')
+			id_file_content = ""
 			written = False
-			for line in open(omaGroup):
+			for line in open(omaGroup,'r'):
 				if not '#' in line and prot_id in line:
 					for ids in line.split('\n')[0].split('\t')[2:]:
-						fnew.write(ids + '\n')
-					fnew.close()
+						id_file_content += ids + '\n'
 					written = True
 					break
 			if not written:
-				fnew.write(prot_id)
-				fnew.close()
+				id_file_content = prot_id
+			with open(id_file, 'w') as fnew:
+				fnew.write(id_file_content)
+
+	if prot_id_temp == "":
+		prot_id_temp = prot_id
+	with open(omaIdFile, 'w') as oma:
+		oma.write(prot_id_temp)
 
 	except IOError:
 		sys.exit('ERROR: Cannot find OMA orthologs id. Check OMA files given as input!')
@@ -1225,10 +1222,11 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
 	else:
 		print(('#####	Parsing gene set for species %s in local (HaMStR) blast directory.	#####' %species_id))
 		try:
-			for line in open(crossRefFile):
-				if species_id == line.split()[-1]:
-					hamstr_id = line.split()[0]
-					break
+			with open(crossRefFile,'r') as cf:
+				for line in cf:
+					if species_id == line.split()[-1]:
+						hamstr_id = line.split()[0]
+						break
 		except IOError:
 			sys.exit('ERROR: Could not open %s. Please check the path.' %crossRefFile)
 		if not hamstrEnv == "":

@@ -812,22 +812,15 @@ def prepareXML(xml_file, pfamDB, hmmfetch, aaMatrix, indel, p, sf, simTree, prot
 
 # Runs hmmscan and prepares the domain constraint file for REvolver
 def hmmscan(hmmscan, orth_file, pfamDB, hmm_file, prot_id, species_id):
-	ftemp = open('seq_%s.fa' %prot_id, 'w')
-
 	with open(orth_file,'r') as f:
 		for line in f:
 			if '>' in line:
 				hmmOmaId = line.split()[0][1:]
-				if '_' in line and hmmOmaId.split('_')[1] == species_id:
-					ftemp.write('>' + species_id + '\n' + next(f))
+				if ('_' in line and hmmOmaId.split('_')[1] == species_id) or (not '_' in line and hmmOmaId == species_id):
+					with open('seq_%s.fa' %prot_id, 'w') as ftemp:
+						ftemp.write('>' + species_id + '\n' + next(f))
 					break
-				elif not '_' in line and hmmOmaId == species_id:
-					ftemp.write('>' + species_id + '\n' + next(f))
-					break
-	ftemp.close()
 	os.system('%s --notextw -E 0.01 %s seq_%s.fa > %s' %(hmmscan, pfamDB, prot_id, hmm_file))
-	#os.remove('tempFile.fa')
-
 
 # Calculates indels rates
 def calculateIndels(tree_file, trans, alnLength, iqtree, def_indel, def_indel_dist,indel_file):

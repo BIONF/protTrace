@@ -42,7 +42,7 @@ def main(p_id, config_file):
         taxonset.append(str(element).replace("'", ""))
     taxonset = taxonset[::-1]
 
-    print '##### Running REvolver / BLAST cycles: #####'
+    print('##### Running REvolver / BLAST cycles: #####')
     start_time = time.time()
 
     if cache and os.path.exists('decay_summary_%s.txt_parameter' %prot_id):
@@ -62,7 +62,7 @@ def main(p_id, config_file):
             pool.terminate()
             pool.join()
 
-        print '#####\tTIME TAKEN: %s mins REvolver/BLAST#####' %((time.time() - start_time) / 60)
+        print('#####\tTIME TAKEN: %s mins REvolver/BLAST#####' %((time.time() - start_time) / 60))
 
         ffull = open('full_decay_results_%s.txt' %prot_id, 'w')
         fsum = open('decay_summary_%s.txt' %prot_id, 'w')
@@ -87,7 +87,7 @@ def main(p_id, config_file):
         ffull.close()
         fsum.close()
 
-        print '##### Calculating decay parameters #####'
+        print('##### Calculating decay parameters #####')
         decayParams(prot_config.R, prot_id, prot_config.decay_script)
 
     os.chdir(rootDir)
@@ -106,7 +106,7 @@ def actual_traceability_calculation(run):
 
     detection_probability = {}
 
-    print 'Run: ', run
+    print('Run: ', run)
 
     success = False
     trials = 0
@@ -130,7 +130,7 @@ def actual_traceability_calculation(run):
                 detection = 0
                 linecount = 1
                 for line in blastOutput.split('\n'):
-                    #print line
+                    #print(line)
                     if taxa == line.split('\t')[0]:
                         if line.split('\t')[1] == blastHitId:
                             detection = 1
@@ -154,7 +154,7 @@ def actual_traceability_calculation(run):
 
 def decayParams(r, prot_id, decay_script):
     command = '%s --quiet --vanilla %s decay_summary_%s.txt' %(r, decay_script, prot_id)
-    print '##### Decay parameter calculation command: ', command
+    print('##### Decay parameter calculation command: ', command)
     os.system(command)
 
 def run_revolver(REvolver, xml_file):
@@ -184,7 +184,7 @@ def run_blast(blastp, prot_id, proteome, revolverOut):
     command = '%s -query %s/out.fa -db %s -outfmt "6 qseqid sseqid"' %(blastp, revolverOut, proteome)
     blast_process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     result, error = blast_process.communicate()
-    # This error message is caught and printed only once.
+    # This error message is caught and print(ed only once.)
     if error[0:54] == "BLAST engine error: Warning: Sequence contains no data":
         print("BLAST engine error: Warning: Sequence contains no data")
         print("Either an sequence in the simulation step was deleted to zero amino-acids or REvolver did not execute properly!")

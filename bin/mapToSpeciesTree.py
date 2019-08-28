@@ -33,7 +33,7 @@ def main(protId, config_file):
     os.chdir(rootDir)
 
 def generateNexusFile(nexus_file,taxonset,prot_config):
-    print '##### Generating nexus file #####'
+    print('##### Generating nexus file #####')
     fnew = open(nexus_file, 'w')
     fnew.write('#NEXUS\nbegin taxa;\n\tdimensions ntax=%s;\n\ttaxlabels' %len(taxonset))
     for taxa in taxonset:

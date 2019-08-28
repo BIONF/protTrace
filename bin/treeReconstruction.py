@@ -21,12 +21,12 @@ def median(lst):
 
 # Perform MSA of the new renamed ortholog sequences file (MAFFT linsi)
 def msa_convert():
-    #print 'MSA of the renamed ortholog sequences file:'
     if os.path.exists(phy_file):
         print("Reusing existing alignment file: phy_file")
     else:
         print("Generating MSA")
-        os.system('%s --phylipout ogSeqs_%s.fa > ogSeqs_%s.phy' %(linsi, protein_id, protein_id))
+        #subprocess.run([linsi,"--phylipout","ogSeqs_{0}.fa".format(protein_id),"ogSeqs_{0}.phy".format(protein_id)])
+        os.system('{0} --phylipout ogSeqs_{1}.fa > ogSeqs_{3}.phy'.format(linsi, protein_id, protein_id))
 
 ########### added by ingo to get rid of raxml dependency
 def run_iqtree():
@@ -36,7 +36,7 @@ def run_iqtree():
         else:
             os.system('rm -rf RAxML_*')
             os.system('iqtree -nt %s -s ogSeqs_%s.phy -m %s -keep-ident -redo' %(nr_proc, protein_id, aaMatrix))
-        #print 'complete..'
+        #print('complete..')
 # Remove all the temp files generated
 def rm_temp():
 
@@ -64,7 +64,7 @@ def scalingFactorMax():
             ###
             ### This block is needed when max likelihood matrix do not have OMA identifiers ###
             ###
-            #print species1
+            #print(species1)
             #for j in range(len(hamstrFile) - 1):
             #	if species1 == hamstrFile[j].split('\t')[3]:
             #		hamstr1 = hamstrFile[j].split('\t')[0]
@@ -81,10 +81,10 @@ def scalingFactorMax():
                 #	if species2 == hamstrFile[j].split('\t')[3]:
                 #		hamstr2 = hamstrFile[j].split('\t')[0]
                 #		break
-                #print species1, species2
+                #print(species1, species2)
                 maxDistOrth = float(orthMaxFile[i].split('\t')[k + 1])
                 maxDistSpecies = 0 #Maximum likelihood distance from species max. likelihood matrix
-                #print maxDistOrth
+                #print(maxDistOrth)
                 flag1 = True
                 flag2 = True
                 for l in range(len(speciesMaxFile) - 1):
@@ -100,14 +100,14 @@ def scalingFactorMax():
                 #	maxDistSpecies = 1.0
                 mlPresent = True
                 if flag1 or flag2:
-                    #print 'yes'
+                    #print('yes')
                     # Checking for the likelihood score in cache directory
                     if os.path.exists(cacheDir + '/' + species1 + '_' + species2 + '.lik'):
                         maxDistSpecies = float(open(cacheDir + '/' + species1 + '_' + species2 + '.lik').read().split('\n')[0])
                     elif os.path.exists(cacheDir + '/' + species2 + '_' + species1 + '.lik'):
                         maxDistSpecies = float(open(cacheDir + '/' + species2 + '_' + species1 + '.lik').read().split('\n')[0])
                     else:
-                        #print 'No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2)
+                        #print('No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2))
                         #maxDistSpecies = 1.00
                         mlPresent = False
                 else:
@@ -120,18 +120,18 @@ def scalingFactorMax():
                         elif os.path.exists(cacheDir + '/' + species2 + '_' + species1 + '.lik'):
                             maxDistSpecies = float(open(cacheDir + '/' + species2 + '_' + species1 + '.lik').read().split('\n')[0])
                         else:
-                            #print 'No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2)
+                            #print('No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2))
                             mlPresent = False
                             #maxDistSpecies = 1.00
 
-                #print maxDistSpecies
+                #print(maxDistSpecies)
                 if mlPresent and not maxDistSpecies == 0:
                     scales.append(maxDistOrth / maxDistSpecies)
                 elif mlPresent and maxDistSpecies == 0:
                     #scales.append(1.00)
                     pass
     except:
-        print '### ERROR: Scaling factor calculation had an error ###'
+        print('### ERROR: Scaling factor calculation had an error ###')
         sys.exit('Maximum likelihood files are invalid!')
 
     if len(scales) >= 1:
@@ -168,14 +168,14 @@ def main(Linsi, Orthologs, AaMatrix, Protein_id, Map_file, Species_maxLikMatrix,
                 print('Pre-computed scaling factor found. Reusing it.')
             else:
                 sf = scalingFactorMax()
-                print 'Scaling factor: {0}'.format(sf)
+                print('Scaling factor: {0}'.format(sf))
             if delTemp:
                 rm_temp()
         except:
-            print '### ERROR: Some step in the tree reconstruction was invalid!! ###'
+            print('### ERROR: Some step in the tree reconstruction was invalid!! ###')
             pass
     else:
-        print 'Using default scaling factor: {0}'.format(sf)
+        print('Using default scaling factor: {0}'.format(sf))
 
     with open(scaleFile, 'w') as fnew:
         fnew.write(str(sf))

@@ -16,8 +16,8 @@ def preprocessPhy(phyFile):
             addLine += totalSpecies + 1
         fedit.append(complete_sequence)
         c += 1
-    #print fedit
-    #print len(fedit)
+    #print(fedit)
+    #print(len(fedit))
 
     '''### TEST ###
     fnew = open('test.txt', 'w')
@@ -44,11 +44,11 @@ def calculateIndelBlocks(f):
             else:
                 if j in indelRows:
                     indelRows.remove(j)
-        #print indelRows
+        #print(indelRows)
         if indelStart:
             indelBlocks.append(i)
     
-    #print indelBlocks
+    #print(indelBlocks)
     return indelBlocks
 
 # Creates the transformed MSA file
@@ -67,7 +67,7 @@ def createTransformAlign(transFile, phyFile, editPhyFile, indelsPos):
             for i in range(len(indelsPos) - 1):
                 startPos = int(indelsPos[i])
                 stopPos = int(indelsPos[i + 1])
-                #print editPhyFile[c][startPos, stopPos]
+                #print(editPhyFile[c][startPos, stopPos])
                 fnew.write(' ' + str(editPhyFile[c][startPos:stopPos].count('-')))
             fnew.write(' ' + str(editPhyFile[c][stopPos:len(editPhyFile[c])].count('-')))
         else:
@@ -95,7 +95,7 @@ def postTransformAlign(trans):
         stateOld = stateOld[::-1]
 
         for i in range(len(stateOld)):
-            #print len(stateOld) - i, stateOld[i]
+            #print(len(stateOld) - i, stateOld[i])
             t = t.replace(' ' + str(stateOld[i]) + ' ', ' ' + str(len(stateOld) - 1 - i) + ' ').replace(' ' + str(stateOld[i]) + '\n', ' ' + str(len(stateOld) -1 - i) + '\n')
     except:
         print('WARNING: Error while editing the transformed alignment file!')

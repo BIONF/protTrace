@@ -339,19 +339,19 @@ def retrieve_FAS_annotations(fasta):
     fasCacheData = []
     logDict = {}
 
-    #print fasta
+    #print(fasta)
 
     fasOmaId = fasta.split('\n')[0][1:]
-    #print fasOmaId
+    #print(fasOmaId)
 
     if '_' in fasOmaId and fasOmaId.split('_')[1] == species_id:
         oma_ids.append(fasOmaId.split('_')[1])
     else:
         oma_ids.append(fasOmaId)
 
-    #print oma_ids
+    #print(oma_ids)
     sequence = fasta.split('\n')[1]
-    #print sequence
+    #print(sequence)
 
     for mapLine in open(hamstr_oma_map_file):
         if '_' in fasOmaId and fasOmaId.split('_')[1] == mapLine.split()[-1]:
@@ -367,7 +367,7 @@ def retrieve_FAS_annotations(fasta):
             if not fasOmaId in list(mapDict.keys()):
                 mapDict[fasOmaId] = hamstrId
             break
-    #print mapDict
+    #print(mapDict)
 
     species_anno_dir = speciesAnnoDir + '/' + hamstrId
     if not os.path.exists(species_anno_dir):
@@ -379,7 +379,7 @@ def retrieve_FAS_annotations(fasta):
     else:
         protein_temp_anno_dir = temp_fasAnno + '/' + fasOmaId
     species_blast_dir = hamstr_blast_dir + '/' + hamstrId + '/' + hamstrId
-    #print species_blast_dir
+    #print(species_blast_dir)
     if not os.path.exists(hamstr_blast_dir + '/' + hamstrId):
         print('ERROR: Blast database not found for species ', hamstrId)
         sys.exit()
@@ -391,10 +391,10 @@ def retrieve_FAS_annotations(fasta):
     ftemp.close()
     blast_command = '%s -query %s -db %s -evalue 0.00001 -outfmt 6 -out %s' %(blastp, temporary_file_1, species_blast_dir, temporary_file_2)
     os.system(blast_command)
-    #print open(temporary_file_2).read()
+    #print(open(temporary_file_2).read())
     if os.path.exists(temporary_file_2) and len(open(temporary_file_2).read().split('\n')) > 1:
         hit_id = open(temporary_file_2).read().split('\n')[0].split('\t')[1]
-        #print hit_id
+        #print(hit_id)
         if '_' in fasOmaId and fasOmaId.split('_')[1] == species_id:
             fasCacheData.append(fasOmaId.split('_')[1] + '\t' + hamstrId + '\t' + hit_id + '\n')
             logDict[fasOmaId.split('_')[1]] = fasOmaId.split('_')[1] + ':' + hit_id
@@ -410,7 +410,7 @@ def retrieve_FAS_annotations(fasta):
         anno_command = 'perl %s -path=%s -name=%s -extract=%s' %(annotation_script, species_anno_dir, hit_id, protein_temp_anno_dir)
         #print('Annotation command: ', anno_command)
         os.system(anno_command)
-    #print oma_ids, mapDict, fasCacheData, logDict
+    #print(oma_ids, mapDict, fasCacheData, logDict)
 
     return oma_ids, mapDict, fasCacheData, logDict
 
@@ -439,7 +439,7 @@ def actual_FAS_exec(elementsWithFasScoresPath):
         if delTemp:
             os.system('rm -rf %s' %'{0}temp_fas_score_{1}.xml'.format(fasScoresPath,elements))
 
-    #print fasFileData
+    #print(fasFileData)
     return fasFileData
 
 # FAS Calculation
@@ -461,7 +461,7 @@ def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_arc
     ### CHANGE HERE ###
     # Using default paths for HaMStR BLAST directory (where species gene sets are present)
     global hamstr_blast_dir
-    #print "Hamstr environment "+hamstr_env
+    #print("Hamstr environment "+hamstr_env)
     if not hamstr_env == "":
         hamstr_blast_dir = hamstr + '/blast_dir_' + hamstr_env
     else:
@@ -476,7 +476,7 @@ def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_arc
 
     # Read ortholog file into an array - Each element has 2 lines
     orthFileData = []
-    #print "Orth File "+orth_file
+    #print("Orth File "+orth_file)
     orthFileRead = open(orth_file, "r")
 
     while True:
@@ -486,7 +486,7 @@ def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_arc
             break
         orthFileData.append("\n".join([line1.split()[0], line2.split()[0]]))
 
-    #print orthFileData
+    #print(orthFileData)
     #sys.exit()
 
     try:
@@ -515,7 +515,7 @@ def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_arc
         for key, value in res[3].items():
             logDict[key] = value
 
-    #print fasCacheData
+    #print(fasCacheData)
 
     fasCacheFile = open("%s_cacheData.txt" %prot_id, "w")
     fasCacheFile.write("### Orthologs identifiers ###\n")
@@ -611,37 +611,37 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
         if flag:
             seqId = "NA"
             print('No matching sequence found! Running BLAST search now..')
-            #print 'Current working directory..'
+            #print('Current working directory..')
             currentWorkDir = os.getcwd()
-            #print 'Create a temporary directory..'
+            #print('Create a temporary directory..')
             tempDir = 'temp_blast_' + prot_id
             if not os.path.exists(tempDir):
                 os.mkdir(tempDir)
-            #print 'Change to the temporary directory..'
+            #print('Change to the temporary directory..')
             os.chdir(tempDir)
-            print 'Create a temporary file with the input sequence..'
-            print 'Copy the reference proteome file into temporary directory..'
+            print('Create a temporary file with the input sequence..')
+            print('Copy the reference proteome file into temporary directory..')
             print(refSpec_Proteome + "\n")
             print(refSpec + "\n")
             print(tempDir)
             os.system('cp -avr %s .' %(refSpec_Proteome))
             com = '%s -in %s -dbtype prot' %(makeblastdb, refSpec_Proteome)
-            #print 'Create blast database for the OMA sequences: ', com
+            #print('Create blast database for the OMA sequences: ', com)
             os.system(com)
-            #print 'Perform BLAST search and pick up the top hit as query input ID..'
+            #print('Perform BLAST search and pick up the top hit as query input ID..')
             os.system('%s -query %s -db %s -evalue 0.00001 -outfmt 6 -out temp.txt' %(blastp, orth_file, refSpec + '.fa'))
             if os.path.exists('temp.txt') and len(open('temp.txt').read().split('\n')) > 1:
                 seqId = open('temp.txt').read().split('\n')[0].split('\t')[1]
             os.system('%s -query %s -db %s -evalue 0.00001 -outfmt 6 -out temp.txt' %(blastp, orth_file, proteome))
             if os.path.exists('temp.txt') and len(open('temp.txt').read().split('\n')) > 1:
                 omaId = open('temp.txt').read().split('\n')[0].split('\t')[1]
-            #print 'Writing OMA id into file'
+            #print('Writing OMA id into file')
             oma = open(omaIdFile, 'w')
             oma.write(omaId)
             oma.close()
-            #print 'Change directory to original one..'
+            #print('Change directory to original one..')
             os.chdir(currentWorkDir)
-            #print 'Remove the temporary directory..'
+            #print('Remove the temporary directory..')
             if delTemp:
                 os.system('rm -rf %s' %tempDir)
 
@@ -732,7 +732,7 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
                             fnew.write('>' + omaId + '\n' + f.next().replace('*', ''))
             #fnew.write('\n')'''
         if os.path.exists(extendedFile):
-            #print 'Found .extended file..'
+            #print('Found .extended file..')
             with open(extendedFile) as f:
                 for line in f:
                     omaId = "NA"

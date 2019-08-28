@@ -41,7 +41,7 @@ def copy_edit_core_ortholog():
             for j in range(len(s2)-1):
                 if s2[j].split()[-1] == s1[i][1:6]:
                     hamstrProtId = s2[j].split()[0]
-                    print (hamstrProtId + '\n')
+                    print((hamstrProtId + '\n'))
                     global blastDir
                     if not hamstr_env == "":
                         blastDir = hamstr + '/blast_dir_' + hamstr_env
@@ -61,9 +61,9 @@ def copy_edit_core_ortholog():
                             break
 
                     if runBlast:
-                        print 'No matching sequence found in hamstr blast directory! Running BLAST search now..'
+                        print('No matching sequence found in hamstr blast directory! Running BLAST search now..')
                         currentWorkDir = os.getcwd()
-                        print (currentWorkDir + '\n')
+                        print((currentWorkDir + '\n'))
                         tempDir = 'temp_blast_' + hamstrProtId
                         if not os.path.exists(tempDir):
                             os.mkdir(tempDir)
@@ -71,7 +71,7 @@ def copy_edit_core_ortholog():
                         temp_query = open('temp_query.fa', 'w')
                         temp_query.write(s1[i] + '\n' + s1[i+1])
                         temp_query.close()
-                        print (blastFastaFile + 'blastFastafile \n')
+                        print((blastFastaFile + 'blastFastafile \n'))
                         os.system('ln -s %s temp_proteome.fa' %(blastFastaFile))
                         os.system('%s -i temp_proteome.fa' %(format_db))
                         os.system('%s -query temp_query.fa -db temp_proteome.fa -evalue 0.00001 -outfmt 6 -max_target_seqs 1 -out temp_out.txt' %(blastp))
@@ -117,7 +117,7 @@ def actual_hamstr_computation(dirs):
             if include_paralogs:
                 command = '%s/bin/hamstr.pl -central -sequence_file=%s -taxon=misc -hmmset=%s -strict -checkCoorthologsRef -outpath=%s -coreThreshold -blastpath=%s' %(hamstr, file_name, protein_id, output, blastDir)
             #command = '%s/bin/hamstr.pl -central -sequence_file=%s -taxon=misc -hmmset=%s -strict -representative -outpath=%s -scoreThreshold -blastpath=%s' %(hamstr, file_name, protein_id, output, blastDir)
-            print 'HaMStR run with command: ', command
+            print('HaMStR run with command: ', command)
             try:
                 subprocess.call(command, shell=True)
             except KeyboardInterrupt as e:
@@ -190,10 +190,10 @@ def write_output():
                     if not targetSequence in speciesList[target_species_id]:
                         speciesList[target_species_id].append(targetSequence)
                         fnew.write(s1[i].replace('>', '>1_') + '\n' + targetSequence + '\n')
-        #print co
+        #print(co)
         # Reading the .out files and adding the sequences to the core orthologs set
         for files in glob.glob(output+'/*.out'):
-            #print 'Writing file: ', files
+            #print('Writing file: ', files)
             s2 = open(files).read().split('\n')
 
             if '_' in files:
@@ -201,7 +201,7 @@ def write_output():
                 hamstr_name = files.split('/')[-1].split('_')[1]
             else:
                 #hamstr_name = '_'.join(files.split('/')[-1].split('.out')[0].split('_')[1:])
-                print 'ERROR: Please check .out files produced by HaMStR run ("_" MISSING in .out file names)'
+                print('ERROR: Please check .out files produced by HaMStR run ("_" MISSING in .out file names)')
                 hamstr_name = files.split('/')[-1]
 
             s3 = open(hamstr_map_oma).read().split('\n')
@@ -212,7 +212,7 @@ def write_output():
                     #oma_name = s3[j].split()[3] + s2[0].split('|')[3][:5]
                     oma_name = s3[j].split()[-1]
                     break
-            #print oma_name[:5]
+            #print(oma_name[:5])
             if not oma_name in speciesList.keys() and hamstr_name in present_species:
                 speciesList[oma_name] = []
                 c = 1
@@ -226,16 +226,16 @@ def write_output():
                 c = len(speciesList[oma_name]) + 1
                 for i in range(len(s2) - 1):
                     targetSequence = s2[i].split('|')[-1].replace('X', '').replace('*', '')
-                    #print speciesList[oma_name]
-                    #print s2[i]
+                    #print(speciesList[oma_name])
+                    #print(s2[i])
                     if not targetSequence in speciesList[oma_name]:
                         speciesList[oma_name].append(targetSequence)
                         fnew.write('>' + str(c) + '_' + oma_name + '\n' + targetSequence + '\n')
                         c += 1
-                    #print speciesList[oma_name]
+                    #print(speciesList[oma_name])
         fnew.close()
     else:
-        print 'No orthologs to be added!!'
+        print('No orthologs to be added!!')
 
 # Edit the orthologs file to just contain species which are present in the species tree
 def finalEditOrthologsSeqs():
@@ -266,7 +266,7 @@ def removeHaMStRdirs():
 
 # The main method to run HaMStR search
 def main(hamstrFile, coreOrtholog, protId, hamstrMapOma, makeblastdb, blast, del_temp, hamstr_environment, include_para, nr_processors):
-    print '##### Running HaMStR search #####'
+    print('##### Running HaMStR search #####')
 
     global hamstr, core_ortholog, protein_id, hamstr_map_oma, core_ortholog_prot_dir, output, fasta_file, aln_file, hmm_file, format_db, blastp
     global core_ortholog_prot_dir, output, delTemp, hamstr_env, include_paralogs, nr_proc
@@ -283,27 +283,27 @@ def main(hamstrFile, coreOrtholog, protId, hamstrMapOma, makeblastdb, blast, del
     include_paralogs = include_para
     nr_proc = nr_processors
 
-    print 'HaMStR processing Step 1: Removing old directories'
+    print('HaMStR processing Step 1: Removing old directories')
     remove_old_dir()
-    print 'HaMStR processing Step 2: Making new directories'
+    print('HaMStR processing Step 2: Making new directories')
     make_new_dir()
-    print 'HaMStR processing Step 3: Edit core orthologs file'
+    print('HaMStR processing Step 3: Edit core orthologs file')
     success = copy_edit_core_ortholog()
     #success = True
-    print 'HaMStR processing Step 4: Creating alignment and HMMER file'
+    print('HaMStR processing Step 4: Creating alignment and HMMER file')
     if success:
         align_hmm_run()
-        print 'HaMStR processing Step 5: Running HAMSTR'
+        print('HaMStR processing Step 5: Running HAMSTR')
         try:
             #pass
             hamstr_run()
         except KeyboardInterrupt:
             sys.exit('Keyboard interruption by user!!!')
-        print 'HaMStR processing Step 6: Adding orthologs to the core set'
+        print('HaMStR processing Step 6: Adding orthologs to the core set')
         write_output()
-        print 'HaMStR processing Step 7: Editing the orthologs and keeping only those present in the species tree'
+        print('HaMStR processing Step 7: Editing the orthologs and keeping only those present in the species tree')
         finalEditOrthologsSeqs()
-    print 'HaMStR processing Step 8: Removing the directories created by HaMStR'
+    print('HaMStR processing Step 8: Removing the directories created by HaMStR')
     if delTemp:
         removeHaMStRdirs()
 

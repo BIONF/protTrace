@@ -12,7 +12,7 @@ import subprocess
 ###	   5. Decay result file
 
 def calculateMaxLikDist(species1, species2):
-    #print species1, species2
+    #print(species1, species2)
     speciesMaxFile = open(sp_max_file).read().split('\n')
     for j in range(len(hamstrMapFile) - 1):
         if species1 == hamstrMapFile[j].split('\t')[1]:
@@ -25,8 +25,8 @@ def calculateMaxLikDist(species1, species2):
             #kingdom = hamstrMapFile[j].split('\t')[-1]
             oma2 = hamstrMapFile[j].split('\t')[-1]
             break
-    #print hamstr1, hamstr2
-    #print oma1, oma2
+    #print(hamstr1, hamstr2)
+    #print(oma1, oma2)
     flag1 = True #To check if the species are present in the species ML dist matrix file. Otherwise, parse likelihood from cache directory.
     flag2 = True
 
@@ -42,20 +42,20 @@ def calculateMaxLikDist(species1, species2):
             flag2 = False
 
     if flag1 or flag2:
-        print 'Checkpoint 2 crossed'
+        print('Checkpoint 2 crossed')
         # Checking for the likelihood score in cache directory
         if os.path.exists(cacheDir + '/' + oma1 + '_' + oma2 + '.lik'):
             return float(open(cacheDir + '/' + oma1 + '_' + oma2 + '.lik').read().split('\n')[0])
         elif os.path.exists(cacheDir + '/' + oma2 + '_' + oma1 + '.lik'):
             return float(open(cacheDir + '/' + oma2 + '_' + oma1 + '.lik').read().split('\n')[0])
         else:
-            print 'No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2)
+            print('No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2))
             return 1.00
     else:
         if not speciesMaxFile[rowIndex].split(sep)[columnIndex] == "NA":
             return float(speciesMaxFile[rowIndex].split(sep)[columnIndex])
         else:
-            print 'No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2)
+            print('No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2))
             return 1.00
 
 def colourize(speciesName, speciesId, nexusTreeFile, speciesTree, decayRate, decayPop, traceResults, matrixDict):
@@ -112,12 +112,12 @@ def colourize(speciesName, speciesId, nexusTreeFile, speciesTree, decayRate, dec
 
 def getColourCode(spName, tempName, decayRate, decayPop):
     mlDist = calculateMaxLikDist(spName, tempName)
-    #print mlDist
+    #print(mlDist)
     if decayRate < 0.01:
         traceability = 1
     else:
         traceability = 1 - ((decayPop * math.exp(decayRate * mlDist)) / (1 + decayPop * (math.exp(decayRate * mlDist) - 1)))
-    #print traceability
+    #print(traceability)
     if traceability <= 1 and traceability >= 0.9:
         colCode = '16711936'
     elif traceability < 0.9 and traceability >= 0.8:
@@ -182,7 +182,7 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
             if not foundSpeciesFlag:
                 matrixDict[currentSpecies].append(orth + '#' + fas)
 
-    #print 'Dictionary length: ', len(matrixDict)
+    #print('Dictionary length: ', len(matrixDict))
     try:
         hamstrMapFile = open(mapFile).read().split('\n')
         speciesTree = open(spTree).read()
@@ -190,7 +190,7 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
         decayPop = float(open('decay_summary_%s.txt_parameter' %protId).read().split('\n')[0])
 
     except IOError:
-        print 'ERROR: Colourizing tree encountered problem!!!'
+        print('ERROR: Colourizing tree encountered problem!!!')
 
     traceResults = open('trace_results_%s.txt' %protId, 'w')
 
@@ -208,10 +208,10 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
             print("Done!")
         except subprocess.CalledProcessError as e:
             print(e.output)
-            print 'WARNING: No representation of traceabilities on tree possible.\nJAVA program figtreepdf not responding!!!'
+            print('WARNING: No representation of traceabilities on tree possible.\nJAVA program figtreepdf not responding!!!')
     traceResults.close()
 
-    print 'Creating matrix file for PhyloProfile...'
+    print('Creating matrix file for PhyloProfile...')
     matrixFile = open('%s_phyloMatrix.txt' %protId, 'w')
     if intended_fas_score_calc:
         matrixFile.write('geneID\tncbiID\torthoID\tFAS\tTraceability\n')

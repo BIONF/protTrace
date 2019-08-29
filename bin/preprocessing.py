@@ -1246,6 +1246,6 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
     # Generate a BLAST DB for the reblasts after each simulated evolutionary step.
     # The reblasts are conducted against the entire query proteome.
     print('#####	Making BLAST db of the gene set to be used by the blast search	#####')
-    subprocess.run([makeblastdb,"-in",proteome_file,"-input_type","fasta","-dbtype","prot"])
+    subprocess.Popen([makeblastdb,"-in",proteome_file,"-input_type","fasta","-dbtype","prot"])
     # Legacy code
     #os.system('%s -in %s -input_type fasta -dbtype prot' %(makeblastdb, proteome_file))

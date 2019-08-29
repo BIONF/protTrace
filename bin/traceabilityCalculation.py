@@ -106,7 +106,7 @@ def actual_traceability_calculation(run):
 
     detection_probability = {}
 
-    print('Run: ', run)
+    print('Run: {0}'.format(run))
 
     success = False
     trials = 0

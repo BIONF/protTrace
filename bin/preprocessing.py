@@ -604,7 +604,7 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
             print('Searching for the seqId..')
             flag = True
             for line in f:
-                if f.next().split('\n')[0].replace('*', '').replace('X', '') == protSeq.replace('*', '').replace('X', ''):
+                if next(f).split('\n')[0].replace('*', '').replace('X', '') == protSeq.replace('*', '').replace('X', ''):
                     seqId = line.split('>')[1].split('\n')[0]
                     flag = False
                     break
@@ -728,8 +728,8 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
                                 break
                         if not omaId == "NA" and omaId not in speciesList:
                             speciesList.append(omaId)
-                            #fnew.write('>' + omaId + line.split('|')[2].split('\n')[0] + '\n' + f.next().replace('*', ''))
-                            fnew.write('>' + omaId + '\n' + f.next().replace('*', ''))
+                            #fnew.write('>' + omaId + line.split('|')[2].split('\n')[0] + '\n' + next(f).replace('*', ''))
+                            fnew.write('>' + omaId + '\n' + next(f).replace('*', ''))
             #fnew.write('\n')'''
         if os.path.exists(extendedFile):
             #print('Found .extended file..')
@@ -739,7 +739,7 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
                     if '>' in line:
                         hamstrId = line.split('|')[1]
                         seqIdentifier = line.split('|')[2]
-                        seqHamstrOut = f.next().split()[0].replace('*', '').replace('X', '')
+                        seqHamstrOut = next(f).split()[0].replace('*', '').replace('X', '')
                         for m in open(map_file):
                             if hamstrId == m.split()[0]:
                                 omaId = m.split()[-1]
@@ -836,9 +836,11 @@ def calculateIndels(tree_file, trans, alnLength, iqtree, def_indel, def_indel_di
 
     result = ''
     try:
-        command = "%s -s %s %s -tina -st MULTI" %(iqtree, os.path.abspath(trans), os.path.abspath(tree_file))
-        print('IQ-Tree command: ', command)
-        result = subprocess.check_output(command, shell=True)
+        # Legacy code
+        #command = "%s -s %s %s -tina -st MULTI" %(iqtree, os.path.abspath(trans), os.path.abspath(tree_file))
+        command = [iqtree,"-s",os.path.abspath(trans),os.path.abspath(tree_file),"-tina","-st","MULTI"]
+        print('IQ-Tree command: {0}'.format(' '.join(command)))
+        result = subprocess.run(command,stdout=subprocess.PIPE).stdout.decode('utf-8')
     except:
         print('WARNING: IQ-Tree did not run properly!!!')
         pass
@@ -942,7 +944,7 @@ def calculateIndelsSpartaABC(sparta,seq_evolve_dawg,orth_file,aln_file,tree_file
             sconfig.write("_dawgSimulator {0}\n".format(dawg_simulator))
             sconfig.write("_inputRealMSAFile {0}\n".format(aln_file))
             sconfig.write("_outputGoodParamsFile {0}\n".format(posterior_params_filename))
-            sconfig.write("_numberOfSamplesToKeep 100\n")
+            sconfig.write("_numberOfSamplesToKeep 100000\n")
             sconfig.write("_alignmentMode 0\n")
             sconfig.write("_similarity_mode 0\n")
             sconfig.write("_minRLVal {0:.1f}\n".format(RLVals[0]))
@@ -1085,7 +1087,7 @@ def findOmaSequences(prot_id, id_file, omaSeqs, species_id, mapFile, config_file
         with open(omaSeqs,'r') as f:
             for line in f:
                 if line[0] == '>' and line.split('\n')[0][1:] in ids and line[1:6] in mapIds:
-                    orth_file_content += '>' + line[1:6] + '\n' + f.next().replace('*', '').replace('X', '')
+                    orth_file_content += '>' + line[1:6] + '\n' + next(f).replace('*', '').replace('X', '')
                     ids_count -= 1
                     if ids_count == 0:
                         break
@@ -1096,85 +1098,91 @@ def findOmaSequences(prot_id, id_file, omaSeqs, species_id, mapFile, config_file
 
 # Read OMA orthologs groups file and parses the ortholog list for input OMA id
 def findOmaGroup(prot_id, id_file, querySeq, omaGroup, omaSeqs, proteome_file, makeblastdb, blastp, delTemp, species_id):
-    try:
-        # If the query protein has a sequence attached, search for the identifier by sequence similarity
-        if not querySeq == 'None':
-            run = 1
-            sequenceFoundFlag = False
-            # Search for an identical sequence for finding the identifier
+    # If the query protein has a sequence attached, search for the identifier by sequence similarity
+    if not querySeq == 'None':
+        run = 1
+        sequenceFoundFlag = False
+        # Search for an identical sequence for finding the identifier
+        try:
             with open(omaSeqs,'r') as f:
                 for line in f:
                     # If the species identifer of the config file is present, compare for sequence identity minus asterisks
                     if '>' in line and species_id in line:
-                        if f.next().split()[0].replace('*', "") == querySeq.split()[0].replace('*', ''):
+                        if next(f).split()[0].replace('*', "") == querySeq.split()[0].replace('*', ''):
                             prot_id_temp = line.split('\n')[0][1:]
                             sequenceFoundFlag = True
                             break
+        except IOError:
+            sys.exit("ERROR: Reading the OMA-seqs file resulted in an error!")
 
-            # If no identical sequence has been found, search for the identifer by sequence similarity with BLASTP
-            if not sequenceFoundFlag:
-                print('#####	WARNING: The input sequence is not present in OMA sequences. Performing a BLAST search to get the closest best hit.	#####')
-                currentWorkDir = os.getcwd()
-                tempDir = 'temp_blast_' + prot_id
-                if not os.path.exists(tempDir):
-                    os.mkdir(tempDir)
-                os.chdir(tempDir)
-                os.system('cp -avr %s proteome.fa' %(proteome_file))
-                com = '%s -in proteome.fa -dbtype prot' %(makeblastdb)
-                os.system(com)
-                tempFile = open('temp_inputSeq.fa', 'w')
-                tempFile.write('>' + prot_id + '\n' + querySeq)
-                tempFile.close()
-                os.system('%s -query temp_inputSeq.fa -db proteome.fa -evalue 0.00001 -outfmt 6 -out temp.txt' %(blastp))
-                if os.path.exists('temp.txt') and len(open('temp.txt').read().split('\n')) > 1:
-                    prot_id_temp = open('temp.txt').read().split('\n')[0].split('\t')[1]
-                    sequenceFoundFlag = True
-                os.chdir(currentWorkDir)
-                if delTemp:
-                    os.system('rm -rf %s' %tempDir)
+        # If no identical sequence has been found, search for the identifer by sequence similarity with BLASTP
+        if not sequenceFoundFlag:
+            print('#####	WARNING: The input sequence is not present in OMA sequences. Performing a BLAST search to get the closest best hit.	#####')
+            currentWorkDir = os.getcwd()
+            tempDir = 'temp_blast_' + prot_id
+            if not os.path.exists(tempDir):
+                os.mkdir(tempDir)
+            os.chdir(tempDir)
+            os.system('cp -avr %s proteome.fa' %(proteome_file))
+            com = '%s -in proteome.fa -dbtype prot' %(makeblastdb)
+            os.system(com)
+            tempFile = open('temp_inputSeq.fa', 'w')
+            tempFile.write('>' + prot_id + '\n' + querySeq)
+            tempFile.close()
+            os.system('%s -query temp_inputSeq.fa -db proteome.fa -evalue 0.00001 -outfmt 6 -out temp.txt' %(blastp))
+            if os.path.exists('temp.txt') and len(open('temp.txt').read().split('\n')) > 1:
+                prot_id_temp = open('temp.txt').read().split('\n')[0].split('\t')[1]
+                sequenceFoundFlag = True
+            os.chdir(currentWorkDir)
+            if delTemp:
+                os.system('rm -rf %s' %tempDir)
 
-            # If a comparable sequence has been found by means of identity or similarity,
-            # write down any predicted OMA orthologous group members
-            if sequenceFoundFlag:
-                run = 2
-                print('#####	Searching OMA ortholog group for %s	#####' %prot_id)
-                id_file_content = ""
-                written = False
+        # If a comparable sequence has been found by means of identity or similarity,
+        # write down any predicted OMA orthologous group members
+        if sequenceFoundFlag:
+            run = 2
+            print('#####	Searching OMA ortholog group for %s	#####' %prot_id)
+            id_file_content = ""
+            written = False
+            try:
                 for line in open(omaGroup,'r'):
                     if not '#' in line and prot_id_temp in line:
                         for ids in line.split('\n')[0].split('\t')[2:]:
                             id_file_content += ids + '\n'
                         written = True
                         break
-                if not written:
-                    run = 1
-                    id_file_content = prot_id_temp
-                with open(id_file, 'w') as fnew:
-                    fnew.write(id_file_content)
-        else:
-            print('OMA ids given..')
-            run = 2
-            print('#####	Searching OMA ortholog group for given OMA id %s	#####' %prot_id)
-            id_file_content = ""
-            written = False
+            except IOError:
+                sys.exit("ERROR: Reading the OMA-groups file resulted in an error!")
+            if not written:
+                run = 1
+                id_file_content = prot_id_temp
+            with open(id_file, 'w') as fnew:
+                fnew.write(id_file_content)
+    else:
+        print('OMA ids given..')
+        run = 2
+        print('#####	Searching OMA ortholog group for given OMA id %s	#####' %prot_id)
+        id_file_content = ""
+        # In the case of given OMA ids,
+        # the protein id is always written into the omaIdFile
+        prot_id_temp = prot_id
+        written = False
+        try:
             for line in open(omaGroup,'r'):
                 if not '#' in line and prot_id in line:
                     for ids in line.split('\n')[0].split('\t')[2:]:
                         id_file_content += ids + '\n'
                     written = True
                     break
-            if not written:
-                id_file_content = prot_id
-            with open(id_file, 'w') as fnew:
-                fnew.write(id_file_content)
+        except IOError:
+            sys.exit("ERROR: Reading the OMA-groups file resulted in an error!")
+        if not written:
+            id_file_content = prot_id
+        with open(id_file, 'w') as fnew:
+            fnew.write(id_file_content)
 
-    if prot_id_temp == "":
-        prot_id_temp = prot_id
     with open(omaIdFile, 'w') as oma:
         oma.write(prot_id_temp)
-
-    except IOError:
-        sys.exit('ERROR: Cannot find OMA orthologs id. Check OMA files given as input!')
 
     return run
 
@@ -1230,10 +1238,14 @@ def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile,
         species_genome_file = genome_dir + '/' + hamstr_id + '/' + hamstr_id + '.fa'
 
         if os.path.exists(species_genome_file):
-            os.system('cp -ar %s %s' %(species_genome_file, proteome_file))
+            os.system('cp -a %s %s' %(species_genome_file, proteome_file))
         else:
             sys.exit('ERROR: Reference species %s not found in local (HaMStR) BLAST directory!!!' %species_id)
 
-        os.system('cp -avr %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
+        os.system('cp -a %s %s' %(proteome_file, cache_dir + '/proteome_' + species_id))
+    # Generate a BLAST DB for the reblasts after each simulated evolutionary step.
+    # The reblasts are conducted against the entire query proteome.
     print('#####	Making BLAST db of the gene set to be used by the blast search	#####')
-    os.system('%s -in %s -input_type fasta -dbtype prot' %(makeblastdb, proteome_file))
+    subprocess.run([makeblastdb,"-in",proteome_file,"-input_type","fasta","-dbtype","prot"])
+    # Legacy code
+    #os.system('%s -in %s -input_type fasta -dbtype prot' %(makeblastdb, proteome_file))

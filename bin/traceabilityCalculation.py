@@ -10,16 +10,17 @@ from multiprocessing import Pool
 ### Using the final hash table, decay rate is calculated using decay script
 
 def main(p_id, config_file):
+    # Global variables are needed, since the multiprocessing.Pool.map function only maps one parameter onto each run.
+    # All other outside parameters in use need to be globally available.
     global prot_id
     prot_id = p_id
-
-    rootDir = os.getcwd()
 
     global prot_config
     prot_config = configure.setParams(config_file)
     cache = prot_config.reuse_cache
     nr_proc = prot_config.nr_processors
 
+    rootDir = os.getcwd()
     work_dir = prot_config.path_work_dir + '/' + prot_id
     os.chdir(work_dir)
 
@@ -33,7 +34,7 @@ def main(p_id, config_file):
     xml_file = 'revolver_config_' + prot_id + '.xml'
 
     global proteome_file
-    proteome_file = 'proteome_' + prot_id
+    proteome_file = work_dir + '/' + 'proteome_' + prot_id
 
     trees = dendropy.TreeList.get_from_path(prot_config.simulation_tree, "newick")
     global taxonset
@@ -69,13 +70,12 @@ def main(p_id, config_file):
 
         detection_probability = {}
         for res in results:
-            for key, value in res.iteritems():
+            for key, value in res.items():
                 if not key in detection_probability.keys():
                     detection_probability[key] = []
                     detection_probability[key].append(value)
                 else:
                     detection_probability[key].append(value)
-
         for taxa in taxonset:
             ffull.write(taxa + ' ')
             count = 0
@@ -124,7 +124,6 @@ def actual_traceability_calculation(run):
             except Exception as e:
                 # The exception is raised by the subprocess routine that calles BLASTP
                 print("BLASTP threw an exception during the reblast!")
-                print(e)
                 break
             for taxa in taxonset:
                 detection = 0
@@ -158,9 +157,9 @@ def decayParams(r, prot_id, decay_script):
     os.system(command)
 
 def run_revolver(REvolver, xml_file):
-    command = 'java -Xmx2G -Xms2G -cp "%s" revolver %s' %(REvolver, xml_file)
+    command = ["java","-Xmx2G","-Xms2G","-cp",REvolver,"revolver",xml_file]
     try:
-        subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
+        subprocess.check_output(command, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         # The exception gets caught to not halt the entire ProtTrace process.
         # This is especially important when processing multiple query proteins.
@@ -171,19 +170,25 @@ def run_revolver(REvolver, xml_file):
         # is reduced to few sentences to not clutter the log.
         # For this, the message is splitted for each sentence and then stripped off the
         # sometimes varying line numbers in the java sourcecode.
-        message_lines = set([m.split("(")[0] for m in e.output.split("\n")])
+        message_lines = set([m.split("(")[0] for m in e.output.decode('utf-8').split("\n")])
         if "	at controller.seqGeneration.HmmSeqEvolver.evolveSequence_waitingTime" in message_lines:
             print("The feature-dependent HmmSeqEvolver cannot simulate the evolution/deletion/insertion waiting time!\n\
 The sequence evolved most likely at rapid speeds and got fully deleted!")
             pass
         else:
-            print(e.output)
+            print(e.output.decode('utf-8'))
             raise e
 
 def run_blast(blastp, prot_id, proteome, revolverOut):
-    command = '%s -query %s/out.fa -db %s -outfmt "6 qseqid sseqid"' %(blastp, revolverOut, proteome)
-    blast_process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Performs the reblast against the query proteome.
+
+    # Declares the BLASTP process.
+    blast_process = subprocess.Popen([blastp,"-query","{0}/out.fa".format(revolverOut),"-db",proteome,"-outfmt","6 qseqid sseqid"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Waits for BLASTP to be finished and retrieves the result and error messages.
     result, error = blast_process.communicate()
+    # Necessary, since in python 3, subprocess outputs bytes. In python 3, bytes and strings are not interchangeable anymore.
+    result = result.decode('utf-8')
+    error = error.decode('utf-8')
     # This error message is caught and print(ed only once.)
     if error[0:54] == "BLAST engine error: Warning: Sequence contains no data":
         print("BLAST engine error: Warning: Sequence contains no data")

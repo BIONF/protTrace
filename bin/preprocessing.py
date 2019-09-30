@@ -45,20 +45,39 @@ def Preprocessing(prot_id, querySeq, config_file):
     phy_file = 'ogSeqs_' + prot_id + '.phy'
     tree_file = 'ogSeqs_' + prot_id + '.phy.treefile' 	###	CHANGE HERE IF IQTree OUTPUT NAME CHANGES 	###
 
+    # The transformed file for IQTree to estimate indel rates.
     trans_file = 'ogSeqs_' + prot_id + '.trans'
+    # The HMM file of the orthologous proteins.
     hmm_file = prot_id + '.hmm'
+    # The XML configuration file for REvolver.
     xml_file = 'revolver_config_' + prot_id + '.xml'
+    # The output directory for REvolver.
     REvolver_output_dir = work_dir + '/REvolver_output/'
+    # The file that stores the indel rate and indel length distribution.
     indel_file = 'indel_' + prot_id
+    # The file that stores the substitution rate scaling factor.
     scale_file = 'scale_' + prot_id
+    # A boolean value that tells each function whether to remove temporary files.
     delTemp = prot_config.delete_temp
+    # A boolean value stating whether to use the cache directory.
     cache = prot_config.reuse_cache
+    # Contains the ending to each *_dir directory in the HaMStR directory.
+    # This allows multiple datasets in one HaMStR installation.
     hamstr_env = prot_config.hamstr_environment
+    # This boolean value tells whether to include paralogs in the orthology search/retrieval
     include_paralogs = prot_config.includeParalogs
+    # A boolean value that states whether the phylogenetic tree should
+    # be reconstructed from the orthologs.
     ortholog_tree_reconstruction = prot_config.phylogeneticTreeReconstruction
+    # Limits the number of usable CPUs.
     nr_processors = prot_config.nr_processors
+    # The path to the speciesTreeMapping.txt file.
     hamstr_oma_map_file = prot_config.hamstr_oma_tree_map
+    # The path to BLASTP.
     blastp = prot_config.blastp
+    # A boolean value that specifies whether to use SpartaABC for
+    # estimating indel rates and indel length distribution values.
+    # The alternative is the estimation by parsimony using IQTree.
     run_spartaABC = prot_config.run_spartaABC
 
     # Creates a working directory where temporary and output files will be stored
@@ -333,6 +352,10 @@ def Preprocessing(prot_id, querySeq, config_file):
 
 ### FAS Annotations computation - annotation.pl script works here ###
 def retrieve_FAS_annotations(fasta):
+    """ LEGACY CODE - FAS score annotations are not maintained anymore!
+    Annotates protein sequences with features. Uses the annotation.pl
+    script from HaMStR. """
+
     # Read the orthologs file and create the FAS annotations for individual protein sequences
     oma_ids = []
     mapDict = {}
@@ -416,6 +439,8 @@ def retrieve_FAS_annotations(fasta):
 
 ### Actual FAS calculations - GreedyFAS is run from this module ###
 def actual_FAS_exec(elementsWithFasScoresPath):
+    """ LEGACY CODE - FAS score annotations are not maintained anymore!
+    Computes the feature architecture similarity score (FAS-score). """
 
     fasFileData = []
 
@@ -444,6 +469,9 @@ def actual_FAS_exec(elementsWithFasScoresPath):
 
 # FAS Calculation
 def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_archi_file, map_file, blastp, protein_id, species_id, delTemp, hamstr_env):
+    """ LEGACY CODE - FAS score annotations are not maintained anymore!
+    Manages the feature architecture similarity score computation
+    between orthologous proteins. """
 
     global prot_id
     prot_id = protein_id
@@ -552,25 +580,28 @@ def calculateFAS(working_dir, hamstr, spAnnoDir, orth_file, fas_file, domain_arc
             fasFileData.append(res[0])
 
             ## If you want feature architecture aswell, add another dimension to res in the previous loop part (res[0] -> res[0][0])
-#		if not res[1] == []:
-#			for resListElements in res[1]:
-#				domainArchiData.append(resListElements)
+#       if not res[1] == []:
+#           for resListElements in res[1]:
+#               domainArchiData.append(resListElements)
 
     fasFile = open(fas_file, 'w')
     for data in fasFileData:
         fasFile.write(data)
     fasFile.close()
 
-#	domainFile = open(domain_archi_file, 'w')
-#	for data in domainArchiData:
-#	domainFile.write(data)
-#	domainFile.close()
+#   domainFile = open(domain_archi_file, 'w')
+#   for data in domainArchiData:
+#   domainFile.write(data)
+#   domainFile.close()
 
     if delTemp:
         os.system('rm -rf %s' %temp_fasAnno)
 
-# HaMStROneSeq run
+
 def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, proteome, delTemp, hamstr_env, include_paralogs,work_dir):
+    """ Performs HaMStR One-Seq to find orthologous protein sequences
+    for a single query protein. """
+
     # Setting default paths for HaMStR-OneSeq
     hamstrOneSeq = hamstr + '/bin/oneSeq.pl'
     try:
@@ -590,7 +621,7 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
             if omaId in line.split()[-1]:
                 hamstrId = line.split('\t')[0]
                 break
-        print('hamstr id: ', hamstrId)
+        print('hamstr id: {0}'.format(hamstrId))
         for taxas in glob.glob(taxaPath + '/*'):
             if hamstrId in taxas:
                 refSpec = taxas.split('/')[-1]
@@ -608,6 +639,8 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
                     seqId = line.split('>')[1].split('\n')[0]
                     flag = False
                     break
+
+        # If no matching sequence has been found
         if flag:
             seqId = "NA"
             print('No matching sequence found! Running BLAST search now..')
@@ -763,8 +796,9 @@ def run_hamstrOneSeq(hamstr, orth_file, map_file, prot_id, makeblastdb, blastp, 
             os.system('rm inputTaxaSet_oneSeq.txt')
 
 
-# Prepares input configuration file for REvolver
 def prepareXML(xml_file, pfamDB, hmmfetch, aaMatrix, indel, p, sf, simTree, prot_id, hmm_file, output_dir,run_spartaABC):
+    """ Writes the configuration file for REvolver. """
+
     # Writes the REvolver configuration XML-file.
     fnew = open(xml_file, 'w')
     fnew.write('<?xml version="1.0" encoding="UTF-8" ?>\n')
@@ -810,8 +844,8 @@ def prepareXML(xml_file, pfamDB, hmmfetch, aaMatrix, indel, p, sf, simTree, prot
 
     fnew.close()
 
-# Runs hmmscan and prepares the domain constraint file for REvolver
 def hmmscan(hmmscan, orth_file, pfamDB, hmm_file, prot_id, species_id):
+    """ Performs hmmscan to create a domain constraint file for REvolver. """
     with open(orth_file,'r') as f:
         for line in f:
             if '>' in line:
@@ -822,8 +856,10 @@ def hmmscan(hmmscan, orth_file, pfamDB, hmm_file, prot_id, species_id):
                     break
     os.system('%s --notextw -E 0.01 %s seq_%s.fa > %s' %(hmmscan, pfamDB, prot_id, hmm_file))
 
-# Calculates indels rates
 def calculateIndels(tree_file, trans, alnLength, iqtree, def_indel, def_indel_dist,indel_file):
+    """ Calculates indel rates under the assumption of parsimony
+    with IQTree -tina. """
+
     indel = float(def_indel)
     p = float(def_indel_dist)
 
@@ -862,6 +898,8 @@ def calculateIndels(tree_file, trans, alnLength, iqtree, def_indel, def_indel_di
         fnew.write(str(indel) + '\n' + str(p))
 
 def calculateIndelsSpartaABC(sparta,seq_evolve_dawg,orth_file,aln_file,tree_file,def_indel,def_indel_dist,delTemp,reuse_cache,indel_file):
+    """ Calculates indel rates using SpartaABC. """
+
     posterior_params_filename = 'SpartaABC_raw_output.posterior_params'
 
     if reuse_cache and os.path.exists(posterior_params_filename):
@@ -980,8 +1018,6 @@ def calculateIndelsSpartaABC(sparta,seq_evolve_dawg,orth_file,aln_file,tree_file
     indel = posterior_estimates[0]
     indel_distribution = posterior_estimates[1]
 
-    print("Passed")
-
     if indel_distribution < 1:
         print("Indel distribution estimated to be lower than 1. This is not compatible to REvolver Zipfian distribution. Default of 1.1 is used.")
         indel_distribution = 1.1
@@ -997,6 +1033,9 @@ def calculateIndelsSpartaABC(sparta,seq_evolve_dawg,orth_file,aln_file,tree_file
             os.system('rm dawg_control.txt')
 
 def calculateSpartaRLValues(orth_file):
+    """ Implementation of the script file distributed with SpartaABC
+    to calculate the less than minimum and maximum sequence lengths. """
+
     minLength = 0
     maxLength = 0
     with open(orth_file,'r') as orthologs_list:
@@ -1021,6 +1060,11 @@ def calculateSpartaRLValues(orth_file):
     return (less_than_min,more_than_max)
 
 def extract50ClosestDistancePosteriorMean(sparta_output_file):
+    """ After simulating the evolution from the MSA and the phylogenetic
+    tree, the 50 sequences with the closest distance to the input are
+    considered for extracting the indel rates and indel length
+    distributions. From these 50 sequences the mean values are drawn. """
+
     simulations = []
     with open(sparta_output_file,'r') as raw:
         # First line are headers, second line represents initial MSA
@@ -1041,12 +1085,15 @@ def extract50ClosestDistancePosteriorMean(sparta_output_file):
     return (fifty_best_indel_sum / 50,fifty_best_zipfianSlope_sum / 50)
 
 def writeIndels(indel_rate,indel_distribution,indel_file):
+    """ Writes the indel rate and indel length distributions into their
+    file."""
+
     with open(indel_file,'w') as fnew:
         fnew.write(str(indel_rate)+'\n'+str(indel_distribution))
 
-# Perform MSA of the ortholog sequences
-# Produces msa in .phy format
 def performPhylipMSA(msa,nr_processors,orth_file,phy_file,cache):
+    """ Alignes multiple sequences and outputs them in phylip format."""
+
     if cache and os.path.exists(phy_file):
         print('Re-using previously compiled orthologs alignment phylip file')
         pass
@@ -1057,9 +1104,9 @@ def performPhylipMSA(msa,nr_processors,orth_file,phy_file,cache):
             pass
             print('WARNING: MSA didn\'t work. Less than 2 sequences found for alignment!!!')
 
-# Perform MSA of the ortholog sequences
-# Produces msa in .aln format
 def performFastaMSA(msa,nr_processors,orth_file,aln_file,cache):
+    """ Alignes multiple sequences and outputs them in fasta format. """
+
     if cache and os.path.exists(aln_file):
         print('Re-using previously compiled orthologs alignment fasta file')
         pass
@@ -1070,8 +1117,11 @@ def performFastaMSA(msa,nr_processors,orth_file,aln_file,cache):
             pass
             print('WARNING: MSA didn\'t work. Less than 2 sequences found for alignment!!!')
 
-# Read OMA sequences file and parse OMA orthologs sequences
 def findOmaSequences(prot_id, id_file, omaSeqs, species_id, mapFile, config_file,orth_file):
+    """ Search for all identifiers in the OMA sequences file for their
+    amino acid sequences. """
+
+    # Read all parameters of the configuration file into this variable.
     prot_config = configure.setParams(config_file)
     try:
         mapIds = []
@@ -1096,8 +1146,10 @@ def findOmaSequences(prot_id, id_file, omaSeqs, species_id, mapFile, config_file
     except IOError:
         sys.exit('ERROR: Cannot find OMA orthologs sequences. OMA sequence file does not exist!')
 
-# Read OMA orthologs groups file and parses the ortholog list for input OMA id
 def findOmaGroup(prot_id, id_file, querySeq, omaGroup, omaSeqs, proteome_file, makeblastdb, blastp, delTemp, species_id):
+    """ Extract orthologs from the OMA orthologs file.
+    Parses their identifiers for an input list. """
+
     # If the query protein has a sequence attached, search for the identifier by sequence similarity
     if not querySeq == 'None':
         run = 1
@@ -1186,9 +1238,11 @@ def findOmaGroup(prot_id, id_file, querySeq, omaGroup, omaSeqs, proteome_file, m
 
     return run
 
-# Read in OMA sequences file and create a new proteome file for the species id
-# Performs formatdb on the proteome to be later used in reciprocal BLAST search
 def parseProteome(species_id, omaSeqs, makeblastdb, proteome_file, crossRefFile, hamstrDir, hamstrEnv, search_oma_database,cache,cache_dir):
+    """ Reads in the OMA sequences file to create a new proteome file
+    for the query species. The proteome file is formatted with
+    makeblastdb for future BLASTP searches. """
+
     # Check whether the parsed proteome in already present in Cache directory
     if cache and os.path.exists(cache_dir + '/proteome_' + species_id):
         print('#####	Gene set for species %s found in Cache directory. Reusing it.	#####' %species_id)

@@ -111,6 +111,8 @@ def colourize(speciesName, speciesId, nexusTreeFile, speciesTree, decayRate, dec
     fnew.close()
 
 def getColourCode(spName, tempName, decayRate, decayPop):
+    """ Colour codes the branches of the visualization tree by the
+    traceability index. """
     mlDist = calculateMaxLikDist(spName, tempName)
     #print(mlDist)
     if decayRate < 0.01:
@@ -203,8 +205,13 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
 
         colourize(speciesName, speciesId, nexusTreeFile, speciesTree, decayRate, decayPop, traceResults, matrixDict)
 
+        # Visualizes the species tree that has been colourized by the
+        # traceability index of the query protein. It outputs the tree
+        # in PDF format.
         try:
-            subprocess.check_output('java -cp %s figtreepdf %s' %(plotFigTree, nexusTreeFile.replace('.nexus', '_edit.nexus')),shell=True)
+            # LEGACY code
+            # subprocess.check_output('java -cp %s figtreepdf %s' %(plotFigTree, nexusTreeFile.replace('.nexus', '_edit.nexus')),shell=True)
+            subprocess.check_output(['java','-Djava.awt.headless=true','-cp',plotFigTree,'figtreepdf',nexusTreeFile.replace('.nexus', '_edit.nexus')])
             print("Done!")
         except subprocess.CalledProcessError as e:
             print(e.output)

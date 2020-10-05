@@ -118,6 +118,7 @@ def getColourCode(spName, tempName, decayRate, decayPop):
     if decayRate < 0.01:
         traceability = 1
     else:
+        # This is the calculation of the protein's traceability index in a species (specified by mlDist).
         traceability = 1 - ((decayPop * math.exp(decayRate * mlDist)) / (1 + decayPop * (math.exp(decayRate * mlDist) - 1)))
     #print(traceability)
     if traceability <= 1 and traceability >= 0.9:

@@ -4,17 +4,27 @@ import glob
 ### Supporting script for maximum likelihood calculations ###
 
 def calculateProteinDistances(species1,species2,config):
+
+    # Move to the dedicated distance calculation root 
+    # directory for all species
     root_dir = config.path_distance_work_dir
+    os.chdir(rootDir) 
+
+    # Read the configuration of ProtTrace for paths
     omaSeqs = config.path_oma_seqs
     omaPairs = config.path_oma_pairs
-    concatAlignment = config.concat_alignments_scripts
+    concatAlignment = config.concat_alignments_script
     omaProteomesDir = ".."
+    linsi = config.msa
+    clustalw = config.clustalw
     
+    # Create a logging file
     if not os.path.exists('log.txt'):
     	log = open('log.txt', 'w')
     else:
     	log = open('log.txt', 'a')
     
+    # Create the working directory for the processed species pair
     workDir = species1+'_'+species2
     
     if not os.path.exists(workDir):
@@ -31,6 +41,8 @@ def calculateProteinDistances(species1,species2,config):
     if not os.path.exists(alnDir):
     	os.mkdir(alnDir)
     
+    # Define the preprocessing step, where the set of orthologous 
+    # protein alignments are gathered
     def preprocess():
     	print 'Preprocessing:\tParsing sequence pairs and aligning them..'
     	flag = True
@@ -80,17 +92,20 @@ def calculateProteinDistances(species1,species2,config):
     							break
     			fnew.close()
     			c += 1
-    
-    			os.system('muscle -quiet -in %s -out %s' %(filename, filename.replace('.fa', '.aln').replace(faDir, alnDir)))
-    			#os.system('linsi %s > %s' %(filename, filename.replace('.fa', '.aln').replace(faDir, alnDir)))
+                        # ProtTrace rather uses MAFFT linsi than muscle
+                        # To avoid adding another dependency, I uncommented the linsi command
+    			#os.system('muscle -quiet -in %s -out %s' %(filename, filename.replace('.fa', '.aln').replace(faDir, alnDir)))
+                        os.system('%s %s > %s' %(linsi, filename, filename.replace('.fa', '.aln').replace(faDir, alnDir)))
     
     	if flag:
     		print 'WARNING! ERROR! Species missing!'
     		log.write('WARNING: Either %s or %s is missing in the OMA database' %(species1, species2))
-    
+    # Collect all pairwise protein alignments, concatenate them
+    # and calculate the summarized pairwise species distance
     def postprocess():
     	print 'Preprocessing complete..\nConcating the alignments..'
     	concatFile = species1+'_'+species2+'.aln'
+        # The concatAlignment script requires perl
     	os.system('perl %s -in=%s -out=%s' %(concatAlignment, alnDir, concatFile))
     	print 'Postprocessing concatenated alignment file..'
     	postProcessConcatFile = concatFile.replace('.aln', '.dup.aln')
@@ -104,7 +119,7 @@ def calculateProteinDistances(species1,species2,config):
     	fnew.close()
     	print 'Converting alignment file to phylip format..'
     	phyFile = postProcessConcatFile.replace('.aln', '.phy')
-    	os.system('clustalw -convert -output=phylip -infile=%s -outfile=%s' %(postProcessConcatFile, phyFile))
+    	os.system('%s -convert -output=phylip -infile=%s -outfile=%s' %(clustalw, postProcessConcatFile, phyFile))
     
     	print 'Performing likelihood mapping..'
     	puzzleParams = 'temp_puzzleParams.txt'
@@ -119,14 +134,18 @@ def calculateProteinDistances(species1,species2,config):
     	outdist = open(phyFile + '.dist').read().split('\n')
     	fnew.write(outdist[3].split()[1])
     	fnew.close()
-    
+   
+    # Deletes temporary files 
     #	if os.path.exists(result) and not len(open(result).read().split('\n')) == 0:
     #		os.system('rm -rf %s' %faDir)
     #		os.system('rm -rf %s' %alnDir)
     #		os.system('rm %s*' %phyFile)
     #		os.system('rm -rf *.txt')
     #		os.system('rm -rf *.aln')
+
+    # END OF POSTPROCESS FUNCTION DEFINITION
     
+    # Performs the functions defined before
     os.chdir(workDir)
     preprocess()
     postprocess()

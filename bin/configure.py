@@ -8,9 +8,12 @@ class setParams:
     def __init__(self, configFile):
         config = open(configFile).read().split('\n')
         for line in config:
+            # Ignores empty and comment lines
             if line != "" and line[0] != "#":
+                # This option sets the query species
                 if line.split(':')[0] == 'species':
                     self.species = line.split(':')[1]
+                # Yes-No settings
                 if line.split(':')[0] == 'search_oma_database':
                     if line.split(':')[1] == 'YES':
                         self.search_oma_database = True
@@ -97,18 +100,20 @@ class setParams:
                         self.evolve_dawg = True
                     else:
                         self.evolve_dawg = False
+                if line.split(':')[0] == 'simulation_runs':
+                    self.simulation_runs = int(line.split(':')[1])
+                if line.split(':')[0] == 'nr_of_processors':
+                    self.nr_processors = int(line.split(':')[1])
                 if line.split(':')[0] == 'aa_substitution_matrix':
                     self.aa_substitution_matrix = line.split(':')[1]
+                # Default values
                 if line.split(':')[0] == 'default_indel':
                     self.default_indel = line.split(':')[1]
                 if line.split(':')[0] == 'default_indel_distribution':
                     self.default_indel_distribution = line.split(':')[1]
                 if line.split(':')[0] == 'default_scaling_factor':
                     self.default_scaling_factor = line.split(':')[1]
-                if line.split(':')[0] == 'simulation_runs':
-                    self.simulation_runs = int(line.split(':')[1])
-                if line.split(':')[0] == 'nr_of_processors':
-                    self.nr_processors = int(line.split(':')[1])
+                # Dependent software paths
                 if line.split(':')[0] == 'spartaABC':
                     self.sparta = os.path.abspath(line.split(':')[1])
                 if line.split(':')[0] == 'linsi':
@@ -133,18 +138,34 @@ class setParams:
                     self.hamstr = os.path.abspath(line.split(':')[1])
                 if line.split(':')[0] == 'oneseq':
                     self.hamstrOneSeq = os.path.abspath(line.split(':')[1])
+                if line.split(':')[0] == 'hamstr_environment':
+                    if not line.split(':')[1] == "default":
+                        self.hamstr_environment = line.split(':')[1]
+                    else:
+                        self.hamstr_environment = ""
                 #if line.split(':')[0] == 'degapping':
                 #	self.degapping = os.path.abspath(line.split(':')[1])
-                if line.split(':')[0] == 'species_MaxLikMatrix':
-                    self.species_MaxLikMatrix = os.path.abspath(line.split(':')[1])
+
+                # Set output and cache directory paths or create default ones
+                # Each protein creates its own subdirectory within this output directory
                 if line.split(':')[0] == 'path_output_dir':
                     self.path_work_dir = os.path.abspath(line.split(':')[1])
                     if not os.path.exists(self.path_work_dir):
                         os.mkdir(self.path_work_dir)
+                # The cache directory contains global intermediary files, 
+                # such as calculated species distances
                 if line.split(':')[0] == 'path_cache':
                     self.path_cache = os.path.abspath(line.split(':')[1])
                     if not os.path.exists(self.path_cache):
                         os.mkdir(self.path_cache)
+                # Pairwise species distances are calculated within this directory
+                if line.split(':')[0] == 'path_distance_work_dir':
+                    self.path_distance_work_dir = os.path.abspath(line.split(':')[1])
+                    if not os.path.exists(self.path_distance_work_dir):
+                        os.mkdir(self.path_distance_work_dir)
+                # Input file paths
+                if line.split(':')[0] == 'species_MaxLikMatrix':
+                    self.species_MaxLikMatrix = os.path.abspath(line.split(':')[1])
                 if line.split(':')[0] == 'Xref_mapping_file':
                     self.hamstr_oma_tree_map = os.path.abspath(line.split(':')[1])
                 if line.split(':')[0] == 'path_oma_seqs':
@@ -158,18 +179,14 @@ class setParams:
                 #if line.split(':')[0] == 'species_tree_msa':
                 #	self.species_tree_msa = os.path.abspath(line.split(':')[1])
                 if line.split(':')[0] == 'simulation_tree':
-                    self.simulation_tree = os.path.abspath(line.split(':')[1])
+                    self.simulation_tree = os.path.abspath(line.split(':')[1]
+                # Additional script paths
+                if line.split(':')[0] == 'concat_alignments':
+                    self.concat_alignments_script = os.path.abspath(line.split(':')[1])
                 if line.split(':')[0] == 'decay_script':
                     self.decay_script = os.path.abspath(line.split(':')[1])
                 if line.split(':')[0] == 'plot_figtree':
                     self.plot_figtree = os.path.abspath(line.split(':')[1])
                 if line.split(':')[0] == 'fas_annotations':
                     self.fas_annotations = os.path.abspath(line.split(':')[1])
-                if line.split(':')[0] == 'hamstr_environment':
-                    if not line.split(':')[1] == "default":
-                        self.hamstr_environment = line.split(':')[1]
-                    else:
-                        self.hamstr_environment = ""
-
-
 

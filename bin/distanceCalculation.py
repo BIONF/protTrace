@@ -7,7 +7,7 @@ def calculateProteinDistances(species1,species2,config):
 
     # Move to the dedicated distance calculation root 
     # directory for all species
-    root_dir = config.path_distance_work_dir
+    rootDir = config.path_distance_work_dir
     os.chdir(rootDir) 
 
     # Read the configuration of ProtTrace for paths
@@ -17,6 +17,7 @@ def calculateProteinDistances(species1,species2,config):
     omaProteomesDir = ".."
     linsi = config.msa
     clustalw = config.clustalw
+    deleteTemp = config.delete_temp
     
     # Create a logging file
     if not os.path.exists('log.txt'):
@@ -44,13 +45,13 @@ def calculateProteinDistances(species1,species2,config):
     # Define the preprocessing step, where the set of orthologous 
     # protein alignments are gathered
     def preprocess():
-    	print 'Preprocessing:\tParsing sequence pairs and aligning them..'
+    	print('Preprocessing:\tParsing sequence pairs and aligning them...')
     	flag = True
     	c = 1
     	for line in open(omaPairs):
     		if species1 in line and species2 in line:
     			flag = False
-    			print 'Sequence Nr.:', c
+    			print('Sequence Nr.:', c)
     			if species1 in line.split('\t')[0]:
     				species1Id = line.split('\t')[0]
     				species2Id = line.split('\n')[0].split('\t')[1]
@@ -70,7 +71,7 @@ def calculateProteinDistances(species1,species2,config):
     							break
     
     			else:
-    				print 'Searching in file: ', omaSeqs, species1
+    				print('Searching in file: ', omaSeqs, species1)
     				with open(omaSeqs) as omaseq:
     					for line2 in omaseq:
     						if '>' in line2 and species1Id in line2:
@@ -84,7 +85,7 @@ def calculateProteinDistances(species1,species2,config):
     							fnew.write(protLine[:6] + '\n' + prot2.next().replace('*', ''))
     							break
     			else:
-    				print 'Searching in file: ', omaSeqs, species2
+    				print('Searching in file: ', omaSeqs, species2)
     				with open(omaSeqs) as omaseq:
     					for line2 in omaseq:
     						if '>' in line2 and species2Id in line2:
@@ -98,16 +99,16 @@ def calculateProteinDistances(species1,species2,config):
                         os.system('%s %s > %s' %(linsi, filename, filename.replace('.fa', '.aln').replace(faDir, alnDir)))
     
     	if flag:
-    		print 'WARNING! ERROR! Species missing!'
+    		print('WARNING! ERROR! Species missing!')
     		log.write('WARNING: Either %s or %s is missing in the OMA database' %(species1, species2))
     # Collect all pairwise protein alignments, concatenate them
     # and calculate the summarized pairwise species distance
     def postprocess():
-    	print 'Preprocessing complete..\nConcating the alignments..'
+    	print('Preprocessing complete..\nConcating the alignments..')
     	concatFile = species1+'_'+species2+'.aln'
         # The concatAlignment script requires perl
     	os.system('perl %s -in=%s -out=%s' %(concatAlignment, alnDir, concatFile))
-    	print 'Postprocessing concatenated alignment file..'
+    	print('Postprocessing concatenated alignment file..')
     	postProcessConcatFile = concatFile.replace('.aln', '.dup.aln')
     	fnew = open(postProcessConcatFile, 'w')
     	with open(concatFile) as con:
@@ -117,31 +118,31 @@ def calculateProteinDistances(species1,species2,config):
     				sequence = con.next()
     				fnew.write(seqId + sequence + seqId.replace('>', '>dup_') + sequence)
     	fnew.close()
-    	print 'Converting alignment file to phylip format..'
+    	print('Converting alignment file to phylip format..')
     	phyFile = postProcessConcatFile.replace('.aln', '.phy')
     	os.system('%s -convert -output=phylip -infile=%s -outfile=%s' %(clustalw, postProcessConcatFile, phyFile))
     
-    	print 'Performing likelihood mapping..'
+    	print('Performing likelihood mapping..')
     	puzzleParams = 'temp_puzzleParams.txt'
     	fnew = open(puzzleParams, 'w')
     	fnew.write(phyFile + '\nb\ne\nm\nm\nm\nm\nm\nm\ny\n')
     	fnew.close()
     	os.system('puzzle < %s' %puzzleParams)
     
-    	print 'Parsing outfile and saving likelihood distance to'
+    	print('Parsing outfile and saving likelihood distance to')
     	result = species1+'_'+species2+'.lik'
     	fnew = open(result, 'w')
     	outdist = open(phyFile + '.dist').read().split('\n')
     	fnew.write(outdist[3].split()[1])
     	fnew.close()
-   
+    if deleteTemp: 
     # Deletes temporary files 
-    #	if os.path.exists(result) and not len(open(result).read().split('\n')) == 0:
-    #		os.system('rm -rf %s' %faDir)
-    #		os.system('rm -rf %s' %alnDir)
-    #		os.system('rm %s*' %phyFile)
-    #		os.system('rm -rf *.txt')
-    #		os.system('rm -rf *.aln')
+        if os.path.exists(result) and not len(open(result).read().split('\n')) == 0:
+            os.system('rm -rf %s' %faDir)
+            os.system('rm -rf %s' %alnDir)
+            os.system('rm %s*' %phyFile)
+            os.system('rm -rf *.txt')
+            os.system('rm -rf *.aln')
 
     # END OF POSTPROCESS FUNCTION DEFINITION
     

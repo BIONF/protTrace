@@ -152,7 +152,7 @@ class setParams:
                     self.path_work_dir = os.path.abspath(line.split(':')[1])
                     if not os.path.exists(self.path_work_dir):
                         os.mkdir(self.path_work_dir)
-                # The cache directory contains global intermediary files, 
+                # The cache directory contains global intermediary files,
                 # such as calculated species distances
                 if line.split(':')[0] == 'path_cache':
                     self.path_cache = os.path.abspath(line.split(':')[1])
@@ -177,9 +177,9 @@ class setParams:
                 if line.split(':')[0] == 'reference_species_tree':
                     self.species_tree = os.path.abspath(line.split(':')[1])
                 #if line.split(':')[0] == 'species_tree_msa':
-                #	self.species_tree_msa = os.path.abspath(line.split(':')[1])
+                #    self.species_tree_msa = os.path.abspath(line.split(':')[1])
                 if line.split(':')[0] == 'simulation_tree':
-                    self.simulation_tree = os.path.abspath(line.split(':')[1]
+                    self.simulation_tree = os.path.abspath(line.split(':')[1])
                 # Additional script paths
                 if line.split(':')[0] == 'concat_alignments':
                     self.concat_alignments_script = os.path.abspath(line.split(':')[1])

@@ -3,7 +3,74 @@ import glob
 
 ### Supporting script for maximum likelihood calculations ###
 
-def calculateProteinDistances(species1,species2,config):
+### Orchestrates the calculation of species distances between 
+### the query species and all other species in the 
+### speciesTreeMapping list. This function can be called as 
+### a __main__ to distribute ProtTrace tasks separately.
+def CalculateSpeciesDistances(query,config):
+    
+    speciesMapping = config.hamstr_oma_tree_map
+
+    # Gather the set of all subject species in this project 
+    # from the speciesTreeMapping file
+    speciesSet = set()
+    try:
+        with open(speciesMapping, 'r') as sm:
+            for line in sm:
+                speciesSet.add(line.split()[-1]
+    except IOError:
+        sys.exit('ERROR: Could not open %s. Please check the path.' %crossRefFile)
+
+    missingSpecies = CheckSpeciesMaxLikelihoodTable(query,speciesSet,config)
+    
+# Checks the speciesMaxLikelihood file for existing distances
+# Returns missing target species OMA IDs
+def CheckSpeciesMaxLikelihoodTable(query,targets,config):
+
+    # Check whether all query-subject pairs have already
+    # computed distances in the speciesMaxLikelihood file
+    speciesMaxLikelihood = config.species_MaxLikMatrix
+    # We need a list first, because we first fetch the names
+    # in the first line, then we fetch existing numbers
+    # in the query species row, where both indices must
+    # coalign
+    computedSpeciesList = list()
+    computedSpeciesSet = set()
+    try:
+        with open(speciesMaxLikelihood, 'r') as ml:
+            # The first row contains all species names
+            # Its first column is empty
+            # We populate the species list with it
+            # The file reader will be positioned at the next line anyways
+            computedSpeciesList = ml.readline().rstrip().split("\t")[1:]
+            # Now we look up our query species row for which distances are
+            # actually computed / not N/A / not missing
+            for row in ml:
+                splitRow = row.split("\t")
+                # Find the row where the first item corresponds to our query species
+                if splitRow[0] == query:
+                    # The first item was only necessary to recognize the query species
+                    # This way, we save a +1 index operation for every column 
+                    # (and the headache)
+                    splitRow.Remove(0)
+                    # Create a set of all species names whose index in this column 
+                    # contains a valid digit
+                    computedSpeciesSet = (computedSpeciesList[i] for i in range(len(computedSpeciesList)) if isdigit(splitRow[i]))
+                    # We do not need the list anymore
+                    computedSpeciesList = None
+                    break
+    except IOError:
+        sys.exit('ERROR: Could not open %s. Please check the path.' %crossRefFile)
+ 
+    # This is done to remove references and in case 
+    # targets is a list
+    targetSpeciesSet = set(targets)
+    
+    # Returns species in the speciesTreeMapping list without
+    # digits in SpeciesMaxLikelihood
+    return computedSpeciesSet.difference(targetSpeciesSet)
+
+def CalculateProteinDistances(species1,species2,config):
 
     # Move to the dedicated distance calculation root 
     # directory for all species
@@ -135,14 +202,14 @@ def calculateProteinDistances(species1,species2,config):
         outdist = open(phyFile + '.dist').read().split('\n')
         fnew.write(outdist[3].split()[1])
         fnew.close()
-    if deleteTemp: 
+    #if deleteTemp: 
     # Deletes temporary files 
-        if os.path.exists(result) and not len(open(result).read().split('\n')) == 0:
-            os.system('rm -rf %s' %faDir)
-            os.system('rm -rf %s' %alnDir)
-            os.system('rm %s*' %phyFile)
-            os.system('rm -rf *.txt')
-            os.system('rm -rf *.aln')
+    #    if os.path.exists(result) and not len(open(result).read().split('\n')) == 0:
+    #        os.system('rm -rf %s' %faDir)
+    #        os.system('rm -rf %s' %alnDir)
+    #        os.system('rm %s*' %phyFile)
+    #        os.system('rm -rf *.txt')
+    #        os.system('rm -rf *.aln')
 
     # END OF POSTPROCESS FUNCTION DEFINITION
     
@@ -151,3 +218,8 @@ def calculateProteinDistances(species1,species2,config):
     preprocess()
     postprocess()
     os.chdir(rootDir)
+
+if __name__ == "__main__":
+    if len(sys.argv[1:]) == 0:
+        print('ERROR:\tNo arguments entered for calculating species distances:\nUSAGE:\tdistanceCalculation.py -s <query species ID> -c <configFile> [-help]')
+        sys.exit(2)

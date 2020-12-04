@@ -147,6 +147,7 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
     decayPop = 0.04
     cacheDir = cache_dir
 
+    # Iterate through all species in the species mapping file
     for line in open(mapFile):
         orth = "NA"
         fas = "NA"
@@ -154,6 +155,7 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
         if currentSpecies not in matrixDict:
             matrixDict[currentSpecies] = []
 
+        # The query species gets FAS score and orthology presence value of 1
         if currentSpecies == speciesId:
             if os.path.exists(fasFile):
                 if open(fasFile).read().split('\n')[0] != "":
@@ -163,8 +165,10 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
                 orth = "1"
 
             matrixDict[currentSpecies].append(orth + '#' + fas)
+        # Any species that is not the query species
         else:
             foundSpeciesFlag = False
+            # Adds FAS score information to the output table
             if os.path.exists(fasFile):
                 for line2 in open(fasFile):
                     line2_species_id = line2.split()[2].split('_')[1] if '_' in line2 else line2.split()[2]
@@ -173,6 +177,7 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
                         orth = line2.split()[3]
                         fas = line2.split()[-1]
                         matrixDict[currentSpecies].append(orth + '#' + fas)
+            # Adds orthology information to the output table
             elif os.path.exists(orthFile):
                 orth = "0"
                 for line2 in open(orthFile):
@@ -195,6 +200,7 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
     except IOError:
         print('ERROR: Colourizing tree encountered problem!!!')
 
+    # Write the output table file
     traceResults = open('trace_results_%s.txt' %protId, 'w')
 
     if os.path.exists(nexusTreeFile):
@@ -205,6 +211,8 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
                 break
 
         colourize(speciesName, speciesId, nexusTreeFile, speciesTree, decayRate, decayPop, traceResults, matrixDict)
+
+    traceResults.close()
 
         # Visualizes the species tree that has been colourized by the
         # traceability index of the query protein. It outputs the tree
@@ -217,8 +225,8 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
         except subprocess.CalledProcessError as e:
             print(e.output)
             print('WARNING: No representation of traceabilities on tree possible.\nJAVA program figtreepdf not responding!!!')
-    traceResults.close()
 
+    # Writing the traceability output as a matrix which can be read with PhyloProfile
     print('Creating matrix file for PhyloProfile...')
     matrixFile = open('%s_phyloMatrix.txt' %protId, 'w')
     if intended_fas_score_calc:

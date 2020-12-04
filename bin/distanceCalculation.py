@@ -8,6 +8,11 @@ import glob
 ### speciesTreeMapping list. This function can be called as 
 ### a __main__ to distribute ProtTrace tasks separately.
 def CalculateSpeciesDistances(query,config):
+
+    # Move to the dedicated distance calculation root 
+    # directory for all species
+    rootDir = config.path_distance_work_dir
+    os.chdir(rootDir) 
     
     speciesMapping = config.hamstr_oma_tree_map
 
@@ -21,7 +26,12 @@ def CalculateSpeciesDistances(query,config):
     except IOError:
         sys.exit('ERROR: Could not open %s. Please check the path.' %crossRefFile)
 
+    # Exclude all species with existing distances in speciesMaxLikelihood
     missingSpecies = CheckSpeciesMaxLikelihoodTable(query,speciesSet,config)
+
+    # Exclude missing species with existing .lik files in the cache directory
+    if len(missingSpecies) > 0:
+        os.chdir(
     
 # Checks the speciesMaxLikelihood file for existing distances
 # Returns missing target species OMA IDs
@@ -68,14 +78,9 @@ def CheckSpeciesMaxLikelihoodTable(query,targets,config):
     
     # Returns species in the speciesTreeMapping list without
     # digits in SpeciesMaxLikelihood
-    return computedSpeciesSet.difference(targetSpeciesSet)
+    return targetSpeciesSet.difference(computedSpeciesSet)
 
 def CalculateProteinDistances(species1,species2,config):
-
-    # Move to the dedicated distance calculation root 
-    # directory for all species
-    rootDir = config.path_distance_work_dir
-    os.chdir(rootDir) 
 
     # Read the configuration of ProtTrace for paths
     omaSeqs = config.path_oma_seqs

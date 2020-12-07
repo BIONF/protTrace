@@ -170,6 +170,8 @@ class setParams:
                     self.hamstr_oma_tree_map = os.path.abspath(line.split(':')[1])
                 if line.split(':')[0] == 'path_oma_seqs':
                     self.path_oma_seqs = os.path.abspath(line.split(':')[1])
+                if line.split(':')[0] == 'path_oma_pairs':
+                    self.path_oma_pairs= os.path.abspath(line.split(':')[1])
                 if line.split(':')[0] == 'path_oma_group':
                     self.path_oma_group= os.path.abspath(line.split(':')[1])
                 if line.split(':')[0] == 'pfam_database':

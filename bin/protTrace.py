@@ -16,6 +16,7 @@
 import os, sys
 import getopt
 import configure
+import distanceCalculation
 import preprocessing
 import traceabilityCalculation
 import mapToSpeciesTree
@@ -49,6 +50,9 @@ def main(argv):
 
     # Calling the class in configure.py module and setting the tool parameters
     proteinParams = configure.setParams(config_file)
+
+    # Check available pairwise species distances and calculate missing ones
+    distanceCalculation.calculate_species_distances(proteinParams)
 
     if id_list != '':
         for ids in open(id_list):

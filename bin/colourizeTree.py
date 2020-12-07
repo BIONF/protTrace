@@ -144,7 +144,7 @@ def calculate_traceability(query_species,species_id,decay_rate,decay_pop,species
 # table        - A regular table with target species names
 # phyloprofile - A table readable by PhyloProfile that uses NCBI Ids
 def create_traceability_output_file(query_species,query_protein,species_mapping_file,compute_fas,species_distances_file):
-     
+    
     # Retrieve the presence of orthologs among all other species
     orth_file_name = 'ogSeqs_' + query_protein + '.fa'
     if os.path.exists(orth_file_name):
@@ -192,7 +192,7 @@ def create_traceability_output_file(query_species,query_protein,species_mapping_
         query_found = 0
         for line in mapping_file:
             # Make line elements retrievable by index
-            species_line = line.split("\t")
+            species_line = line.rstrip().split("\t")
 
             species_id = species_line[-1]
 
@@ -200,7 +200,7 @@ def create_traceability_output_file(query_species,query_protein,species_mapping_
             species_traceability = calculate_traceability(query_species,species_id,decay_rate,decay_pop,species_distances_file)
 
             # Add lines to the table output
-            output_lines.append([query_name,species_line[1],species_traceability])
+            output_lines.append([query_name,species_line[1],str(species_traceability)])
 
             # Add lines to the phyloprofile table output
             orthology = 0
@@ -212,16 +212,13 @@ def create_traceability_output_file(query_species,query_protein,species_mapping_
                     fas = 1
                 if species_id != query_protein:
                     fas = fas_scores[species_id]
-                output_phyloprofile_lines.append([query_protein,"ncbi"+species_line[3],orthology,fas,species_traceability])
+                output_phyloprofile_lines.append([query_protein,"ncbi"+species_line[2],str(orthology),str(fas),species_traceability])
             else:
-                output_phyloprofile_lines.append([query_protein,"ncbi"+species_line[3],orthology,species_traceability])
+                output_phyloprofile_lines.append([query_protein,"ncbi"+species_line[2],str(orthology),str(species_traceability)])
 
             # The counter allows us to modify the query_name later when we find the query's line
-            print(species_line[-1],query_species)
             if query_found == 0 and species_line[-1] == query_species:
-                print("aaaaa")
-                exit()
-                query_name = species_line[2]
+                query_name = species_line[1]
                 # We freeze the counter and replace the first column in the default table output after the loop
                 query_found = 1
             else:
@@ -233,13 +230,10 @@ def create_traceability_output_file(query_species,query_protein,species_mapping_
     for c in range(counter):
         output_lines[c][0] = query_name
 
-#    print(output_lines)
-    exit()
-
     # Compile the output lines into one string with newlines
     # and the intended column separator
-    output = "\n".join(["\t".join(str(line)) for line in output_lines])
-    output_phyloprofile = "\n".join(["\t".join(str(line)) for line in output_lines])
+    output = "\n".join(["\t".join(line) for line in output_lines])
+    output_phyloprofile = "\n".join(["\t".join(line) for line in output_phyloprofile_lines])
 
     # Write both output files
     with open('trace_results_%s.txt' %query_protein, 'w') as output_file:

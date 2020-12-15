@@ -1,6 +1,7 @@
 import os, sys
 import glob
 import random
+import time
 
 ### Supporting script for maximum likelihood calculations ###
 
@@ -47,7 +48,7 @@ def calculate_species_distances(config):
         os.chdir(root_dir)
 
     # DEBUG
-    calculate_protein_distances(query,"NASVI",config,cache_dir,1,100)
+    calculate_protein_distances(query,"NASVI",config,cache_dir,1,10)
     sys.exit()
 
     # If we are still missing species distances, we calculate them now
@@ -114,58 +115,61 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
     # The second index tells us the species
     sequences = ["",""]
     protein_pair = 0
-    linecount = 0
+    current_species = 2
     subalignment_positions = []
     subalignment_count = -1
-    # For a sanity check, we compare the input species with the species
-    # listed in the first two sequence lines of the file
-    sanity_line_count = 0
-    species_found = 0
 
-    # Assuming PHYLIP format, collect all PHYLIP files in the directory
+    # Assuming FASTA format, collect all FASTA alignment files in the directory
     print('Collecting all pairwise alignments for concatenation!')
     for current_alignment in range(1, alignment_count):
-        with open("{0}/seq_{1}.aln".format(alignment_directory, str(current_alignment))) as phy_input:
-            # The first line in the phylip file shows the first and
-            # last original protein positions. We put these into a 
-            # separate file for later phylogenomic diagnosis
+        with open('{0}/seq_{1}.aln'.format(alignment_directory, str(current_alignment))) as fasta_input:
+            # The subalignment_positions file is used to record the 
+            # start and stop positions of each aligned protein sequence in
+            # the concatenation
 
-            # The positions are converted from 1 based to 0 based counting
-            # Hence the -1 substractions from the read-in numbers
-            # Then, the first position of the next sequence needs to be
-            # the last position of the previous one + 1
+            for line in fasta_input:
+                stripped_line = line.strip()
+                if '>' in stripped_line:
+                    # Recognize the aligned species
+                    if stripped_line[1:] == species1:
+                        current_species = 0
+                    elif stripped_line[1:] == species2:
+                        current_species = 1
+                else:
+                    sequences[current_species] += stripped_line
+
+            # Add the current sequence length to the subalignment positions
             if subalignment_count > -1:
-                subalignment_begin = int(subalignment_positions[subalignment_count][1]) + 1
-                subalignment_positions.append([subalignment_begin, subalignment_begin + int(phy_input.readline().strip().split()[1])])
+                subalignment_positions.append([subalignment_positions[subalignment_count][1] + 1,len(sequences[0]) - 1])
             else:
-               subalignment_positions.append([0, int(phy_input.readline().strip().split()[1]) - 1])
+                subalignment_positions.append([0,len(sequences[0]) - 1])
             subalignment_count += 1
-            for line in phy_input:
-                if line != "\n":
-                    # The first two lines containing sequences
-                    # are checked for whether their species IDs
-                    # corresponds to the passed species IDs
-                    if sanity_line_count < 2:
-                        if line[0:11].strip() == species1:
-                            species_found += 1
-                        if line[0:11].strip() == species2:
-                            species_found += 2
-                        sanity_line_count += 1
-                    if sanity_line_count == 3:
-                        if species_found != 3:
-                            print("ERROR: The passed species are not found in the alignment!\n{0}-{1}|{2}-{3}".format(species1,sequences[0][0:11].strip(),species2,sequences[1][0:11].strip()))
-                        # Set the line count to anything that evades further operations
-                        sanity_line_count = 4
 
-                    # We add the species id into the indented area later
-                    # Spaces must be stripped to generate a continuous 
-                    # sequence that can be concatenated easily
-                    sequences[linecount] += line[11:].strip().replace(" ","")
-                    # The linecount is switched back and forth
-                    if linecount == 0:
-                        linecount = 1
-                    else:
-                        linecount = 0
+#            # The positions are converted from 1 based to 0 based counting
+#            # Hence the -1 substractions from the read-in numbers
+#            # Then, the first position of the next sequence needs to be
+#            # the last position of the previous one + 1
+#            if subalignment_count > -1:
+#                subalignment_begin = int(subalignment_positions[subalignment_count][1]) + 1
+#                subalignment_positions.append([subalignment_begin, subalignment_begin + int(fasta_input.readline().strip().split()[1])])
+#            else:
+#               subalignment_positions.append([0, int(fasta_input.readline().strip().split()[1]) - 1])
+#            subalignment_count += 1
+#            for line in phy_input:
+#                if line != "\n":
+#                    # The first two lines containing sequences
+#                    # are checked for whether their species IDs
+#                    # corresponds to the passed species IDs
+#
+#                    # We add the species id into the indented area later
+#                    # Spaces must be stripped to generate a continuous 
+#                    # sequence that can be concatenated easily
+#                    sequences[linecount] += line[11:].strip().replace(" ","")
+#                    # The linecount is switched back and forth
+#                    if linecount == 0:
+#                        linecount = 1
+#                    else:
+#                        linecount = 0
 
     # Perform a bootstrap analysis on the alignment and note the created variance
     def create_bootstrap(protein_pairs, count):
@@ -224,7 +228,7 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
         alignment = ""
         # The first line contains the entire length of the original protein sequence
         # Here, we just copy the first and last position
-        alignment += "4 " + str(sum([sub[1] for sub in subalignment_positions])) + "\n"
+        alignment += "4 " + str(subalignment_positions[-1][1]) + "\n"
         # The next 2 lines contain the respective species ids of each line
         # We duplicate the sequence to generate an imaginative 
         # 4 species alignment. We need this to calculate a 
@@ -348,7 +352,9 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
                     # pair list
                     # The list also contains the sequence count to
                     # name each pairwise orthologous alignment file correctly
-                    prot_pair = [species_1_prot_id, species_2_prot_id, sequence_count]
+                    # The last number in the list indicates whether a sequence
+                    # has been written into a fasta file yet
+                    prot_pair = [species_1_prot_id, species_2_prot_id, sequence_count, 0]
                     prot_pairs[species_1_prot_id] = prot_pair
                     prot_pairs[species_2_prot_id] = prot_pair
 
@@ -357,7 +363,7 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
                         print('Sequence Nr.:', sequence_count)
                                                       
                     #DEBUG
-                    if sequence_count == 20:
+                    if sequence_count == 10:
                         break
 
                     sequence_count += 1
@@ -397,12 +403,23 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
             with open(sequence_source, 'r') as sequence_source_file:
                 for line in sequence_source_file:
                     if '>' in line:
-                        line_id = line.replace('>', '')
+                        line_id = line.replace('>', '').strip()
                         if line_id in prot_pairs:
+                            # We do not want to store the sequences in RAM
+                            # But we will access the sequence of each pair
+                            # not in consecutive order. This is why there
+                            # is another number in the pair list that tells
+                            # us whether we need to create a new file or
+                            # that we can append to an existing one
+                            if prot_pairs[line_id][3] == 0:
+                                fasta_file_write_mode = 'w'
+                            else:
+                                fasta_file_write_mode = 'a'
                             # The third element in each prot_pair list is their numeric sequence ID
-                            # In append mode, the file is created if it does not exist yet
-                            with open(fa_dir + '/seq_' + str(prot_pairs[line_id][2]) + '.fa', 'a') as alignment_precurser:
+                            with open(fa_dir + '/seq_' + str(prot_pairs[line_id][2]) + '.fa', fasta_file_write_mode) as alignment_precurser:
                                 alignment_precurser.write(line[:6] + '\n' + sequence_source_file.readline().replace('*', ''))
+                                # The other pair only needs to append to this file
+                                prot_pairs[line_id][3] = 1
     except FileNotFoundError:
         print('ERROR: The FASTA file that contains the sequences is missing!')
 
@@ -414,7 +431,7 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     #os.system('muscle -quiet -in %s -out %s' %(filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
     for pair in range(1, sequence_count):
         filename = fa_dir + '/seq_' + str(pair) + '.fa'
-        os.system('{0} --quiet --phylipout --thread {1} {2} > {3}'.format(linsi, nr_processors, filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
+        os.system('{0} --quiet --thread {1} {2} > {3}'.format(linsi, nr_processors, filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
 
     # Collect all pairwise protein alignments, concatenate them
     # and calculate the summarized pairwise species distance

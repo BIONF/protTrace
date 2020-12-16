@@ -301,46 +301,51 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     prot_pairs = {}
     sequence_count = 1
     try:
+        # Read in oma_pair lines that contain proteins
+        # of both species together
         with open(oma_pairs,'r') as pair_mapping:
-            for line in pair_mapping:
-                # Identify the input species pair
-                # among the orthologous protein pairs
-                if species1 in line and species2 in line:
-                    # Grab the protein ID
-                    splitted_line = line.rstrip().split('\t')
-                    if species1 in splitted_line[0]:
-                        species_1_prot_id = splitted_line[0]
-                        species_2_prot_id = splitted_line[1]
-                    else:
-                        species_2_prot_id = splitted_line[0]
-                        species_1_prot_id = splitted_line[1]
-                    
-                    if species_1_prot_id not in prot_pairs:
-                        prot_pairs[species_1_prot_id] = list()
-                    if species_2_prot_id not in prot_pairs:
-                        prot_pairs[species_2_prot_id] = list()
+            # Identify the input species pair
+            # among the orthologous protein pairs
+            interesting_lines = [line for line in pair_mapping if species1 in line and species2 in line]
+        
+        # The processing of lines is decoupled from reading 
+        # in the lines to maximize IO speed
+        for line in interesting_lines:
+            # Grab the protein ID
+            splitted_line = line.rstrip().split('\t')
+            if species1 in splitted_line[0]:
+                species_1_prot_id = splitted_line[0]
+                species_2_prot_id = splitted_line[1]
+            else:
+                species_2_prot_id = splitted_line[0]
+                species_1_prot_id = splitted_line[1]
+            
+            if species_1_prot_id not in prot_pairs:
+                prot_pairs[species_1_prot_id] = list()
+            if species_2_prot_id not in prot_pairs:
+                prot_pairs[species_2_prot_id] = list()
 
-                    # Store the protein IDs in a dictionary
-                    # This way, we can immediately recognize the correct
-                    # protein pair for one detected protein ID
-                    # Each protein key can reference multiple protein pairs
-                    # The list also contains the sequence count to
-                    # name each pairwise orthologous alignment file correctly
-                    # The last number in the list indicates whether a sequence
-                    # has been written into a fasta file yet
-                    prot_pair = [species_1_prot_id, species_2_prot_id, sequence_count, 0]
-                    prot_pairs[species_1_prot_id].append(prot_pair)
-                    prot_pairs[species_2_prot_id].append(prot_pair)
+            # Store the protein IDs in a dictionary
+            # This way, we can immediately recognize the correct
+            # protein pair for one detected protein ID
+            # Each protein key can reference multiple protein pairs
+            # The list also contains the sequence count to
+            # name each pairwise orthologous alignment file correctly
+            # The last number in the list indicates whether a sequence
+            # has been written into a fasta file yet
+            prot_pair = [species_1_prot_id, species_2_prot_id, sequence_count, 0]
+            prot_pairs[species_1_prot_id].append(prot_pair)
+            prot_pairs[species_2_prot_id].append(prot_pair)
 
-                    # Inform the user about the current progress
-                    if sequence_count % 100 == 0:
-                        print('Sequence Nr.:', sequence_count)
-                                                      
-                    #DEBUG
-                    if sequence_count == 500:
-                        break
+            # Inform the user about the current progress
+            if sequence_count % 100 == 0:
+                print('Sequence Nr.:', sequence_count)
+                                              
+            #DEBUG
+            if sequence_count == 500:
+                break
 
-                    sequence_count += 1
+            sequence_count += 1
 
     except KeyboardInterrupt:
         sys.exit('The user interrupted the sequence search!')

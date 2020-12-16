@@ -48,7 +48,7 @@ def calculate_species_distances(config):
         os.chdir(root_dir)
 
     # DEBUG
-    calculate_protein_distances(query,"NASVI",config,cache_dir,1,10)
+    calculate_protein_distances(query,"NASVI",config,cache_dir,1,100
     sys.exit()
 
     # If we are still missing species distances, we calculate them now
@@ -139,6 +139,9 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
                     sequences[current_species] += stripped_line
 
             # Add the current sequence length to the subalignment positions
+            # The protein ID cannot be added at this point, since protein IDs
+            # are stripped to species IDs. You would need to record the 
+            # subalignment positions when reading in the sequences
             if subalignment_count > -1:
                 subalignment_positions.append([subalignment_positions[subalignment_count][1] + 1,len(sequences[0]) - 1])
             else:
@@ -172,7 +175,7 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
 #                        linecount = 0
 
     # Perform a bootstrap analysis on the alignment and note the created variance
-    def create_bootstrap(protein_pairs, count):
+    def create_bootstrap(alignment_length, generated_bootstrap_count):
 
         # Seed the singleton random module using the current system clock time
         # (by passing no parameter)
@@ -185,7 +188,7 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
 
         # Generate a list of sequence indices to sample
         # The list is sampled with equal weights and replacement
-        return [random.choices([i for i in range(protein_pairs)], k=protein_pairs) for c in range(count)]
+        return [random.choices(range(alignment_length), k=alignment_length) for c in range(generated_bootstrap_count)]
 
     bootstrap_alignment_indices = create_bootstrap(len(sequences[0]),bootstrap_count)
 
@@ -198,6 +201,8 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
         if sampled_indices is not None:
             if len(sampled_indices) != len(sequences[0]):
                 print("ERROR: The bootstrap sequence has not the same length as the protein pair count!")
+            # Sample the amino acids from both aligned sequences by their 
+            # common index in the alignment
             for i in range(len(sampled_indices)):
                 local_sequences[0] += sequences[0][sampled_indices[i]]
                 local_sequences[1] += sequences[1][sampled_indices[i]]
@@ -223,7 +228,7 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
                 appended_seq += " " + seq[i:i+10]
             appended_seq += "\n"
             return appended_seq
-    
+
         # Build the PHYLIP file from the continuous alignment
         alignment = ""
         # The first line contains the entire length of the original protein sequence
@@ -242,7 +247,6 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
         alignment += "\n"
         # This will fill the rest of the alignment file. We assume that both sequences
         # are equally long
-        linecount = 0
         for i in range(50, len(local_sequences[0]), 50):
             alignment += append_phylip_seq_with_spaces(i,local_sequences[0])
             alignment += append_phylip_seq_with_spaces(i,local_sequences[0])
@@ -250,10 +254,6 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
             alignment += append_phylip_seq_with_spaces(i,local_sequences[1])
             # Adds spacing between alignment blocks
             alignment += "\n"
-            if linecount == 0:
-                linecount = 1
-            else:
-                linecount = 0
 
         # Assemble the name of the concatenation file
         # The bootstrap concatenation file is named as such
@@ -322,8 +322,6 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
         os.mkdir(aln_dir)
 
     os.chdir(work_dir)
-
-    print(os.getcwd())
     
     # Align the set of pairwise oprthologs between the query
     # and the target species
@@ -344,26 +342,30 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
                     else:
                         species_2_prot_id = splitted_line[0]
                         species_1_prot_id = splitted_line[1]
+                    
+                    if species_1_prot_id not in prot_pairs:
+                        prot_pairs[species_1_prot_id] = list()
+                    if species_2_prot_id not in prot_pairs:
+                        prot_pairs[species_2_prot_id] = list()
 
                     # Store the protein IDs in a dictionary
                     # This way, we can immediately recognize the correct
                     # protein pair for one detected protein ID
-                    # Each protein ID is a key to the same protein
-                    # pair list
+                    # Each protein key can reference multiple protein pairs
                     # The list also contains the sequence count to
                     # name each pairwise orthologous alignment file correctly
                     # The last number in the list indicates whether a sequence
                     # has been written into a fasta file yet
                     prot_pair = [species_1_prot_id, species_2_prot_id, sequence_count, 0]
-                    prot_pairs[species_1_prot_id] = prot_pair
-                    prot_pairs[species_2_prot_id] = prot_pair
+                    prot_pairs[species_1_prot_id].append(prot_pair)
+                    prot_pairs[species_2_prot_id].append(prot_pair)
 
                     # Inform the user about the current progress
                     if sequence_count % 100 == 0:
                         print('Sequence Nr.:', sequence_count)
                                                       
                     #DEBUG
-                    if sequence_count == 10:
+                    if sequence_count == 500:
                         break
 
                     sequence_count += 1
@@ -405,21 +407,34 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
                     if '>' in line:
                         line_id = line.replace('>', '').strip()
                         if line_id in prot_pairs:
-                            # We do not want to store the sequences in RAM
-                            # But we will access the sequence of each pair
-                            # not in consecutive order. This is why there
-                            # is another number in the pair list that tells
-                            # us whether we need to create a new file or
-                            # that we can append to an existing one
-                            if prot_pairs[line_id][3] == 0:
-                                fasta_file_write_mode = 'w'
-                            else:
-                                fasta_file_write_mode = 'a'
-                            # The third element in each prot_pair list is their numeric sequence ID
-                            with open(fa_dir + '/seq_' + str(prot_pairs[line_id][2]) + '.fa', fasta_file_write_mode) as alignment_precurser:
-                                alignment_precurser.write(line[:6] + '\n' + sequence_source_file.readline().replace('*', ''))
-                                # The other pair only needs to append to this file
-                                prot_pairs[line_id][3] = 1
+                            # Reading the sequence once here prevents the
+                            # filereader to move on for every orthologous pair
+                            # where this protein is a member of
+                            sequence = sequence_source_file.readline().replace('*','')
+                            # Pairwise orthologs are not unique between proteins
+                            # We now know the sequence of a protein that 
+                            # probably partakes in many orthologous pairs
+                            for prot_pair in prot_pairs[line_id]:
+    
+                                # We do not want to store the sequences in RAM
+                                # But we will access the sequence of each pair
+                                # not in consecutive order. This is why there
+                                # is another number in the pair list that tells
+                                # us whether we need to create a new file or
+                                # that we can append to an existing one
+                                if prot_pair[3] == 0:
+                                    fasta_file_write_mode = 'w'
+                                else:
+                                    fasta_file_write_mode = 'a'
+    
+                                # The third element in each prot_pair list is their numeric sequence ID
+                                with open(fa_dir + '/seq_' + str(prot_pair[2]) + '.fa', fasta_file_write_mode) as alignment_precurser:
+                                    alignment_precurser.write(line[:6] + '\n' + sequence)
+                                    # The other pair only needs to append to this file
+                                    # We assume that the prot_pair is assigned by reference
+                                    # Changing the value in one list changes it also in the
+                                    # list of all other paired orthologs
+                                    prot_pair[3] = 1
     except FileNotFoundError:
         print('ERROR: The FASTA file that contains the sequences is missing!')
 
@@ -427,12 +442,23 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     # For this step, we only need to know the number of pairs
     # to access the fasta files in the fasta directory
     # ProtTrace rather uses MAFFT linsi than muscle
-    # To avoid adding another dependency, I uncommented the linsi command
-    #os.system('muscle -quiet -in %s -out %s' %(filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
-    for pair in range(1, sequence_count):
-        filename = fa_dir + '/seq_' + str(pair) + '.fa'
-        os.system('{0} --quiet --thread {1} {2} > {3}'.format(linsi, nr_processors, filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
 
+    try:
+        # Measure the time taken
+        print('Start measuring the time for aligning pairwise orthologs')
+        start = time.time()
+    
+        # To avoid adding another dependency, I uncommented the linsi command
+        #os.system('muscle -quiet -in %s -out %s' %(filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
+        for pair in range(1, sequence_count):
+            filename = fa_dir + '/seq_' + str(pair) + '.fa'
+            os.system('{0} --quiet --thread {1} {2} > {3}'.format(linsi, nr_processors, filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
+    
+        # Print the time passed
+        print('Total alignment time passed: ' + str(time.time() - start))
+    
+    except KeyboardInterrupt:
+        print('The user has stopped the generation of alignments')
     # Collect all pairwise protein alignments, concatenate them
     # and calculate the summarized pairwise species distance
     print('Preprocessing complete..\nConcating the alignments..')
@@ -453,10 +479,8 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     # Executes TreePUZZLE to calculate the tree distance between the species pair
     def calculate_pairwise_distance(concat_file,treepuzzle):
         
-        print('Performing likelihood mapping..')
         # Prepare the parameter file for TreePUZZLE
         with open('temp_puzzleParams.txt', 'w') as pp:
-            #pp.write(concat_file + '\nb\ne\nm\nm\nm\nm\nm\nm\ny\n')
             pp.write(concat_file + '\ne\nm\nm\nm\nm\nm\nm\ny\n')
    
         # Execute TreePUZZLE

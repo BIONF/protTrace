@@ -2,6 +2,8 @@ import os, sys
 import glob
 import random
 import time
+import subprocess
+from multiprocessing.pool import ThreadPool
 
 ### Supporting script for maximum likelihood calculations ###
 
@@ -48,7 +50,7 @@ def calculate_species_distances(config):
         os.chdir(root_dir)
 
     # DEBUG
-    calculate_protein_distances(query,"NASVI",config,cache_dir,1,100)
+    calculate_protein_distances(query,"NASVI",config,cache_dir,1,20)
     sys.exit()
 
     # If we are still missing species distances, we calculate them now
@@ -171,7 +173,7 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
         # Here, we compile the bootstrapped sequences to continuous strings
         # The regular concatenated protein alignments are just made continuous
         # Both species remain separated
-        local_sequences = sequences
+        local_sequences = ["",""]
         if sampled_indices is not None:
             if len(sampled_indices) != len(sequences[0]):
                 print("ERROR: The bootstrap sequence has not the same length as the protein pair count!")
@@ -180,6 +182,8 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
             for sampled_index in sampled_indices:
                 local_sequences[0] += sequences[0][sampled_index]
                 local_sequences[1] += sequences[1][sampled_index]
+        else:
+            local_sequences = sequences
 
         def append_phylip_seq_with_spaces(begin,seq):
             # The sequence is indented to the right by 10 spaces
@@ -420,17 +424,26 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     # to access the fasta files in the fasta directory
     # ProtTrace rather uses MAFFT linsi than muscle
 
+    # Encapsulate the call of MAFFT to enable parallelization
+    def align_protein_pair(number):
+        filename = fa_dir + '/seq_' + str(number) + '.fa'
+        # Execute the subprocess and wait for completion within the process
+        subprocess.Popen('{0} --amino --quiet --thread 1 {1} > {2}'.format(linsi, filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)),shell=True).wait()
+
     try:
         # Measure the time taken
         print('Start measuring the time for aligning pairwise orthologs')
         start = time.time()
     
-        # To avoid adding another dependency, I uncommented the linsi command
+        # To avoid adding another dependency, I uncommented the muscle command
         #os.system('muscle -quiet -in %s -out %s' %(filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
-        for pair in range(1, sequence_count):
-            filename = fa_dir + '/seq_' + str(pair) + '.fa'
-            os.system('{0} --amino --quiet --thread {1} {2} > {3}'.format(linsi, nr_processors, filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
-    
+
+        # Run the alignment program in parallel threads
+        tp = ThreadPool(nr_processors)
+        tp.map(align_protein_pair,range(1,sequence_count))
+        tp.close()
+        tp.join()
+
         # Print the time passed
         print('Total alignment time passed: ' + str(time.time() - start))
     

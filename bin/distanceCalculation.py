@@ -48,7 +48,7 @@ def calculate_species_distances(config):
         os.chdir(root_dir)
 
     # DEBUG
-    calculate_protein_distances(query,"NASVI",config,cache_dir,1,100
+    calculate_protein_distances(query,"NASVI",config,cache_dir,1,100)
     sys.exit()
 
     # If we are still missing species distances, we calculate them now
@@ -148,34 +148,8 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
                 subalignment_positions.append([0,len(sequences[0]) - 1])
             subalignment_count += 1
 
-#            # The positions are converted from 1 based to 0 based counting
-#            # Hence the -1 substractions from the read-in numbers
-#            # Then, the first position of the next sequence needs to be
-#            # the last position of the previous one + 1
-#            if subalignment_count > -1:
-#                subalignment_begin = int(subalignment_positions[subalignment_count][1]) + 1
-#                subalignment_positions.append([subalignment_begin, subalignment_begin + int(fasta_input.readline().strip().split()[1])])
-#            else:
-#               subalignment_positions.append([0, int(fasta_input.readline().strip().split()[1]) - 1])
-#            subalignment_count += 1
-#            for line in phy_input:
-#                if line != "\n":
-#                    # The first two lines containing sequences
-#                    # are checked for whether their species IDs
-#                    # corresponds to the passed species IDs
-#
-#                    # We add the species id into the indented area later
-#                    # Spaces must be stripped to generate a continuous 
-#                    # sequence that can be concatenated easily
-#                    sequences[linecount] += line[11:].strip().replace(" ","")
-#                    # The linecount is switched back and forth
-#                    if linecount == 0:
-#                        linecount = 1
-#                    else:
-#                        linecount = 0
-
     # Perform a bootstrap analysis on the alignment and note the created variance
-    def create_bootstrap(alignment_length, generated_bootstrap_count):
+    def create_bootstraps(alignment_length, generated_bootstrap_count):
 
         # Seed the singleton random module using the current system clock time
         # (by passing no parameter)
@@ -187,27 +161,25 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
             seed_file.write('# The seed for sampling columns for pairwise distance\n# bootstrap analysis is a follows:\n# '+ str(seed) + '\n')
 
         # Generate a list of sequence indices to sample
-        # The list is sampled with equal weights and replacement
+        # The list is sampled from all alignment indices with equal weights and replacement
         return [random.choices(range(alignment_length), k=alignment_length) for c in range(generated_bootstrap_count)]
 
-    bootstrap_alignment_indices = create_bootstrap(len(sequences[0]),bootstrap_count)
+    bootstrap_alignment_indices = create_bootstraps(len(sequences[0]),bootstrap_count)
 
     def sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions,sampled_indices=None,bootstrap_count=None):
 
         # Here, we compile the bootstrapped sequences to continuous strings
         # The regular concatenated protein alignments are just made continuous
         # Both species remain separated
-        local_sequences = ["",""]
+        local_sequences = sequences
         if sampled_indices is not None:
             if len(sampled_indices) != len(sequences[0]):
                 print("ERROR: The bootstrap sequence has not the same length as the protein pair count!")
             # Sample the amino acids from both aligned sequences by their 
             # common index in the alignment
-            for i in range(len(sampled_indices)):
-                local_sequences[0] += sequences[0][sampled_indices[i]]
-                local_sequences[1] += sequences[1][sampled_indices[i]]
-        else:
-            local_sequences = sequences
+            for sampled_index in sampled_indices:
+                local_sequences[0] += sequences[0][sampled_index]
+                local_sequences[1] += sequences[1][sampled_index]
 
         def append_phylip_seq_with_spaces(begin,seq):
             # The sequence is indented to the right by 10 spaces
@@ -452,7 +424,7 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
         #os.system('muscle -quiet -in %s -out %s' %(filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
         for pair in range(1, sequence_count):
             filename = fa_dir + '/seq_' + str(pair) + '.fa'
-            os.system('{0} --quiet --thread {1} {2} > {3}'.format(linsi, nr_processors, filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
+            os.system('{0} --amino --quiet --thread {1} {2} > {3}'.format(linsi, nr_processors, filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
     
         # Print the time passed
         print('Total alignment time passed: ' + str(time.time() - start))

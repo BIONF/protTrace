@@ -50,8 +50,8 @@ def calculate_species_distances(config):
         os.chdir(root_dir)
 
     # DEBUG
-    calculate_protein_distances(query,"NASVI",config,cache_dir,1,20)
-    sys.exit()
+    #calculate_protein_distances(query,"NASVI",config,cache_dir,1,100)
+    #sys.exit()
 
     # If we are still missing species distances, we calculate them now
     # All distances are copied to the cache directory
@@ -59,7 +59,6 @@ def calculate_species_distances(config):
     if len(missing_species) > 0:
         for species in missing_species:
              calculate_protein_distances(query,species,config,cache_dir,1)
-             break
     
 # Checks the species maximum likelihood file for existing distances
 # Returns missing target species OMA IDs
@@ -166,7 +165,8 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
         # The list is sampled from all alignment indices with equal weights and replacement
         return [random.choices(range(alignment_length), k=alignment_length) for c in range(generated_bootstrap_count)]
 
-    bootstrap_alignment_indices = create_bootstraps(len(sequences[0]),bootstrap_count)
+    if bootstrap_count > 0:
+        bootstrap_alignment_indices = create_bootstraps(len(sequences[0]),bootstrap_count)
 
     def sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions,sampled_indices=None,bootstrap_count=None):
 
@@ -204,6 +204,15 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
                 appended_seq += " " + seq[i:i+10]
             appended_seq += "\n"
             return appended_seq
+        # This function produces a PHYLIP file where the full sequence is written
+        # into one line. By commenting out the for loop for filling the interleaved
+        # format, the alignment can be bootstrapped with SEQBOOT for confirmation.
+        #def append_phylip_seq_with_spaces_with_species_singleline(species,seq):
+        #    appended_seq = species + " " * (10 - len(species))
+        #    for i in range(0,len(seq),10):
+        #        appended_seq += " " + seq[i:i+10]
+        #    appended_seq += "\n"
+        #    return appended_seq
 
         # Build the PHYLIP file from the continuous alignment
         alignment = ""
@@ -219,6 +228,7 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
         alignment += append_phylip_seq_with_spaces_with_species(species1 + "_dub",local_sequences[0])
         alignment += append_phylip_seq_with_spaces_with_species(species2,local_sequences[1])
         alignment += append_phylip_seq_with_spaces_with_species(species2 + "_dub",local_sequences[1])
+
         # Adds spacing between alignment blocks
         alignment += "\n"
         # This will fill the rest of the alignment file. We assume that both sequences
@@ -253,11 +263,12 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
     # the pairwise species distance
     sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions)
 
-    print('Concatenate and duplicate the bootstrapped pairwise alignments!')
-    # Generate the bootstrapped versions of the concatenated alignment for 
-    # estimating the distance variance
-    for i in range(len(bootstrap_alignment_indices)):
-        sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions,bootstrap_alignment_indices[i],i)
+    if bootstrap_count > 0:
+        print('Concatenate and duplicate the bootstrapped pairwise alignments!')
+        # Generate the bootstrapped versions of the concatenated alignment for 
+        # estimating the distance variance
+        for i in range(len(bootstrap_alignment_indices)):
+            sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions,bootstrap_alignment_indices[i],i)
     
 ### Calculates the pairwise species maximum likelihood distance 
 ### between species1 and species2. The distance is copied to the
@@ -311,7 +322,13 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
             # Identify the input species pair
             # among the orthologous protein pairs
             interesting_lines = [line for line in pair_mapping if species1 in line and species2 in line]
-        
+
+    except KeyboardInterrupt:
+        sys.exit('The user interrupted the orthologous pair search!')
+    except FileNotFoundError:
+        sys.exit('ERROR: The OMA pairs file is missing!')    
+
+    try:
         # The processing of lines is decoupled from reading 
         # in the lines to maximize IO speed
         for line in interesting_lines:
@@ -346,15 +363,14 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
                 print('Sequence Nr.:', sequence_count)
                                               
             #DEBUG
-            if sequence_count == 500:
-                break
+            #if sequence_count == 100:
+            #    break
 
             sequence_count += 1
 
     except KeyboardInterrupt:
-        sys.exit('The user interrupted the sequence search!')
-    except FileNotFoundError:
-        sys.exit('ERROR: The OMA pairs file is missing!') 
+        sys.exit('The user interrupted the compilation of orthologous pairs!')
+
 
     # If the counter has never been incremented,
     # we can assume that the species pair is missing in the file
@@ -386,6 +402,7 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
             with open(sequence_source, 'r') as sequence_source_file:
                 for line in sequence_source_file:
                     if '>' in line:
+                        # The line should only consist of the protein ID!
                         line_id = line.replace('>', '').strip()
                         if line_id in prot_pairs:
                             # Reading the sequence once here prevents the
@@ -428,6 +445,8 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     def align_protein_pair(number):
         filename = fa_dir + '/seq_' + str(number) + '.fa'
         # Execute the subprocess and wait for completion within the process
+        # The wait function within a threaded function is necessary, because,
+        # as far as I know, we can not manage a pool of threads with subprocess.Popen
         subprocess.Popen('{0} --amino --quiet --thread 1 {1} > {2}'.format(linsi, filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)),shell=True).wait()
 
     try:
@@ -449,25 +468,20 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     
     except KeyboardInterrupt:
         print('The user has stopped the generation of alignments')
+
     # Collect all pairwise protein alignments, concatenate them
     # and calculate the summarized pairwise species distance
-    print('Preprocessing complete..\nConcating the alignments..')
+    print('Preprocessing complete..\nConcatenating the alignments..')
 
     # Concatenate and bootstrap the pairwise protein alignments
     concatenate_alignment(species1, species2, sequence_count, aln_dir, bootstrap_count)
-
-    # Anticipate the output file names of the concatenated and
-    # the bootstrapped concatenated alignments
-    concat_files = [species1+'_'+species2+'.phy']
-    for i in range(bootstrap_count):
-        concat_files.append(species1+'_'+species2+'_bootstrap_{0}.phy'.format(i))
 
     # The concatAlignment script requires perl
 #    os.system('perl %s -in=%s -out=%s' %(concatAlignment, aln_dir, concat_file))
     print('Postprocessing the concatenated alignment file..')
 
     # Executes TreePUZZLE to calculate the tree distance between the species pair
-    def calculate_pairwise_distance(concat_file,treepuzzle):
+    def calculate_pairwise_distance(concat_file, treepuzzle):
         
         # Prepare the parameter file for TreePUZZLE
         with open('temp_puzzleParams.txt', 'w') as pp:
@@ -476,54 +490,79 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
         # Execute TreePUZZLE
         os.system('{0} < temp_puzzleParams.txt >/dev/null'.format(treepuzzle))
 
-    # Record the calculated main and bootstrap distances
-    distances = []
+    def read_calculated_distance(concatenated_protein_set_filename):
+        try:
+            with open(concatenated_protein_set_filename + '.dist','r') as concat:
+                next(concat)
+                return concat.readline().split()[3]
+        except FileNotFoundError:
+            sys.exit('Error: The pairwise distance calculation result file from TreePUZZLE cannot be found!')
 
-    for concat_filename in concat_files:
-        calculate_pairwise_distance(concat_filename,treepuzzle)
-        # Read the calculated distance into a list of distances
-        with open(concat_filename + '.dist','r') as concat:
-            next(concat)
-            distances.append(concat.readline().split()[3])
+    def write_main_result(output_filename, distance, target_dir, add_filename_to_target_dir):
 
-    # Write the main computed pairwise species distance to a result file
-    result_file = concat_files[0].replace(".phy",".lik")
-    with open(result_file,'w') as result:
-        result.write(distances[0] + '\n')
+        # Write the main computed pairwise species distance to a result file
+        with open(output_filename,'w') as result:
+            result.write(distance + '\n')
+    
+        # Copy the main output file to the given target directory, if given
+        # The target directory is originally designed to be the ProtTrace cache directory
+        if target_dir is not None:
+            # If the target_dir is just a directory, append the file name
+            if add_filename_to_target_dir == 1:
+                target_dir_copy_path = os.path.join(os.path.abspath(target_dir), output_filename)
+            # If the target_dir looks like a filename on its own, use it directly
+            else:
+                target_dir_copy_path = target_dir
+            with open(target_dir_copy_path,'w') as result:
+                result.write(distance + '\n')
 
-    # Copy the main output file to the given target directory, if given
-    # The target directory is originally designed to be the ProtTrace cache directory
-    if target_dir is not None:
-        # If the target_dir is just a directory, append the file name
-        if add_filename == 1:
-            target_dir_copy_path = os.path.join(os.path.abspath(target_dir), concat_files[0].replace(".phy",".lik"))
-        # If the target_dir looks like a filename on its own, use it directly
-        else:
-            target_dir_copy_path = target_dir
-        with open(target_dir_copy_path,'w') as result:
-            result.write(distances[0] + '\n')
+    # Process the pairwise species maximum likelihood distance
+    print('Calculating and writing the maximum likelihood distance!')
+    concat_filename = species1 + '_' + species2 + '.phy'
+    result_file = concat_filename.replace(".phy",".lik")
+    calculate_pairwise_distance(concat_filename,treepuzzle)
+    write_main_result(result_file,read_calculated_distance(concat_filename),target_dir,add_filename)
 
-    # Write the main distance and its bootstrap distances into a table
-    # for followup statistical analyses
-    # The bootstrap column is a R friendly boolean to separate the main distance
-    # from the bootstrap values
-    separator = '\t'
-    columns = [separator.join(['Species_1','Species_2','Distance','Bootstrap'])]
-    for d in range(len(distances)):
-        columns.append(separator.join([species1,species2,distances[d],'FALSE' if d == 0 else 'TRUE']))
-    with open(concat_files[0].replace('.phy', '_bootstrap.lik'),'w') as analysis_output:
-        analysis_output.write('\n'.join(columns) + '\n')
+    # Process the distances calculated from bootstrapped alignments
+    # First, we define a couple of generator functions
+
+    # Anticipate the output file names of the
+    # bootstrapped concatenated alignments
+    def generate_bootstrap_concat_filenames(bootstrap_count):
+
+        for i in range(0, bootstrap_count):
+            yield species1 + '_' + species2 + '_bootstrap_' + str(i) + '.phy'
+
+    def generate_bootstrap_distances(bootstrap_count, treepuzzle):
+
+        for bootstrap_concat_filename in generate_bootstrap_concat_filenames(bootstrap_count):
+            calculate_pairwise_distance(bootstrap_concat_filename,treepuzzle)
+            yield read_calculated_distance(bootstrap_concat_filename)
+
+    def calculate_and_write_bootstrap_distance_table_output(bootstrap_count, treepuzzle):
+
+        # Write the main distance and its bootstrap distances into a table
+        # for followup statistical analyses
+        # The bootstrap column is a R friendly boolean to separate the main distance
+        # from the bootstrap values
+        separator = '\t'
+        columns = [separator.join(['Species_1','Species_2','Distance'])]
+        for distance in generate_bootstrap_distances(bootstrap_count,treepuzzle):
+            columns.append(separator.join([species1,species2,distance]))
+        with open(species1 + '_' + species2 + '_bootstrap.lik','w') as analysis_output:
+            analysis_output.write('\n'.join(columns) + '\n')
+
+    if bootstrap_count > 0:
+        calculate_and_write_bootstrap_distance_table_output(bootstrap_count, treepuzzle)
 
     if delete_temp: 
         # Deletes temporary files 
         if os.path.exists(result_file) and not len(open(result_file).read().split('\n')) == 0:
             os.system('rm -rf {0} {1} temp_puzzleParams.txt'.format(fa_dir, aln_dir))
             os.system('rm -rf {0}_{1}.phy*'.format(species1, species2))
-            # If there are more than one alignment, we assume these to be bootstraps
             # This check rather exists to prevent file not found errors
-            if len(concat_files) > 1:
+            if bootstrap_count > 0:
                 os.system('rm -rf {0}_{1}_bootstrap_*'.format(species1, species2))
-
 
     os.chdir(root_dir)
 

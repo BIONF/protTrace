@@ -451,7 +451,7 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
 
     try:
         # Measure the time taken
-        print('Start measuring the time for aligning pairwise orthologs')
+        print('Start aligning orthologous protein pairs')
         start = time.time()
     
         # To avoid adding another dependency, I uncommented the muscle command
@@ -464,10 +464,13 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
         tp.join()
 
         # Print the time passed
-        print('Total alignment time passed: ' + str(time.time() - start))
+        print('Total time passed for aligning orthologous proteins: ' + str(time.time() - start))
     
     except KeyboardInterrupt:
         print('The user has stopped the generation of alignments')
+        tp.close()
+        tp.join()
+        sys.exit()
 
     # Collect all pairwise protein alignments, concatenate them
     # and calculate the summarized pairwise species distance

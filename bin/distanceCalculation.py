@@ -4,6 +4,7 @@ import random
 import time
 import subprocess
 from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import Pool
 
 ### Supporting script for maximum likelihood calculations ###
 
@@ -40,6 +41,7 @@ def calculate_species_distances(config):
         sys.exit('ERROR: Could not open %s. Please check the path.' %crossRefFile)
 
     # Exclude all species with existing distances in species_max_likelihood
+    # The function will return a SET of species. Their order when iterated will be random!
     missing_species = check_species_max_likelihood_table(query,species_set,config)
 
     # Exclude missing species with existing .lik files in the cache directory
@@ -58,7 +60,7 @@ def calculate_species_distances(config):
     # This means they stay backed up when the not saving cache option would wipe them
     if len(missing_species) > 0:
         for species in missing_species:
-             calculate_protein_distances(query,species,config,cache_dir,1)
+             calculate_protein_distances(query,species,config,cache_dir,1,0)
     
 # Checks the species maximum likelihood file for existing distances
 # Returns missing target species OMA IDs
@@ -109,7 +111,104 @@ def check_species_max_likelihood_table(query,targets,config):
     # digits in SpeciesMaxLikelihood
     return target_species_set.difference(computed_species_set)
 
-def concatenate_alignment(species1, species2, alignment_count, alignment_directory, bootstrap_count=0):
+# The multiprocessed function needs to be pickle-abled
+# Therefore, it must be defined at top-level
+def sequence_pair_to_phylip_multiprocessed(argument_list):
+    sequence_pair_to_phylip(*argument_list)
+
+# This function is multiprocessed for bootstrapped alignments
+# Therefore, it must be defined at top-level
+def sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions,sampled_indices=None,bootstrap_index=None):
+
+    # Here, we compile the bootstrapped sequences to continuous strings
+    # The regular concatenated protein alignments are just made continuous
+    # Both species remain separated
+    local_sequences = ["",""]
+    if sampled_indices is not None:
+        if len(sampled_indices) != len(sequences[0]):
+            print("ERROR: The bootstrap sequence has not the same length as the protein pair count!")
+        # Sample the amino acids from both aligned sequences by their 
+        # common index in the alignment
+        for sampled_index in sampled_indices:
+            local_sequences[0] += sequences[0][sampled_index]
+            local_sequences[1] += sequences[1][sampled_index]
+    else:
+        local_sequences = sequences
+
+    def append_phylip_seq_with_spaces(begin,seq):
+        # The sequence is indented to the right by 10 spaces
+        appended_seq = " " * 10
+        # The next 50 positions are inserted with one space between
+        # 10 positions. The minimum function ensures that we do not
+        # try to access empty sequence positions
+        for i in range(begin,begin + min(len(seq) - begin,50),10):
+            appended_seq += " " + seq[i:i+10]
+            # Fill an open ending block with hyphens
+            appended_seq += "-" * (10 - len(seq[i:i+10]))
+        appended_seq += "\n"
+        return appended_seq
+
+    def append_phylip_seq_with_spaces_with_species(species,seq):
+        appended_seq = species + " " * (10 - len(species))
+        for i in range(0,50,10):
+            appended_seq += " " + seq[i:i+10]
+        appended_seq += "\n"
+        return appended_seq
+    # This function produces a PHYLIP file where the full sequence is written
+    # into one line. By commenting out the for loop for filling the interleaved
+    # format, the alignment can be bootstrapped with SEQBOOT for confirmation.
+    #def append_phylip_seq_with_spaces_with_species_singleline(species,seq):
+    #    appended_seq = species + " " * (10 - len(species))
+    #    for i in range(0,len(seq),10):
+    #        appended_seq += " " + seq[i:i+10]
+    #    appended_seq += "\n"
+    #    return appended_seq
+
+    # Build the PHYLIP file from the continuous alignment
+    alignment = ""
+    # The first line contains the entire length of the original protein sequence
+    # Here, we just copy the first and last position
+    alignment += "4 " + str(subalignment_positions[-1][1]) + "\n"
+    # The next 2 lines contain the respective species ids of each line
+    # We duplicate the sequence to generate an imaginative 
+    # 4 species alignment. We need this to calculate a 
+    # tree and calculate the distance between sister 
+    # clades (each clade is the same species twice)
+    alignment += append_phylip_seq_with_spaces_with_species(species1,local_sequences[0])
+    alignment += append_phylip_seq_with_spaces_with_species(species1 + "_dub",local_sequences[0])
+    alignment += append_phylip_seq_with_spaces_with_species(species2,local_sequences[1])
+    alignment += append_phylip_seq_with_spaces_with_species(species2 + "_dub",local_sequences[1])
+
+    # Adds spacing between alignment blocks
+    alignment += "\n"
+    # This will fill the rest of the alignment file. We assume that both sequences
+    # are equally long
+    for i in range(50, len(local_sequences[0]), 50):
+        alignment += append_phylip_seq_with_spaces(i,local_sequences[0])
+        alignment += append_phylip_seq_with_spaces(i,local_sequences[0])
+        alignment += append_phylip_seq_with_spaces(i,local_sequences[1])
+        alignment += append_phylip_seq_with_spaces(i,local_sequences[1])
+        # Adds spacing between alignment blocks
+        alignment += "\n"
+
+    # Assemble the name of the concatenation file
+    # The bootstrap concatenation file is named as such
+    concat_file_name = species1 + '_' + species2
+    if sampled_indices is not None:
+        concat_file_name += '_bootstrap_{0}'.format(bootstrap_index)
+    concat_file_name += '.phy'
+
+    with open(concat_file_name, 'w') as concat_file:
+        concat_file.write(alignment)
+    # Only the non-bootstrap result file receives a
+    # subalignment_positions file
+    if sampled_indices is None:
+        with open('subalignment_positions.txt', 'w') as subpositions_file:
+            for line in subalignment_positions:
+                # Columns are separated with spaces
+                subpositions_file.write(' '.join([str(l) for l in line]) + "\n")
+
+def concatenate_alignment(species1, species2, alignment_count, alignment_directory, bootstrap_count = 0, nr_processors = 1):
 
     # The sequences of both species are separated for better handling
     # For bootstrapping, the first index tells us the aligned protein pair
@@ -150,125 +249,51 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
             subalignment_count += 1
 
     # Perform a bootstrap analysis on the alignment and note the created variance
-    def create_bootstraps(alignment_length, generated_bootstrap_count):
+    def generate_bootstraps(alignment_length, generated_bootstrap_count):
 
         # Seed the singleton random module using the current system clock time
         # (by passing no parameter)
         seed = random.randrange(sys.maxsize)
         random.seed(seed)
 
-        print("The seed for bootstrapping the alignment is: ", seed)
+        print('The seed for bootstrapping the alignment is: ', seed)
         with open('bootstrap_sample_rng_seed.R','w') as seed_file:
             seed_file.write('# The seed for sampling columns for pairwise distance\n# bootstrap analysis is a follows:\n# '+ str(seed) + '\n')
 
         # Generate a list of sequence indices to sample
         # The list is sampled from all alignment indices with equal weights and replacement
-        return [random.choices(range(alignment_length), k=alignment_length) for c in range(generated_bootstrap_count)]
+        for c in range(generated_bootstrap_count):
+            yield random.choices(range(alignment_length), k=alignment_length)
 
-    if bootstrap_count > 0:
-        bootstrap_alignment_indices = create_bootstraps(len(sequences[0]),bootstrap_count)
-
-    def sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions,sampled_indices=None,bootstrap_count=None):
-
-        # Here, we compile the bootstrapped sequences to continuous strings
-        # The regular concatenated protein alignments are just made continuous
-        # Both species remain separated
-        local_sequences = ["",""]
-        if sampled_indices is not None:
-            if len(sampled_indices) != len(sequences[0]):
-                print("ERROR: The bootstrap sequence has not the same length as the protein pair count!")
-            # Sample the amino acids from both aligned sequences by their 
-            # common index in the alignment
-            for sampled_index in sampled_indices:
-                local_sequences[0] += sequences[0][sampled_index]
-                local_sequences[1] += sequences[1][sampled_index]
-        else:
-            local_sequences = sequences
-
-        def append_phylip_seq_with_spaces(begin,seq):
-            # The sequence is indented to the right by 10 spaces
-            appended_seq = " " * 10
-            # The next 50 positions are inserted with one space between
-            # 10 positions. The minimum function ensures that we do not
-            # try to access empty sequence positions
-            for i in range(begin,begin + min(len(seq) - begin,50),10):
-                appended_seq += " " + seq[i:i+10]
-                # Fill an open ending block with hyphens
-                appended_seq += "-" * (10 - len(seq[i:i+10]))
-            appended_seq += "\n"
-            return appended_seq
-    
-        def append_phylip_seq_with_spaces_with_species(species,seq):
-            appended_seq = species + " " * (10 - len(species))
-            for i in range(0,50,10):
-                appended_seq += " " + seq[i:i+10]
-            appended_seq += "\n"
-            return appended_seq
-        # This function produces a PHYLIP file where the full sequence is written
-        # into one line. By commenting out the for loop for filling the interleaved
-        # format, the alignment can be bootstrapped with SEQBOOT for confirmation.
-        #def append_phylip_seq_with_spaces_with_species_singleline(species,seq):
-        #    appended_seq = species + " " * (10 - len(species))
-        #    for i in range(0,len(seq),10):
-        #        appended_seq += " " + seq[i:i+10]
-        #    appended_seq += "\n"
-        #    return appended_seq
-
-        # Build the PHYLIP file from the continuous alignment
-        alignment = ""
-        # The first line contains the entire length of the original protein sequence
-        # Here, we just copy the first and last position
-        alignment += "4 " + str(subalignment_positions[-1][1]) + "\n"
-        # The next 2 lines contain the respective species ids of each line
-        # We duplicate the sequence to generate an imaginative 
-        # 4 species alignment. We need this to calculate a 
-        # tree and calculate the distance between sister 
-        # clades (each clade is the same species twice)
-        alignment += append_phylip_seq_with_spaces_with_species(species1,local_sequences[0])
-        alignment += append_phylip_seq_with_spaces_with_species(species1 + "_dub",local_sequences[0])
-        alignment += append_phylip_seq_with_spaces_with_species(species2,local_sequences[1])
-        alignment += append_phylip_seq_with_spaces_with_species(species2 + "_dub",local_sequences[1])
-
-        # Adds spacing between alignment blocks
-        alignment += "\n"
-        # This will fill the rest of the alignment file. We assume that both sequences
-        # are equally long
-        for i in range(50, len(local_sequences[0]), 50):
-            alignment += append_phylip_seq_with_spaces(i,local_sequences[0])
-            alignment += append_phylip_seq_with_spaces(i,local_sequences[0])
-            alignment += append_phylip_seq_with_spaces(i,local_sequences[1])
-            alignment += append_phylip_seq_with_spaces(i,local_sequences[1])
-            # Adds spacing between alignment blocks
-            alignment += "\n"
-
-        # Assemble the name of the concatenation file
-        # The bootstrap concatenation file is named as such
-        concat_file_name = species1 + '_' + species2
-        if sampled_indices is not None:
-            concat_file_name += '_bootstrap_{0}'.format(bootstrap_count)
-        concat_file_name += '.phy'
- 
-        with open(concat_file_name, 'w') as concat_file:
-            concat_file.write(alignment)
-        # Only the non-bootstrap result file receives a
-        # subalignment_positions file
-        if sampled_indices is None:
-            with open('subalignment_positions.txt', 'w') as subpositions_file:
-                for line in subalignment_positions:
-                    # Columns are separated with spaces
-                    subpositions_file.write(' '.join([str(l) for l in line]) + "\n")
+#    if bootstrap_count > 0:
+#        bootstrap_alignment_indices = create_bootstraps(len(sequences[0]),bootstrap_count)
 
     print('Concatenate and duplicate the pairwise aligned sequences!')
     # Generate the main concatenated and duplicated alignment for calculating
     # the pairwise species distance
     sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions)
 
+    def generate_multiprocessing_to_phylip_args_list(species1, species2, sequences, subalignment_positions, bootstrap_count):
+        i = -1
+        # Sample a set of position indices to draw aligned amino acids from both sequences
+        for bootstrap_position_indices in generate_bootstraps(len(sequences[0]), bootstrap_count):
+            i += 1
+            yield [species1,species2,sequences,subalignment_positions,bootstrap_position_indices,i]
+
     if bootstrap_count > 0:
         print('Concatenate and duplicate the bootstrapped pairwise alignments!')
         # Generate the bootstrapped versions of the concatenated alignment for 
         # estimating the distance variance
-        for i in range(len(bootstrap_alignment_indices)):
-            sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions,bootstrap_alignment_indices[i],i)
+        # Each alignment bootstrap creates a separate process
+        # The pool iterates through "bootstrap_alignment_indices"
+        try:
+            with Pool(nr_processors) as process_pool:
+                # imap is a lazy loader of the bootstrap position indices
+                # Sampling every position and putting their integers in a list takes
+                # much more RAM than when the positions are written into two strings
+                process_pool.imap(sequence_pair_to_phylip_multiprocessed, generate_multiprocessing_to_phylip_args_list(species1,species2,sequences,subalignment_positions,bootstrap_count),5)
+        except KeyboardInterrupt:
+            sys.exit('The user interrupted the generation of bootstrapped alignments!')
     
 ### Calculates the pairwise species maximum likelihood distance 
 ### between species1 and species2. The distance is copied to the
@@ -312,6 +337,7 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     
     # Align the set of pairwise oprthologs between the query
     # and the target species
+    print('Gather orthologous protein pairs.')
     print('Preprocessing:\tParsing sequence pairs and aligning them...')
     prot_pairs = {}
     sequence_count = 1
@@ -359,7 +385,7 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
             prot_pairs[species_2_prot_id].append(prot_pair)
 
             # Inform the user about the current progress
-            if sequence_count % 100 == 0:
+            if sequence_count % 1000 == 0:
                 print('Sequence Nr.:', sequence_count)
                                               
             #DEBUG
@@ -371,11 +397,15 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     except KeyboardInterrupt:
         sys.exit('The user interrupted the compilation of orthologous pairs!')
 
+    # Print the last sequence number
+    print('Sequence Nr.:', sequence_count)
 
     # If the counter has never been incremented,
     # we can assume that the species pair is missing in the file
     if sequence_count == 1:
         print("ERROR: No orthologous pairs found between {0} and {1}!".format(species1,species2))
+
+    print('Gather the sequences of all gathered orthologous protein pairs.')
 
     ### Search the sequences of all protein pairs
     ### Each pair will be aligned directly after
@@ -451,7 +481,7 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
 
     try:
         # Measure the time taken
-        print('Start aligning orthologous protein pairs')
+        print('Aligning orthologous protein pairs')
         start = time.time()
     
         # To avoid adding another dependency, I uncommented the muscle command
@@ -477,7 +507,7 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     print('Preprocessing complete..\nConcatenating the alignments..')
 
     # Concatenate and bootstrap the pairwise protein alignments
-    concatenate_alignment(species1, species2, sequence_count, aln_dir, bootstrap_count)
+    concatenate_alignment(species1, species2, sequence_count, aln_dir, bootstrap_count, nr_processors)
 
     # The concatAlignment script requires perl
 #    os.system('perl %s -in=%s -out=%s' %(concatAlignment, aln_dir, concat_file))

@@ -16,18 +16,8 @@ from multiprocessing.pool import Pool
 def calculate_species_distances(config):
 
     # Read the query species from the ProtTrace configuration
+    # The special species, 'ALL', updates all species in the mapping file
     query = config.species
-
-    # Move to the dedicated distance calculation root 
-    # directory for all species
-    root_dir = config.path_distance_work_dir
-    os.chdir(root_dir)
-
-    # Check and prepare the cache location
-    cache_dir = config.path_cache
-    if not os.path.exists(cache_dir):
-        os.mkdir(cache_dir)
-    
     species_mapping = config.hamstr_oma_tree_map
 
     # Gather the set of all subject species in this project 
@@ -40,27 +30,51 @@ def calculate_species_distances(config):
     except IOError:
         sys.exit('ERROR: Could not open %s. Please check the path.' %crossRefFile)
 
-    # Exclude all species with existing distances in species_max_likelihood
-    # The function will return a SET of species. Their order when iterated will be random!
-    missing_species = check_species_max_likelihood_table(query,species_set,config)
+    # Move to the dedicated distance calculation root 
+    # directory for all species
+    os.chdir(config.path_distance_work_dir)
 
-    # Exclude missing species with existing .lik files in the cache directory
-    if len(missing_species) > 0:
-        os.chdir(cache_dir)
-        # We check the cache directory for {query species}_{missing species}.lik files
-        missing_species = {species for species in missing_species if not os.path.isfile("{0}_{1}.lik".format(query,species))}
-        os.chdir(root_dir)
+    # Check and prepare the cache location
+    if not os.path.exists(config.path_cache):
+        os.mkdir(config.path_cache)
 
-    # DEBUG
-    #calculate_protein_distances(query,"NASVI",config,cache_dir,1,100)
-    #sys.exit()
+    def search_and_complement_missing_species(query, species_set, config, check_table=True, check_cache=True):
 
-    # If we are still missing species distances, we calculate them now
-    # All distances are copied to the cache directory
-    # This means they stay backed up when the not saving cache option would wipe them
-    if len(missing_species) > 0:
-        for species in missing_species:
-             calculate_protein_distances(query,species,config,cache_dir,1,0)
+        # Set the default set of missing species
+        missing_species = species_set
+
+        if check_table and len(missing_species) > 0:
+            # Exclude all species with existing distances in species_max_likelihood
+            # The function will return a SET of species. Their order when iterated will be random!
+            missing_species = check_species_max_likelihood_table(query,species_set,config)
+
+        if check_cache and len(missing_species) > 0:
+            # Exclude missing species with existing .lik files in the cache directory
+            os.chdir(config.path_cache)
+            # We check the cache directory for {query species}_{missing species}.lik files
+            missing_species = {species for species in missing_species if not os.path.isfile("{0}_{1}.lik".format(query,species))}
+            os.chdir(config.path_distance_work_dir)
+    
+        # DEBUG
+        #calculate_protein_distances(query,"NASVI",config,cache_dir,1,100)
+        #sys.exit()
+    
+        # If we are still missing species distances, we calculate them now
+        # All distances are copied to the cache directory
+        # This means they stay backed up when the not saving cache option would wipe them
+        if len(missing_species) > 0:
+            for species in missing_species:
+                if species is not query:
+                    calculate_protein_distances(query,species,config,config.path_cache,1,0)
+
+    if query == 'ALL':
+        # Here, we use each species as a query
+        for species in species_set:
+            # Existing distances in the cache are excluded, but this routine
+            # replaces distances in the ML table
+            search_and_complement_missing_species(species,species_set,config,False,True)
+    else:
+        search_and_complement_missing_species(query,species_set,config)
     
 # Checks the species maximum likelihood file for existing distances
 # Returns missing target species OMA IDs
@@ -75,6 +89,11 @@ def check_species_max_likelihood_table(query,targets,config):
     # coalign
     computed_species_list = list()
     computed_species_set = set()
+
+    def generate_max_likelihood_distance_table_rows(filereader):
+        for row in filereader:
+            yield row.rstrip().split('\t')
+
     try:
         with open(species_max_likelihood, 'r') as ml:
             # The first row contains all species names
@@ -84,8 +103,7 @@ def check_species_max_likelihood_table(query,targets,config):
             computed_species_list = ml.readline().rstrip().split("\t")[1:]
             # Now we look up our query species row for which distances are
             # actually computed / not N/A / not missing
-            for row in ml:
-                split_row = row.rstrip().split("\t")
+            for split_row in generate_max_likelihood_distance_table_rows(ml):
                 # Find the row where the first item corresponds to our query species
                 if split_row[0] == query:
                     # The first item was only necessary to recognize the query species
@@ -94,11 +112,7 @@ def check_species_max_likelihood_table(query,targets,config):
                     split_row = split_row[1:]
                     # Create a set of all species names whose index in this column 
                     # contains a valid digit
-                    for i in range(len(computed_species_list)):
-                        if split_row[i] is not None:
-                            if split_row[i].isdigit():
-                                computed_species_set.add(computed_species_list[i])
-#                    computed_species_set = (computed_species_list[i] for i in range(len(computed_species_list)) if split_row[i] is not None and split_row[i].isdigit())
+                    computed_species_set = {computed_species_list[i] for i in range(len(split_row)) if split_row[i] is not None and split_row[i].isdigit()}
                     break
     except IOError:
         sys.exit('ERROR: Could not open %s. Please check the path.' %crossRefFile)
@@ -404,6 +418,8 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     # we can assume that the species pair is missing in the file
     if sequence_count == 1:
         print("ERROR: No orthologous pairs found between {0} and {1}!".format(species1,species2))
+        os.chdir(root_dir)
+        return
 
     print('Gather the sequences of all gathered orthologous protein pairs.')
 

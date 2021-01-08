@@ -14,7 +14,7 @@
 #
 
 import os, sys
-import getopt
+import argparse
 import configure
 import distanceCalculation
 import preprocessing
@@ -23,36 +23,47 @@ import mapToSpeciesTree
 import time
 
 def main(argv):
-    id_list, fasta_list, config_file = '', '', ''
+
+    def Argparse ():
+        """ Parses the arguments into an object """
+
+        parser = argparse.ArgumentParser(description='Calculates the evolutionary traceability of query proteins to species specified in the species mapping file.')
+
+        mandatory_arguments = parser.add_argument_group(title='Required arguments')
+        input_group = mandatory_arguments.add_mutually_exclusive_group(required=True)
+        input_group.add_argument('-i','--id',type=str,help='Path to a text file containing protein IDs')
+        input_group.add_argument('-f','--fasta',type=str,help='Path to a text file containing proteins in FASTA format')  
+
+        mandatory_arguments.add_argument('-c','--config',type=str,required=True,help='Path to the configuration file which can be created with the bin/create_config.pl script')
+
+        modes = parser.add_argument_group(title='Additional modes',description='These options are used for maintenance.')      
+        modes.add_argument('-d','--distance',action='store_true',help='Only updates the ML distances between all species in the species mapping file')
+
+        return parser.parse_args()
+
+    arguments = Argparse()
+
+    id_list, fasta_list = '', ''
     only_update_all_distances = False
 
-    # Setting the get options method to read the input arguments
-    try:
-        opts, args = getopt.getopt(argv, "f:i:d:c:h", ["fasta=", "id=", "distance=", "config=", "help"])
-    except getopt.GetoptError:
-        print('Invalid arguments:\nUsage:\tprotTrace.py -i <omaIdsFile> | -f <fastaSeqsFile> | -d -c <configFile> [-help]')
-        sys.exit(2)
+    # One of these arguments is required already
+    if arguments.id:
+        id_list = arguments.id
+    if arguments.fasta:
+        fasta_list = arguments.fasta
 
-    for opt, arg in opts:
-        if opt in ('-h','--help'):
-            print("USAGE:\tprotTrace.py -i <omaIdsFile> | -f <fastaSeqsFile> | -d -c <configFile> [-h]\n\t-i\t\tText file containing protein OMA ids (1 id per line)\n\t-f\t\tList of input protein sequences in fasta format\n\t-d\t\tWith this flag, the distances between all species in the species mapping file are updated\n\t-c\t\tConfiguration file for setting program's dependencies")
-            sys.exit(2)
-        elif opt in ('-d', '--distance'):
-            only_update_all_distances = True
-        elif opt in ('-i', '--id'):
-            id_list = arg
-        elif opt in ('-f','--fasta'):
-            fasta_list = arg
-        elif opt in ('-c','--config'):
-            config_file = arg
-        else:
-            print('Invalid arguments:\nUsage:\tprotTrace.py -i <omaIdsFile> | -f <fastaSeqsFile> | -d -c <configFile> [-help]')
-            sys.exit(2)
+    # The config argument is required
+    config_file = arguments.config
+
+    if arguments.distance:
+        only_update_all_distances = True
 
     config_file = os.path.abspath(config_file)
 
     # Calling the class in configure.py module and setting the tool parameters
     proteinParams = configure.setParams(config_file)
+
+    sys.exit()
 
     # This is a special setting, where no protein ID is needed and its only
     # purpose is to update the distances between all species in the species list
@@ -65,29 +76,30 @@ def main(argv):
         distanceCalculation.calculate_species_distances(proteinParams)
     
         if id_list != '':
-            for ids in open(id_list):
-                print('##### Running for OMA id: %s #####' %ids.split()[0])
-                if proteinParams.preprocessing:
-                    preprocessing.Preprocessing(ids.split()[0], 'None', config_file)
-                if proteinParams.traceability_calculation:
-                    traceabilityCalculation.main(ids.split()[0], config_file)
-                if proteinParams.mapTraceabilitySpeciesTree:
-                    mapToSpeciesTree.main(ids.split()[0], config_file)
+            with open(id_list, 'r') as id_file:
+                for line in id_file:
+                    input_id = line.split()[0]
+                    print('##### Running for OMA id: {0} #####'.format(input_id))
+                    if proteinParams.preprocessing:
+                        preprocessing.Preprocessing(input_id, 'None', config_file)
+                    if proteinParams.traceability_calculation:
+                        traceabilityCalculation.main(input_id, config_file)
+                    if proteinParams.mapTraceabilitySpeciesTree:
+                        mapToSpeciesTree.main(input_id, config_file)
         elif fasta_list != '':
             with open(fasta_list) as fa:
                 for seqs in fa:
                     if '>' in seqs:
-                        print('##### Running for fasta id: %s #####' %seqs[1:-1])
-                        inputId = seqs.split()[0][1:]
-                        querySeq = next(fa)
+                        print('##### Running for fasta id: {0} #####'.format(seqs[1:-1]))
+                        input_id = seqs.split()[0][1:]
+                        query_seq = next(fa)
     
                     if proteinParams.preprocessing:
-                        preprocessing.Preprocessing(inputId, querySeq, config_file)
+                        preprocessing.Preprocessing(input_id, query_seq, config_file)
                     if proteinParams.traceability_calculation:
-                        traceabilityCalculation.main(inputId, config_file)
+                        traceabilityCalculation.main(input_id, config_file)
                     if proteinParams.mapTraceabilitySpeciesTree:
-                        mapToSpeciesTree.main(inputId, config_file)
-
+                        mapToSpeciesTree.main(input_id, config_file)
 
 if __name__ == "__main__":
     if len(sys.argv[1:]) == 0:

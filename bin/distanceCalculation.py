@@ -353,25 +353,34 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     # and the target species
     print('Gather orthologous protein pairs.')
     print('Preprocessing:\tParsing sequence pairs and aligning them...')
-    prot_pairs = {}
-    sequence_count = 1
-    try:
+
+    def generate_large_orthologous_pair_file_buffers(oma_pairs):
         # Read in oma_pair lines that contain proteins
         # of both species together
         with open(oma_pairs,'r') as pair_mapping:
-            # Identify the input species pair
-            # among the orthologous protein pairs
-            interesting_lines = [line for line in pair_mapping if species1 in line and species2 in line]
+            # The buffersize has been set that the OMA pairs file
+            # approximately takes 1 GB per buffer on RAM
+            tmp_lines = pair_mapping.readlines(134217728)
+            while tmp_lines:
+                # Identify the input species pair
+                # among the orthologous protein pairs
+                yield tmp_lines
+                tmp_lines = pair_mapping.readlines(134217728)
 
-    except KeyboardInterrupt:
-        sys.exit('The user interrupted the orthologous pair search!')
-    except FileNotFoundError:
-        sys.exit('ERROR: The OMA pairs file is missing!')    
+    def generate_pairwise_orthologous_lines(species1, species2, oma_pairs):
+        for buffered_lines in generate_large_orthologous_pair_file_buffers(oma_pairs):
+            if buffered_lines:
+                for line in buffered_lines:
+                    if species1 in line and species2 in line:
+                        yield line
+   
+    prot_pairs = {}
+    sequence_count = 1
 
     try:
         # The processing of lines is decoupled from reading 
         # in the lines to maximize IO speed
-        for line in interesting_lines:
+        for line in generate_pairwise_orthologous_lines(species1,species2,oma_pairs):
             # Grab the protein ID
             splitted_line = line.rstrip().split('\t')
             if species1 in splitted_line[0]:
@@ -394,7 +403,7 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
             # name each pairwise orthologous alignment file correctly
             # The last number in the list indicates whether a sequence
             # has been written into a fasta file yet
-            prot_pair = [species_1_prot_id, species_2_prot_id, sequence_count, 0]
+            prot_pair = [species_1_prot_id, species_2_prot_id, sequence_count]
             prot_pairs[species_1_prot_id].append(prot_pair)
             prot_pairs[species_2_prot_id].append(prot_pair)
 
@@ -410,6 +419,8 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
 
     except KeyboardInterrupt:
         sys.exit('The user interrupted the compilation of orthologous pairs!')
+    except FileNotFoundError:
+        sys.exit('ERROR: The OMA pairs file is missing!')    
 
     # Print the last sequence number
     print('Sequence Nr.:', sequence_count)
@@ -443,6 +454,7 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     # We iterate through both sequence sources. Since we
     # iterate a set, we save iterations if both point to
     # the same file
+    written_prot_pairs = set()
     try:
         for sequence_source in sequence_sources:
             with open(sequence_source, 'r') as sequence_source_file:
@@ -459,26 +471,21 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
                             # We now know the sequence of a protein that 
                             # probably partakes in many orthologous pairs
                             for prot_pair in prot_pairs[line_id]:
-    
                                 # We do not want to store the sequences in RAM
                                 # But we will access the sequence of each pair
-                                # not in consecutive order. This is why there
-                                # is another number in the pair list that tells
-                                # us whether we need to create a new file or
-                                # that we can append to an existing one
-                                if prot_pair[3] == 0:
-                                    fasta_file_write_mode = 'w'
-                                else:
+                                # not in consecutive order
+                                # The slice maximum is exclusive
+                                # Every prot_pair stores the full pair information
+                                if frozenset(prot_pair[0:2]) in written_prot_pairs:
                                     fasta_file_write_mode = 'a'
+                                else:
+                                    fasta_file_write_mode = 'w'
+                                    written_prot_pairs.add(frozenset(prot_pair[0:2]))
     
                                 # The third element in each prot_pair list is their numeric sequence ID
                                 with open(fa_dir + '/seq_' + str(prot_pair[2]) + '.fa', fasta_file_write_mode) as alignment_precurser:
                                     alignment_precurser.write(line[:6] + '\n' + sequence)
-                                    # The other pair only needs to append to this file
-                                    # We assume that the prot_pair is assigned by reference
-                                    # Changing the value in one list changes it also in the
-                                    # list of all other paired orthologs
-                                    prot_pair[3] = 1
+
     except FileNotFoundError:
         print('ERROR: The FASTA file that contains the sequences is missing!')
 
@@ -613,6 +620,7 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
             if bootstrap_count > 0:
                 os.system('rm -rf {0}_{1}_bootstrap_*'.format(species1, species2))
 
+    print('Finished species pair {0} - {1}'.format(species1,species2),flush=True)
     os.chdir(root_dir)
 
     # END OF POSTPROCESS FUNCTION DEFINITION

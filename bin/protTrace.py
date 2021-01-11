@@ -63,8 +63,6 @@ def main(argv):
     # Calling the class in configure.py module and setting the tool parameters
     proteinParams = configure.setParams(config_file)
 
-    sys.exit()
-
     # This is a special setting, where no protein ID is needed and its only
     # purpose is to update the distances between all species in the species list
     if only_update_all_distances:

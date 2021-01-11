@@ -56,16 +56,23 @@ def calculate_species_distances(config):
             os.chdir(config.path_distance_work_dir)
     
         # DEBUG
-        #calculate_protein_distances(query,"NASVI",config,cache_dir,1,100)
+        #calculate_protein_distances(query,"NASVI",config,cache_dir,preset_nr_processes,1,100)
         #sys.exit()
     
         # If we are still missing species distances, we calculate them now
         # All distances are copied to the cache directory
         # This means they stay backed up when the not saving cache option would wipe them
         if len(missing_species) > 0:
-            for species in missing_species:
-                if species is not query:
-                    calculate_protein_distances(query,species,config,config.path_cache,1,0)
+            # These two questions ensure that the load is worth the parallelization
+            if config.nr_processors >= 8 and len(missing_species) > (config.nr_processors // 4):
+                # If more than 7 cores are available, the number of cores is split by 4 to
+                # parallelize processing
+                with Pool(config.nr_processors // 4) as species_pair_process_pool:
+                    species_pair_process_pool.map(calculate_protein_distances_parallelized, [[query,species,config,config.path_cache,4,1,0] for species in missing_species if species is not query])
+            else:
+                for species in missing_species:
+                    if species is not query:
+                        calculate_protein_distances(query,species,config,config.path_cache,None,1,0)
 
     if query == 'ALL':
         # Here, we use each species as a query
@@ -75,6 +82,22 @@ def calculate_species_distances(config):
             search_and_complement_missing_species(species,species_set,config,False,True)
     else:
         search_and_complement_missing_species(query,species_set,config)
+
+def delete_temporary_files(species1, species2, fa_dir, aln_dir, bootstrap_count = 0, result_file = None):
+    # If there is a result file, but not completed, restrain from 
+    # deleting temporary files for reuse
+    if result_file is not None:
+        if not os.path.exists(result_file) or len(open(result_file).read().split('\n')) == 0:
+            return
+    try:
+        os.system('rm -rf {0} {1} temp_puzzleParams.txt'.format(fa_dir, aln_dir))
+        os.system('rm -rf {0}_{1}.phy*'.format(species1, species2))
+        # This check rather exists to prevent file not found errors
+        if bootstrap_count > 0:
+            os.system('rm -rf {0}_{1}_bootstrap_*'.format(species1, species2))
+        print('Cleanup finished.')
+    except FileNotFoundError:
+        pass
     
 # Checks the species maximum likelihood file for existing distances
 # Returns missing target species OMA IDs
@@ -308,12 +331,15 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
                 process_pool.imap(sequence_pair_to_phylip_multiprocessed, generate_multiprocessing_to_phylip_args_list(species1,species2,sequences,subalignment_positions,bootstrap_count),5)
         except KeyboardInterrupt:
             sys.exit('The user interrupted the generation of bootstrapped alignments!')
+
+def calculate_protein_distances_parallelized(args):
+    calculate_protein_distances(*args)
     
 ### Calculates the pairwise species maximum likelihood distance 
 ### between species1 and species2. The distance is copied to the
 ### target_dir. The config is loaded from ProtTrace's configure.py
 ### if this script is executed directly.
-def calculate_protein_distances(species1,species2,config,target_dir,add_filename=1,bootstrap_count=0):
+def calculate_protein_distances(species1, species2, config, target_dir, preset_nr_processors = None, add_filename=1, bootstrap_count=0):
 
     print("Calculating the protein distance between {0} and {1}.".format(species1,species2))
 
@@ -325,7 +351,10 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
     linsi = config.msa
     #clustalw = config.clustalw
     treepuzzle = "/share/applications/tree-puzzle/bin/puzzle"
-    nr_processors = config.nr_processors
+    if preset_nr_processors is None:
+        nr_processors = config.nr_processors
+    else:
+        nr_processors = preset_nr_processors
     delete_temp = config.delete_temp
 
     root_dir = os.getcwd()
@@ -486,6 +515,11 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
                                 with open(fa_dir + '/seq_' + str(prot_pair[2]) + '.fa', fasta_file_write_mode) as alignment_precurser:
                                     alignment_precurser.write(line[:6] + '\n' + sequence)
 
+    except KeyboardInterrupt:
+        print('Gathering the sequences of pairwise orthologs was interrupted by the user.')
+        print('Please wait until half-finished temporary files are removed!')
+        delete_temporary_files(species1, species2, fa_dir, aln_dir)
+        sys.exit()
     except FileNotFoundError:
         print('ERROR: The FASTA file that contains the sequences is missing!')
 
@@ -612,19 +646,12 @@ def calculate_protein_distances(species1,species2,config,target_dir,add_filename
         calculate_and_write_bootstrap_distance_table_output(bootstrap_count, treepuzzle)
 
     if delete_temp: 
-        # Deletes temporary files 
-        if os.path.exists(result_file) and not len(open(result_file).read().split('\n')) == 0:
-            os.system('rm -rf {0} {1} temp_puzzleParams.txt'.format(fa_dir, aln_dir))
-            os.system('rm -rf {0}_{1}.phy*'.format(species1, species2))
-            # This check rather exists to prevent file not found errors
-            if bootstrap_count > 0:
-                os.system('rm -rf {0}_{1}_bootstrap_*'.format(species1, species2))
+        delete_temporary_files(species1, species2, fa_dir, aln_dir, bootstrap_count, result_file)
 
     print('Finished species pair {0} - {1}'.format(species1,species2),flush=True)
     os.chdir(root_dir)
 
     # END OF POSTPROCESS FUNCTION DEFINITION
-
     
 # This defines the start of this script if someone wants to calculate
 # distances separately with this script

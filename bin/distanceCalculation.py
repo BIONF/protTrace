@@ -61,12 +61,27 @@ def calculate_species_distances(config):
         # All distances are copied to the cache directory
         # This means they stay backed up when the not saving cache option would wipe them
         if len(missing_species) > 0:
+
+            # The first, commented parallelization solution is only possible if hierarchical 
+            # multiprocessing is implemented, i.e. child processes are allowed to spawn child
+            # processes on their own. Unless that is ensured, the second parallelized solution
+            # can be used, where each species pair is computed in parallel.
+
             # These two questions ensure that the load is worth the parallelization
-            if config.nr_processors >= 8 and len(missing_species) > (config.nr_processors // 4):
-                # If more than 7 cores are available, the number of cores is split by 4 to
-                # parallelize processing
-                with Pool(config.nr_processors // 4) as species_pair_process_pool:
-                    species_pair_process_pool.map(calculate_protein_distances_parallelized, [[query,species,config,config.path_cache,4,1,0] for species in missing_species if species is not query])
+            #if config.nr_processors >= 4 and len(missing_species) > (config.nr_processors // 4):
+            #if True:
+            #    # If more than 7 cores are available, the number of cores is split by 4 to
+            #    # parallelize processing
+            #    with Pool(config.nr_processors // 4) as species_pair_process_pool:
+            #        species_pair_process_pool.map(calculate_protein_distances_parallelized, [[query,species,config,config.path_cache,4,1,0] for species in missing_species if species is not query])
+            if config.nr_processors > 1 and len(missing_species) > 1:
+                # Every pair of species is parallelized. Each pairwise distance computation 
+                # gets one core.
+                with Pool(config.nr_processors) as species_pair_process_pool:
+                    species_pair_process_pool.map(calculate_protein_distances_parallelized, [[query,species,config,config.path_cache,1,1,0] for species in missing_species if species is not query])
+
+            # One species pair is processed at once. This means, the function is allowed
+            # to use the full number of available cores (by passing None)
             else:
                 for species in missing_species:
                     if species is not query:
@@ -253,11 +268,7 @@ def sequence_pair_to_phylip(species1,species2,sequences,sampled_indices=None,boo
 def concatenate_alignment(species1, species2, alignment_generator, bootstrap_count = 0, nr_processors = 1):
 
     concatenated_alignments = ["",""]
-#    count = 1
     for alignment in alignment_generator:
-#        with open('pairwise_aln_dir/seq_{0}.aln'.format(count),'w') as fout:
-#            fout.write('>SULMD\n'+alignment[1]+'\n>YEAST\n'+alignment[0]+'\n')
-#            count += 1
         concatenated_alignments[0] += alignment[0]
         concatenated_alignments[1] += alignment[1]
 
@@ -396,7 +407,13 @@ def concatenate_alignment_legacy(species1, species2, alignment_count, alignment_
         except KeyboardInterrupt:
             sys.exit('The user interrupted the generation of bootstrapped alignments!')
 
+def align_pairwise_proteins_pairwise2_parallelized(args):
+    """ Provides a top-level function to parallelize the alignment of two sequences,
+        args[0] and args[1]. Other parameters are static for every pair of sequences."""
+    return pairwise2.align.globalds(args[0], args[1], matlist.blosum62, -10.0, -1.0, penalize_end_gaps=True, one_alignment_only=True)
+
 def calculate_protein_distances_parallelized(args):
+    
     calculate_protein_distances(*args)
     
 ### Calculates the pairwise species maximum likelihood distance 
@@ -412,9 +429,8 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
     oma_pairs = config.path_oma_pairs
     concatAlignment = config.concat_alignments_script
     oma_proteomes_dir = config.path_distance_work_dir
-    linsi = config.msa
-    #clustalw = config.clustalw
-    treepuzzle = "/share/applications/tree-puzzle/bin/puzzle"
+    #linsi = config.msa
+    treepuzzle = config.treepuzzle
     if preset_nr_processors is None:
         nr_processors = config.nr_processors
     else:
@@ -437,15 +453,15 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
     if not os.path.exists(fa_dir):
         os.mkdir(fa_dir)
     
-    if not os.path.exists(aln_dir):
-        os.mkdir(aln_dir)
+    #if not os.path.exists(aln_dir):
+    #    os.mkdir(aln_dir)
 
     os.chdir(work_dir)
     
     # Align the set of pairwise oprthologs between the query
     # and the target species
     print('Gather orthologous protein pairs.')
-    print('Preprocessing:\tParsing sequence pairs and aligning them...')
+    #print('Preprocessing:\tParsing sequence pairs and aligning them...')
 
     def generate_large_orthologous_pair_file_buffers(oma_pairs):
         # Read in oma_pair lines that contain proteins
@@ -587,6 +603,8 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
     except FileNotFoundError:
         print('ERROR: The FASTA file that contains the sequences is missing!')
 
+    print('Aligning and concatenating pairwise orthologous protein sequences.')
+
     def align_pairwise_proteins_mafft(nr_processors, fa_dir, sequence_count):
         # We perform a global alignment of each orthologous pair
         # For this step, we only need to know the number of pairs
@@ -623,39 +641,73 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
             tp.join()
             sys.exit()
 
-    def align_pairwise_proteins_pairwise2(fa_dir, species1, species2, sequence_count):
-        matrix = matlist.blosum62
-
+    def generate_pairwise2_alignment_arguments(fa_dir, species1, species2, sequence_count):
+        
         for seq in range(1,(sequence_count - 1)):
             records = list(SeqIO.parse(fa_dir + '/seq_' + str(seq) + '.fa', 'fasta'))
+
             # The following ensures the order of species in the alignment
             # Once the function that reads in the original sequences becomes a generator,
             # this workaround will not be necessary anymore
             species_1_seq = next(s for s in records if s.id == species1)
             species_2_seq = next(s for s in records if s.id == species2)
-            # one_alignment_only retrieves the first of the equally best scoring alignments.
-            # d: match scores are derived from a list (the substitution matrix)
-            # s: same gap penalties for both sequences (values for gapopen and gapextend were taken from MAFFT 6 L-INS-i
-            # One alignment consists of a tuple of four elements:
-            # sequence 1, sequence 2, score, beginning, 0-based character count
-            #yield pairwise2.align.globalds(species_1_seq.seq, species_2_seq.seq, matrix, -1.53, -0.123, penalize_end_gaps=False, one_alignment_only=True)[0]
-            yield pairwise2.align.globalds(species_1_seq.seq, species_2_seq.seq, matrix, -10.0, -1.0, penalize_end_gaps=True, one_alignment_only=True)[0]
 
+            yield [species_1_seq.seq, species_2_seq.seq]
 
-    concatenate_alignment(species1, species2, align_pairwise_proteins_pairwise2(fa_dir, species1, species2, sequence_count), bootstrap_count, nr_processors)
+    def align_pairwise_proteins_pairwise2(fa_dir, species1, species2, sequence_count, nr_processors):
+        """ Aligns all pairwise orthologous protein sequences between species1 and species2 using 
+            the Biopython pairwise2 module. If the distance calculation between species is done 
+            sequentially, then this process can spawn child processes by providing a nr_processors 
+            count greater than 1. """
+
+        if nr_processors > 1:
+            try:
+                with Pool(nr_processors) as alignment_process_pool:
+                    # imap is a lazy loader of arguments. Very long sequences could take too much
+                    # RAM. The unordered version is also a bit faster and does not need to preserve
+                    # earlier, but later needed results in memory. With the last parameter, we allow
+                    # imap to load in a couple of sequences.
+                    for alignments in alignment_process_pool.imap_unordered(align_pairwise_proteins_pairwise2_parallelized, generate_pairwise2_alignment_arguments(fa_dir, species1, species2, sequence_count), 10):
+                        # pairwise2 can yield multiple, equally correct alignments at once. We turned
+                        # the behavior off with only_one_alignment = True, but the result is still
+                        # stored in a list.
+                        yield alignments[0]
+        
+            except KeyboardInterrupt:
+                sys.exit('The user interrupted the alignment of pairwise orthologous proteins!')
+
+        else:
+            for seq in range(1,(sequence_count - 1)):
+    
+                records = list(SeqIO.parse(fa_dir + '/seq_' + str(seq) + '.fa', 'fasta'))
+    
+                # The following ensures the order of species in the alignment
+                # Once the function that reads in the original sequences becomes a generator,
+                # this workaround will not be necessary anymore
+                species_1_seq = next(s for s in records if s.id == species1)
+                species_2_seq = next(s for s in records if s.id == species2)
+    
+                # one_alignment_only retrieves the first of the equally best scoring alignments.
+                # d: match scores are derived from a list (the substitution matrix)
+                # s: same gap penalties for both sequences (values for gapopen and gapextend were taken from MAFFT 6 L-INS-i
+                # One alignment consists of a tuple of four elements:
+                # sequence 1, sequence 2, score, beginning, 0-based character count
+                yield pairwise2.align.globalds(species_1_seq.seq, species_2_seq.seq, matrix, -10.0, -1.0, penalize_end_gaps=True, one_alignment_only=True)[0]
+
+    concatenate_alignment(species1, species2, align_pairwise_proteins_pairwise2(fa_dir, species1, species2, sequence_count, nr_processors), bootstrap_count, nr_processors)
 
     #align_pairwise_proteins_mafft(nr_processors, fa_dir, sequence_count)
 
     # Collect all pairwise protein alignments, concatenate them
     # and calculate the summarized pairwise species distance
-    print('Preprocessing complete..\nConcatenating the alignments..')
+    #print('Preprocessing complete..\nConcatenating the alignments..')
 
     # Concatenate and bootstrap the pairwise protein alignments
     #concatenate_alignment_legacy(species1, species2, sequence_count, aln_dir, bootstrap_count, nr_processors)
 
     # The concatAlignment script requires perl
 #    os.system('perl %s -in=%s -out=%s' %(concatAlignment, aln_dir, concat_file))
-    print('Postprocessing the concatenated alignment file..')
+    #print('Postprocessing the concatenated alignment file..')
 
     # Executes TreePUZZLE to calculate the tree distance between the species pair
     def calculate_pairwise_distance(concat_file, treepuzzle):

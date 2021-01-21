@@ -103,6 +103,7 @@ class setParams:
         self.hmmfetch = self.parse_option(config_key_value_pairs, 'hmmfetch', self.path_option)
         self.hmmscan = self.parse_option(config_key_value_pairs, 'hmmscan', self.path_option)
         self.iqtree = self.parse_option(config_key_value_pairs, 'iqtree', self.path_option)
+        self.treepuzzle = self.parse_option(config_key_value_pairs, 'treepuzzle', self.path_option)
         self.clustalw = self.parse_option(config_key_value_pairs, 'clustalw', self.path_option)
         self.blastp = self.parse_option(config_key_value_pairs, 'blastp', self.path_option)
         self.makeblastdb = self.parse_option(config_key_value_pairs, 'makeblastdb', self.path_option)

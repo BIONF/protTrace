@@ -29,13 +29,13 @@ def msa_convert():
         os.system('{0} --phylipout ogSeqs_{1}.fa > ogSeqs_{3}.phy'.format(linsi, protein_id, protein_id))
 
 ########### added by ingo to get rid of raxml dependency
-def run_iqtree():
+def run_iqtree(config):
     if makeTree:
         if reuse_cache and os.path.exists('ogSeqs_' + protein_id + '.phy.treefile') and os.path.exists('ogSeqs_' + protein_id + '.phy.ckp.gz'):
             print('ML tree already exists. Reusing it.')
         else:
             os.system('rm -rf RAxML_*')
-            os.system('iqtree -nt %s -s ogSeqs_%s.phy -m %s -keep-ident -redo' %(nr_proc, protein_id, aaMatrix))
+            os.system('{0} -nt {1} -s ogSeqs_{2}.phy -m {3} -keep-ident -redo' %(config.iqtree, nr_proc, protein_id, aaMatrix))
         #print('complete..')
 # Remove all the temp files generated
 def rm_temp():
@@ -140,7 +140,7 @@ def scalingFactorMax():
         return sf
 
 # Main module for running tree reconstruction
-def main(Linsi, Orthologs, AaMatrix, Protein_id, Map_file, Species_maxLikMatrix, Scale_file, Tree_file, delTemp, defScale, cache_dir, ortholog_tree_reconstruction, nr_processors, use_cache):
+def main(Linsi, Orthologs, AaMatrix, Protein_id, Map_file, Species_maxLikMatrix, Scale_file, Tree_file, delTemp, defScale, cache_dir, ortholog_tree_reconstruction, nr_processors, use_cache, config):
 
     global linsi, orth_file, aaMatrix, protein_id, map_file, species_maxLikMatrix, scaleFile, treeFile, phy_file, sf, cacheDir, makeTree, nr_proc, reuse_cache
     cacheDir = cache_dir
@@ -163,7 +163,7 @@ def main(Linsi, Orthologs, AaMatrix, Protein_id, Map_file, Species_maxLikMatrix,
         try:
 #           rename_orth_file()
             msa_convert()
-            run_iqtree()
+            run_iqtree(config)
             if reuse_cache and os.path.exists(scaleFile):
                 print('Pre-computed scaling factor found. Reusing it.')
             else:

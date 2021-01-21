@@ -284,7 +284,7 @@ def Preprocessing(prot_id, querySeq, config_file):
         else:
             print('#####	Tree reconstruction and scaling factor calculation	#####')
             startProcessTime = time.time()
-            treeReconstruction.main(prot_config.msa, orth_file, prot_config.aa_substitution_matrix, prot_id, prot_config.hamstr_oma_tree_map, prot_config.species_MaxLikMatrix, scale_file, tree_file, delTemp, prot_config.default_scaling_factor, cache_dir, ortholog_tree_reconstruction, nr_processors, cache)
+            treeReconstruction.main(prot_config.msa, orth_file, prot_config.aa_substitution_matrix, prot_id, prot_config.hamstr_oma_tree_map, prot_config.species_MaxLikMatrix, scale_file, tree_file, delTemp, prot_config.default_scaling_factor, cache_dir, ortholog_tree_reconstruction, nr_processors, cache, prot_config)
             print('#####\tTIME TAKEN: %s mins\tRAxML#####' %((time.time() - startProcessTime) / 60))
 
     # Calculate indels

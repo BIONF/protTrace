@@ -34,7 +34,8 @@ def calculate_species_distances(config):
         sys.exit('ERROR: Could not open %s. Please check the path.' %crossRefFile)
 
     # Move to the dedicated distance calculation root 
-    # directory for all species
+    # directory for all species after noticing the previous directory to move back later
+    previous_work_dir = os.getcwd()
     os.chdir(config.path_distance_work_dir)
 
     # Check and prepare the cache location
@@ -53,14 +54,9 @@ def calculate_species_distances(config):
 
         if check_cache and len(missing_species) > 0:
             # Exclude missing species with existing .lik files in the cache directory
-            os.chdir(config.path_cache)
             # We check the cache directory for {query species}_{missing species}.lik files
-            missing_species = {species for species in missing_species if not os.path.isfile("{0}_{1}.lik".format(query,species))}
+            missing_species = {species for species in missing_species if not os.path.isfile("{0}/{1}_{2}.lik".format(config.path_cache,query,species))}
             os.chdir(config.path_distance_work_dir)
-    
-        # DEBUG
-        #calculate_protein_distances(query,"NASVI",config,cache_dir,preset_nr_processes,1,100)
-        #sys.exit()
     
         # If we are still missing species distances, we calculate them now
         # All distances are copied to the cache directory
@@ -88,6 +84,9 @@ def calculate_species_distances(config):
             search_and_complement_missing_species(species,species_set,config,False,True)
     else:
         search_and_complement_missing_species(query,species_set,config)
+
+    # Return to the previous working directory
+    os.chdir(previous_work_dir)
 
 def delete_temporary_files(species1, species2, fa_dir, aln_dir, bootstrap_count = 0, result_file = None):
     # If there is a result file, but not completed, restrain from 

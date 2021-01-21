@@ -56,7 +56,6 @@ def calculate_species_distances(config):
             # Exclude missing species with existing .lik files in the cache directory
             # We check the cache directory for {query species}_{missing species}.lik files
             missing_species = {species for species in missing_species if not os.path.isfile("{0}/{1}_{2}.lik".format(config.path_cache,query,species))}
-            os.chdir(config.path_distance_work_dir)
     
         # If we are still missing species distances, we calculate them now
         # All distances are copied to the cache directory

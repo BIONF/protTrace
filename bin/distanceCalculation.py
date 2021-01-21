@@ -5,6 +5,9 @@ import time
 import subprocess
 from multiprocessing.pool import ThreadPool
 from multiprocessing.pool import Pool
+from Bio import SeqIO
+from Bio import pairwise2
+from Bio.SubsMat import MatrixInfo as matlist
 
 ### Supporting script for maximum likelihood calculations ###
 
@@ -73,6 +76,9 @@ def calculate_species_distances(config):
                 for species in missing_species:
                     if species is not query:
                         calculate_protein_distances(query,species,config,config.path_cache,None,1,0)
+    #DEBUG
+    #search_and_complement_missing_species("YEAST",set(["SULMD"]),config,False,False)
+    #sys.exit()
 
     if query == 'ALL':
         # Here, we use each species as a query
@@ -155,7 +161,8 @@ def sequence_pair_to_phylip_multiprocessed(argument_list):
 
 # This function is multiprocessed for bootstrapped alignments
 # Therefore, it must be defined at top-level
-def sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions,sampled_indices=None,bootstrap_index=None):
+#def sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions,sampled_indices=None,bootstrap_index=None):
+def sequence_pair_to_phylip(species1,species2,sequences,sampled_indices=None,bootstrap_index=None):
 
     # Here, we compile the bootstrapped sequences to continuous strings
     # The regular concatenated protein alignments are just made continuous
@@ -205,7 +212,7 @@ def sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions,s
     alignment = ""
     # The first line contains the entire length of the original protein sequence
     # Here, we just copy the first and last position
-    alignment += "4 " + str(subalignment_positions[-1][1]) + "\n"
+    alignment += "4 " + str(len(local_sequences[0])) + "\n"
     # The next 2 lines contain the respective species ids of each line
     # We duplicate the sequence to generate an imaginative 
     # 4 species alignment. We need this to calculate a 
@@ -239,13 +246,71 @@ def sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions,s
         concat_file.write(alignment)
     # Only the non-bootstrap result file receives a
     # subalignment_positions file
-    if sampled_indices is None:
-        with open('subalignment_positions.txt', 'w') as subpositions_file:
-            for line in subalignment_positions:
-                # Columns are separated with spaces
-                subpositions_file.write(' '.join([str(l) for l in line]) + "\n")
+    #if sampled_indices is None:
+    #    with open('subalignment_positions.txt', 'w') as subpositions_file:
+    #        for line in subalignment_positions:
+    #            # Columns are separated with spaces
+    #            subpositions_file.write(' '.join([str(l) for l in line]) + "\n")
 
-def concatenate_alignment(species1, species2, alignment_count, alignment_directory, bootstrap_count = 0, nr_processors = 1):
+def concatenate_alignment(species1, species2, alignment_generator, bootstrap_count = 0, nr_processors = 1):
+
+    concatenated_alignments = ["",""]
+#    count = 1
+    for alignment in alignment_generator:
+#        with open('pairwise_aln_dir/seq_{0}.aln'.format(count),'w') as fout:
+#            fout.write('>SULMD\n'+alignment[1]+'\n>YEAST\n'+alignment[0]+'\n')
+#            count += 1
+        concatenated_alignments[0] += alignment[0]
+        concatenated_alignments[1] += alignment[1]
+
+    # Perform a bootstrap analysis on the alignment and note the created variance
+    def generate_bootstraps(alignment_length, generated_bootstrap_count):
+
+        # Seed the singleton random module using the current system clock time
+        # (by passing no parameter)
+        seed = random.randrange(sys.maxsize)
+        random.seed(seed)
+
+        print('The seed for bootstrapping the alignment is: ', seed)
+        with open('bootstrap_sample_rng_seed.R','w') as seed_file:
+            seed_file.write('# The seed for sampling columns for pairwise distance\n# bootstrap analysis is a follows:\n# '+ str(seed) + '\n')
+
+        # Generate a list of sequence indices to sample
+        # The list is sampled from all alignment indices with equal weights and replacement
+        for c in range(generated_bootstrap_count):
+            yield random.choices(range(alignment_length), k=alignment_length)
+
+#    if bootstrap_count > 0:
+#        bootstrap_alignment_indices = create_bootstraps(len(sequences[0]),bootstrap_count)
+
+    print('Concatenate and duplicate the pairwise aligned sequences!')
+    # Generate the main concatenated and duplicated alignment for calculating
+    # the pairwise species distance
+    sequence_pair_to_phylip(species1,species2,concatenated_alignments)
+
+    def generate_multiprocessing_to_phylip_args_list(species1, species2, sequences, subalignment_positions, bootstrap_count):
+        i = -1
+        # Sample a set of position indices to draw aligned amino acids from both sequences
+        for bootstrap_position_indices in generate_bootstraps(len(sequences[0]), bootstrap_count):
+            i += 1
+            yield [species1,species2,sequences,subalignment_positions,bootstrap_position_indices,i]
+
+    if bootstrap_count > 0:
+        print('Concatenate and duplicate the bootstrapped pairwise alignments!')
+        # Generate the bootstrapped versions of the concatenated alignment for 
+        # estimating the distance variance
+        # Each alignment bootstrap creates a separate process
+        # The pool iterates through "bootstrap_alignment_indices"
+        try:
+            with Pool(nr_processors) as process_pool:
+                # imap is a lazy loader of the bootstrap position indices
+                # Sampling every position and putting their integers in a list takes
+                # much more RAM than when the positions are written into two strings
+                process_pool.imap(sequence_pair_to_phylip_multiprocessed, generate_multiprocessing_to_phylip_args_list(species1,species2,sequences,subalignment_positions,bootstrap_count),5)
+        except KeyboardInterrupt:
+            sys.exit('The user interrupted the generation of bootstrapped alignments!')
+
+def concatenate_alignment_legacy(species1, species2, alignment_count, alignment_directory, bootstrap_count = 0, nr_processors = 1):
 
     # The sequences of both species are separated for better handling
     # For bootstrapping, the first index tells us the aligned protein pair
@@ -308,7 +373,8 @@ def concatenate_alignment(species1, species2, alignment_count, alignment_directo
     print('Concatenate and duplicate the pairwise aligned sequences!')
     # Generate the main concatenated and duplicated alignment for calculating
     # the pairwise species distance
-    sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions)
+    #sequence_pair_to_phylip(species1,species2,sequences,subalignment_positions)
+    sequence_pair_to_phylip(species1,species2,sequences)
 
     def generate_multiprocessing_to_phylip_args_list(species1, species2, sequences, subalignment_positions, bootstrap_count):
         i = -1
@@ -523,48 +589,71 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
     except FileNotFoundError:
         print('ERROR: The FASTA file that contains the sequences is missing!')
 
-    # We perform a global alignment of each orthologous pair
-    # For this step, we only need to know the number of pairs
-    # to access the fasta files in the fasta directory
-    # ProtTrace rather uses MAFFT linsi than muscle
-
-    # Encapsulate the call of MAFFT to enable parallelization
-    def align_protein_pair(number):
-        filename = fa_dir + '/seq_' + str(number) + '.fa'
-        # Execute the subprocess and wait for completion within the process
-        # The wait function within a threaded function is necessary, because,
-        # as far as I know, we can not manage a pool of threads with subprocess.Popen
-        subprocess.Popen('{0} --amino --quiet --thread 1 {1} > {2}'.format(linsi, filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)),shell=True).wait()
-
-    try:
-        # Measure the time taken
-        print('Aligning orthologous protein pairs')
-        start = time.time()
+    def align_pairwise_proteins_mafft(nr_processors, fa_dir, sequence_count):
+        # We perform a global alignment of each orthologous pair
+        # For this step, we only need to know the number of pairs
+        # to access the fasta files in the fasta directory
+        # ProtTrace rather uses MAFFT linsi than muscle
     
-        # To avoid adding another dependency, I uncommented the muscle command
-        #os.system('muscle -quiet -in %s -out %s' %(filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
-
-        # Run the alignment program in parallel threads
-        tp = ThreadPool(nr_processors)
-        tp.map(align_protein_pair,range(1,sequence_count))
-        tp.close()
-        tp.join()
-
-        # Print the time passed
-        print('Total time passed for aligning orthologous proteins: ' + str(time.time() - start))
+        # Encapsulate the call of MAFFT to enable parallelization
+        def align_protein_pair(filename):
+            # Execute the subprocess and wait for completion within the process
+            # The wait function within a threaded function is necessary, because,
+            # as far as I know, we can not manage a pool of threads with subprocess.Popen
+            subprocess.Popen('{0} --amino --quiet --thread 1 {1} > {2}'.format(linsi, filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)),shell=True).wait()
     
-    except KeyboardInterrupt:
-        print('The user has stopped the generation of alignments')
-        tp.close()
-        tp.join()
-        sys.exit()
+        try:
+            # Measure the time taken
+            print('Aligning orthologous protein pairs')
+            start = time.time()
+        
+            # To avoid adding another dependency, I uncommented the muscle command
+            #os.system('muscle -quiet -in %s -out %s' %(filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
+    
+            # Run the alignment program in parallel threads
+            tp = ThreadPool(nr_processors)
+            tp.map(align_protein_pair,['{0}/seq_{1}.fa'.format(fa_dir,str(c)) for c in range(1,sequence_count)])
+            tp.close()
+            tp.join()
+    
+            # Print the time passed
+            print('Total time passed for aligning orthologous proteins: ' + str(time.time() - start))
+        
+        except KeyboardInterrupt:
+            print('The user has stopped the generation of alignments')
+            tp.close()
+            tp.join()
+            sys.exit()
+
+    def align_pairwise_proteins_pairwise2(fa_dir, species1, species2, sequence_count):
+        matrix = matlist.blosum62
+
+        for seq in range(1,(sequence_count - 1)):
+            records = list(SeqIO.parse(fa_dir + '/seq_' + str(seq) + '.fa', 'fasta'))
+            # The following ensures the order of species in the alignment
+            # Once the function that reads in the original sequences becomes a generator,
+            # this workaround will not be necessary anymore
+            species_1_seq = next(s for s in records if s.id == species1)
+            species_2_seq = next(s for s in records if s.id == species2)
+            # one_alignment_only retrieves the first of the equally best scoring alignments.
+            # d: match scores are derived from a list (the substitution matrix)
+            # s: same gap penalties for both sequences (values for gapopen and gapextend were taken from MAFFT 6 L-INS-i
+            # One alignment consists of a tuple of four elements:
+            # sequence 1, sequence 2, score, beginning, 0-based character count
+            #yield pairwise2.align.globalds(species_1_seq.seq, species_2_seq.seq, matrix, -1.53, -0.123, penalize_end_gaps=False, one_alignment_only=True)[0]
+            yield pairwise2.align.globalds(species_1_seq.seq, species_2_seq.seq, matrix, -10.0, -1.0, penalize_end_gaps=True, one_alignment_only=True)[0]
+
+
+    concatenate_alignment(species1, species2, align_pairwise_proteins_pairwise2(fa_dir, species1, species2, sequence_count), bootstrap_count, nr_processors)
+
+    #align_pairwise_proteins_mafft(nr_processors, fa_dir, sequence_count)
 
     # Collect all pairwise protein alignments, concatenate them
     # and calculate the summarized pairwise species distance
     print('Preprocessing complete..\nConcatenating the alignments..')
 
     # Concatenate and bootstrap the pairwise protein alignments
-    concatenate_alignment(species1, species2, sequence_count, aln_dir, bootstrap_count, nr_processors)
+    #concatenate_alignment_legacy(species1, species2, sequence_count, aln_dir, bootstrap_count, nr_processors)
 
     # The concatAlignment script requires perl
 #    os.system('perl %s -in=%s -out=%s' %(concatAlignment, aln_dir, concat_file))

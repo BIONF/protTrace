@@ -11,12 +11,12 @@ from Bio.SubsMat import MatrixInfo as matlist
 
 ### Supporting script for maximum likelihood calculations ###
 
-### Orchestrates the calculation of species distances between 
-### the query species and all other species in the 
-### speciesTreeMapping list. <config> is expected as an 
-### instance of the ProtTrace configuration (generated with 
-### configure.setParams)
 def calculate_species_distances(config):
+    """ Orchestrates the calculation of species distances between
+    the query species and all other species in the
+    speciesTreeMapping list. <config> is expected as an
+    instance of the ProtTrace configuration (generated with
+    configure.setParams) """
 
     # Read the query species from the ProtTrace configuration
     # The special species, 'ALL', updates all species in the mapping file
@@ -56,7 +56,7 @@ def calculate_species_distances(config):
             # Exclude missing species with existing .lik files in the cache directory
             # We check the cache directory for {query species}_{missing species}.lik files
             missing_species = {species for species in missing_species if not os.path.isfile("{0}/{1}_{2}.lik".format(config.path_cache,query,species))}
-    
+
         # If we are still missing species distances, we calculate them now
         # All distances are copied to the cache directory
         # This means they stay backed up when the not saving cache option would wipe them
@@ -117,10 +117,12 @@ def delete_temporary_files(species1, species2, fa_dir, aln_dir, bootstrap_count 
         print('Cleanup finished.')
     except FileNotFoundError:
         pass
-    
+
 # Checks the species maximum likelihood file for existing distances
 # Returns missing target species OMA IDs
 def check_species_max_likelihood_table(query,targets,config):
+    """ Checks the species maximum likelihood file for existing distances
+    and returns species IDs with missing valid distace numbers. """
 
     # Check whether all query-subject pairs have already
     # computed distances in the species_max_likelihood file
@@ -158,11 +160,11 @@ def check_species_max_likelihood_table(query,targets,config):
                     break
     except IOError:
         sys.exit('ERROR: Could not open %s. Please check the path.' %crossRefFile)
- 
+
     # This is done to remove references and in case 
     # targets is a list
     target_species_set = set(targets)
-    
+
     # Returns species in the speciesTreeMapping list without
     # digits in SpeciesMaxLikelihood
     return target_species_set.difference(computed_species_set)
@@ -170,6 +172,7 @@ def check_species_max_likelihood_table(query,targets,config):
 # The multiprocessed function needs to be pickle-abled
 # Therefore, it must be defined at top-level
 def sequence_pair_to_phylip_multiprocessed(argument_list):
+    """ A pickle-able dispatcher for sequence_pair_to_phylip. """
     sequence_pair_to_phylip(*argument_list)
 
 # This function is multiprocessed for bootstrapped alignments
@@ -407,15 +410,99 @@ def concatenate_alignment_legacy(species1, species2, alignment_count, alignment_
         except KeyboardInterrupt:
             sys.exit('The user interrupted the generation of bootstrapped alignments!')
 
+def search_protein_pairs(species1, species2, pair_table):
+    """ Searches the given table for mutual presences of
+    species 1 and species 2 within the first two columns
+    and returns both columns verbatim in the order the
+    species were passed to this function. """
+
+    def generate_large_orthologous_pair_file_buffers(pair_table):
+        # Read in oma_pair lines that contain proteins
+        # of both species together
+        with open(pair_table,'r') as pair_mapping:
+            # The buffersize has been set that the OMA pairs file
+            # approximately takes 1 GB per buffer on RAM
+            tmp_lines = pair_mapping.readlines(134217728)
+            while tmp_lines:
+                # Identify the input species pair
+                # among the orthologous protein pairs
+                yield tmp_lines
+                tmp_lines = pair_mapping.readlines(134217728)
+
+    def generate_pairwise_orthologous_lines(species1, species2, pair_table):
+        for buffered_lines in generate_large_orthologous_pair_file_buffers(pair_table):
+            if buffered_lines:
+                for line in buffered_lines:
+                    if species1 in line and species2 in line:
+                        yield line
+
+    try:
+        sequence_count = 1
+        for line in generate_pairwise_orthologous_lines(species1, species2, pair_table):
+            columns = line.rstrip().split('\t')
+            # The previous generator already established that
+            # both species are present in the columns. Here, we
+            # look at the exact column position.
+            if species1 in columns[0]:
+                yield (columns[0], columns[1])
+            else:
+                yield (columns[1], columns[0])
+
+            # Inform the user about the current progress
+            if sequence_count % 1000 == 0:
+                print('Sequence Nr.: {0}'.format(str(sequence_count)))
+        print('Sequence Nr.: {0}'.format(str(sequence_count)))
+
+    except KeyboardInterrupt:
+        sys.exit('The user interrupted the compilation of orthologous pairs!')
+    except FileNotFoundError:
+        sys.exit('ERROR: The OMA pairs file is missing!')
+
+def provide_protein_pair_sequences(species1, species2, sequence_source_file):
+    """ Provide a dict of protein ids and sequences. """
+
+    # All proteomes can be located in separate directories
+    # that follow a systematic nomenclature
+    # Otherwise, we assume that all proteins of the 
+    # species can be found within the oma_seqs.fa file
+    #sequence_sources = set()
+    #if os.path.exists(oma_proteomes_dir + '/proteome_' + species1):
+    #    sequence_sources.add(oma_proteomes_dir + '/proteome_' + species1)
+    #else:
+    #    sequence_sources.add(oma_seqs)
+    #if os.path.exists(oma_proteomes_dir + '/proteome_' + species2):
+    #    sequence_sources.add(oma_proteomes_dir + '/proteome_' + species2)
+    #else:
+    #    sequence_sources.add(oma_seqs)
+
+    try:
+        sequence_index = SeqIO.index(sequence_source_file, 'fasta')
+        if species1+"00001" not in sequence_index or species2+"00001" not in sequence_index:
+            print('ERROR: Species are not represented in the sequence fasta file!')
+            sys.exit()
+        return sequence_index
+    except KeyboardInterrupt:
+        print('Gathering the sequences of pairwise orthologs was interrupted by the user.')
+        sys.exit()
+    except FileNotFoundError:
+        print('ERROR: The FASTA file that contains the sequences is missing!')
+
 def align_pairwise_proteins_pairwise2_parallelized(args):
     """ Provides a top-level function to parallelize the alignment of two sequences,
         args[0] and args[1]. Other parameters are static for every pair of sequences."""
-    return pairwise2.align.globalds(args[0], args[1], matlist.blosum62, -10.0, -1.0, penalize_end_gaps=True, one_alignment_only=True)
+
+    # one_alignment_only retrieves the first of the equally best scoring alignments.
+    # d: match scores are derived from a list (the substitution matrix)
+    # s: same gap penalties for both sequences (values for gapopen and gapextend were taken from MAFFT 6 L-INS-i
+    # One alignment consists of a tuple of four elements:
+    # sequence 1, sequence 2, score, beginning, 0-based character count
+
+    return pairwise2.align.globalds(args[0], args[1], matlist.blosum62, -10.0, -1.0, penalize_end_gaps=True, one_alignment_only=True)[0]
 
 def calculate_protein_distances_parallelized(args):
-    
+    """ A pickle-able dispatcher for calculate_protein_distances. """
     calculate_protein_distances(*args)
-    
+
 ### Calculates the pairwise species maximum likelihood distance 
 ### between species1 and species2. The distance is copied to the
 ### target_dir. The config is loaded from ProtTrace's configure.py
@@ -431,177 +518,47 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
     oma_proteomes_dir = config.path_distance_work_dir
     #linsi = config.msa
     treepuzzle = config.treepuzzle
+    if treepuzzle is None:
+        print('ERROR: No path to TreePUZZLE has been configured!')
+        sys.exit()
     if preset_nr_processors is None:
         nr_processors = config.nr_processors
     else:
         nr_processors = preset_nr_processors
     delete_temp = config.delete_temp
 
+    """ Directory management """
+
     root_dir = os.getcwd()
-    
     # Create the working directory for the processed species pair
     work_dir = species1+'_'+species2
-    
     if not os.path.exists(work_dir):
         os.mkdir(work_dir)
-    
     # The directory which contains the fasta files
-    fa_dir = os.path.abspath(work_dir) + '/fa_dir'
+    # fa_dir = os.path.abspath(work_dir) + '/fa_dir'
     # The directory which contains the alignments
-    aln_dir = os.path.abspath(work_dir) + '/aln_dir'
-    
-    if not os.path.exists(fa_dir):
-        os.mkdir(fa_dir)
-    
+    # aln_dir = os.path.abspath(work_dir) + '/aln_dir'
+    #if not os.path.exists(fa_dir):
+    #    os.mkdir(fa_dir)
     #if not os.path.exists(aln_dir):
     #    os.mkdir(aln_dir)
 
     os.chdir(work_dir)
-    
+
     # Align the set of pairwise oprthologs between the query
     # and the target species
-    print('Gather orthologous protein pairs.')
+    # print('Gather orthologous protein pairs.')
     #print('Preprocessing:\tParsing sequence pairs and aligning them...')
 
-    def generate_large_orthologous_pair_file_buffers(oma_pairs):
-        # Read in oma_pair lines that contain proteins
-        # of both species together
-        with open(oma_pairs,'r') as pair_mapping:
-            # The buffersize has been set that the OMA pairs file
-            # approximately takes 1 GB per buffer on RAM
-            tmp_lines = pair_mapping.readlines(134217728)
-            while tmp_lines:
-                # Identify the input species pair
-                # among the orthologous protein pairs
-                yield tmp_lines
-                tmp_lines = pair_mapping.readlines(134217728)
-
-    def generate_pairwise_orthologous_lines(species1, species2, oma_pairs):
-        for buffered_lines in generate_large_orthologous_pair_file_buffers(oma_pairs):
-            if buffered_lines:
-                for line in buffered_lines:
-                    if species1 in line and species2 in line:
-                        yield line
-   
-    prot_pairs = {}
-    sequence_count = 1
-
-    try:
-        # The processing of lines is decoupled from reading 
-        # in the lines to maximize IO speed
-        for line in generate_pairwise_orthologous_lines(species1,species2,oma_pairs):
-            # Grab the protein ID
-            splitted_line = line.rstrip().split('\t')
-            if species1 in splitted_line[0]:
-                species_1_prot_id = splitted_line[0]
-                species_2_prot_id = splitted_line[1]
-            else:
-                species_2_prot_id = splitted_line[0]
-                species_1_prot_id = splitted_line[1]
-            
-            if species_1_prot_id not in prot_pairs:
-                prot_pairs[species_1_prot_id] = list()
-            if species_2_prot_id not in prot_pairs:
-                prot_pairs[species_2_prot_id] = list()
-
-            # Store the protein IDs in a dictionary
-            # This way, we can immediately recognize the correct
-            # protein pair for one detected protein ID
-            # Each protein key can reference multiple protein pairs
-            # The list also contains the sequence count to
-            # name each pairwise orthologous alignment file correctly
-            # The last number in the list indicates whether a sequence
-            # has been written into a fasta file yet
-            prot_pair = [species_1_prot_id, species_2_prot_id, sequence_count]
-            prot_pairs[species_1_prot_id].append(prot_pair)
-            prot_pairs[species_2_prot_id].append(prot_pair)
-
-            # Inform the user about the current progress
-            if sequence_count % 1000 == 0:
-                print('Sequence Nr.:', sequence_count)
-                                              
-            #DEBUG
-            #if sequence_count == 100:
-            #    break
-
-            sequence_count += 1
-
-    except KeyboardInterrupt:
-        sys.exit('The user interrupted the compilation of orthologous pairs!')
-    except FileNotFoundError:
-        sys.exit('ERROR: The OMA pairs file is missing!')    
-
-    # Print the last sequence number
-    print('Sequence Nr.:', sequence_count)
 
     # If the counter has never been incremented,
     # we can assume that the species pair is missing in the file
-    if sequence_count == 1:
-        print("ERROR: No orthologous pairs found between {0} and {1}!".format(species1,species2))
-        os.chdir(root_dir)
-        return
+    #if sequence_count == 1:
+    #    print("ERROR: No orthologous pairs found between {0} and {1}!".format(species1,species2))
+    #    os.chdir(root_dir)
+    #    return
 
-    print('Gather the sequences of all gathered orthologous protein pairs.')
-
-    ### Search the sequences of all protein pairs
-    ### Each pair will be aligned directly after
-
-    # All proteomes can be located in separate directories
-    # that follow a systematic nomenclature
-    # Otherwise, we assume that all proteins of the 
-    # species can be found within the oma_seqs.fa file
-    sequence_sources = set()
-    if os.path.exists(oma_proteomes_dir + '/proteome_' + species1):
-        sequence_sources.add(oma_proteomes_dir + '/proteome_' + species1)
-    else:
-        sequence_sources.add(oma_seqs)
-    if os.path.exists(oma_proteomes_dir + '/proteome_' + species2):
-        sequence_sources.add(oma_proteomes_dir + '/proteome_' + species2)
-    else:
-        sequence_sources.add(oma_seqs)
-
-    # We iterate through both sequence sources. Since we
-    # iterate a set, we save iterations if both point to
-    # the same file
-    written_prot_pairs = set()
-    try:
-        for sequence_source in sequence_sources:
-            with open(sequence_source, 'r') as sequence_source_file:
-                for line in sequence_source_file:
-                    if '>' in line:
-                        # The line should only consist of the protein ID!
-                        line_id = line.replace('>', '').strip()
-                        if line_id in prot_pairs:
-                            # Reading the sequence once here prevents the
-                            # filereader to move on for every orthologous pair
-                            # where this protein is a member of
-                            sequence = sequence_source_file.readline().replace('*','')
-                            # Pairwise orthologs are not unique between proteins
-                            # We now know the sequence of a protein that 
-                            # probably partakes in many orthologous pairs
-                            for prot_pair in prot_pairs[line_id]:
-                                # We do not want to store the sequences in RAM
-                                # But we will access the sequence of each pair
-                                # not in consecutive order
-                                # The slice maximum is exclusive
-                                # Every prot_pair stores the full pair information
-                                if frozenset(prot_pair[0:2]) in written_prot_pairs:
-                                    fasta_file_write_mode = 'a'
-                                else:
-                                    fasta_file_write_mode = 'w'
-                                    written_prot_pairs.add(frozenset(prot_pair[0:2]))
-    
-                                # The third element in each prot_pair list is their numeric sequence ID
-                                with open(fa_dir + '/seq_' + str(prot_pair[2]) + '.fa', fasta_file_write_mode) as alignment_precurser:
-                                    alignment_precurser.write(line[:6] + '\n' + sequence)
-
-    except KeyboardInterrupt:
-        print('Gathering the sequences of pairwise orthologs was interrupted by the user.')
-        print('Please wait until half-finished temporary files are removed!')
-        delete_temporary_files(species1, species2, fa_dir, aln_dir)
-        sys.exit()
-    except FileNotFoundError:
-        print('ERROR: The FASTA file that contains the sequences is missing!')
+    # print('Gather the sequences of all gathered orthologous protein pairs.')
 
     print('Aligning and concatenating pairwise orthologous protein sequences.')
 
@@ -610,51 +567,40 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
         # For this step, we only need to know the number of pairs
         # to access the fasta files in the fasta directory
         # ProtTrace rather uses MAFFT linsi than muscle
-    
+
         # Encapsulate the call of MAFFT to enable parallelization
         def align_protein_pair(filename):
             # Execute the subprocess and wait for completion within the process
             # The wait function within a threaded function is necessary, because,
             # as far as I know, we can not manage a pool of threads with subprocess.Popen
             subprocess.Popen('{0} --amino --quiet --thread 1 {1} > {2}'.format(linsi, filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)),shell=True).wait()
-    
+
         try:
             # Measure the time taken
             print('Aligning orthologous protein pairs')
             start = time.time()
-        
             # To avoid adding another dependency, I uncommented the muscle command
             #os.system('muscle -quiet -in %s -out %s' %(filename, filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
-    
             # Run the alignment program in parallel threads
             tp = ThreadPool(nr_processors)
             tp.map(align_protein_pair,['{0}/seq_{1}.fa'.format(fa_dir,str(c)) for c in range(1,sequence_count)])
             tp.close()
             tp.join()
-    
             # Print the time passed
             print('Total time passed for aligning orthologous proteins: ' + str(time.time() - start))
-        
+
         except KeyboardInterrupt:
             print('The user has stopped the generation of alignments')
             tp.close()
             tp.join()
             sys.exit()
 
-    def generate_pairwise2_alignment_arguments(fa_dir, species1, species2, sequence_count):
-        
-        for seq in range(1,(sequence_count - 1)):
-            records = list(SeqIO.parse(fa_dir + '/seq_' + str(seq) + '.fa', 'fasta'))
+    def generate_pairwise2_alignment_arguments(prot_pairs_generator, sequence_records):
+        """ Collects the sequences of pairwise orthologous proteins. """
+        for prot_pair in prot_pairs_generator:
+            yield (str(sequence_records[prot_pair[0]].seq), str(sequence_records[prot_pair[1]].seq))
 
-            # The following ensures the order of species in the alignment
-            # Once the function that reads in the original sequences becomes a generator,
-            # this workaround will not be necessary anymore
-            species_1_seq = next(s for s in records if s.id == species1)
-            species_2_seq = next(s for s in records if s.id == species2)
-
-            yield [species_1_seq.seq, species_2_seq.seq]
-
-    def align_pairwise_proteins_pairwise2(fa_dir, species1, species2, sequence_count, nr_processors):
+    def align_pairwise_proteins_pairwise2(prot_pairs_generator, sequence_records, nr_processors):
         """ Aligns all pairwise orthologous protein sequences between species1 and species2 using 
             the Biopython pairwise2 module. If the distance calculation between species is done 
             sequentially, then this process can spawn child processes by providing a nr_processors 
@@ -667,34 +613,30 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
                     # RAM. The unordered version is also a bit faster and does not need to preserve
                     # earlier, but later needed results in memory. With the last parameter, we allow
                     # imap to load in a couple of sequences.
-                    for alignments in alignment_process_pool.imap_unordered(align_pairwise_proteins_pairwise2_parallelized, generate_pairwise2_alignment_arguments(fa_dir, species1, species2, sequence_count), 10):
-                        # pairwise2 can yield multiple, equally correct alignments at once. We turned
-                        # the behavior off with only_one_alignment = True, but the result is still
-                        # stored in a list.
-                        yield alignments[0]
-        
+                    for alignment in alignment_process_pool.imap_unordered(align_pairwise_proteins_pairwise2_parallelized, generate_pairwise2_alignment_arguments(prot_pairs_generator, sequence_records), 10):
+                        yield alignment
+
             except KeyboardInterrupt:
-                sys.exit('The user interrupted the alignment of pairwise orthologous proteins!')
+                sys.exit('The user interrupted the alignment of pairwise orthologous proteins.')
 
         else:
-            for seq in range(1,(sequence_count - 1)):
-    
-                records = list(SeqIO.parse(fa_dir + '/seq_' + str(seq) + '.fa', 'fasta'))
-    
-                # The following ensures the order of species in the alignment
-                # Once the function that reads in the original sequences becomes a generator,
-                # this workaround will not be necessary anymore
-                species_1_seq = next(s for s in records if s.id == species1)
-                species_2_seq = next(s for s in records if s.id == species2)
-    
-                # one_alignment_only retrieves the first of the equally best scoring alignments.
-                # d: match scores are derived from a list (the substitution matrix)
-                # s: same gap penalties for both sequences (values for gapopen and gapextend were taken from MAFFT 6 L-INS-i
-                # One alignment consists of a tuple of four elements:
-                # sequence 1, sequence 2, score, beginning, 0-based character count
-                yield pairwise2.align.globalds(species_1_seq.seq, species_2_seq.seq, matrix, -10.0, -1.0, penalize_end_gaps=True, one_alignment_only=True)[0]
+            try:
+                for arguments in generate_pairwise2_alignment_arguments(prot_pairs_generator, sequence_records):
+                    # We use the parallelizable function here only to pass all arguments as a list.
+                    yield align_pairwise_proteins_pairwise2_parallelized(arguments)
 
-    concatenate_alignment(species1, species2, align_pairwise_proteins_pairwise2(fa_dir, species1, species2, sequence_count, nr_processors), bootstrap_count, nr_processors)
+            except KeyboardInterrupt:
+                sys.exit('The user interrupted the alignment of pairwise orthologous proteins.')
+            # Since this code section will be executed if the species pairs are parallelized, 
+            # we need to explicity propagate any exception ot the parent process.
+            except Exception as e:
+                os.chdir(root_dir)
+                raise e
+
+    sequence_records = provide_protein_pair_sequences(species1, species2, oma_seqs)
+
+    # The collection of orthologous pairs, their sequences, their alignments and their concatenation are all chained with generators here.
+    concatenate_alignment(species1, species2, align_pairwise_proteins_pairwise2(search_protein_pairs(species1, species2, oma_pairs), sequence_records, nr_processors), bootstrap_count, nr_processors)
 
     #align_pairwise_proteins_mafft(nr_processors, fa_dir, sequence_count)
 
@@ -711,11 +653,11 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
 
     # Executes TreePUZZLE to calculate the tree distance between the species pair
     def calculate_pairwise_distance(concat_file, treepuzzle):
-        
+
         # Prepare the parameter file for TreePUZZLE
         with open('temp_puzzleParams.txt', 'w') as pp:
             pp.write(concat_file + '\ne\nm\nm\nm\nm\nm\nm\ny\n')
-   
+
         # Execute TreePUZZLE
         os.system('{0} < temp_puzzleParams.txt >/dev/null'.format(treepuzzle))
 
@@ -732,7 +674,7 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
         # Write the main computed pairwise species distance to a result file
         with open(output_filename,'w') as result:
             result.write(distance + '\n')
-    
+
         # Copy the main output file to the given target directory, if given
         # The target directory is originally designed to be the ProtTrace cache directory
         if target_dir is not None:
@@ -784,14 +726,14 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
     if bootstrap_count > 0:
         calculate_and_write_bootstrap_distance_table_output(bootstrap_count, treepuzzle)
 
-    if delete_temp: 
+    if delete_temp:
         delete_temporary_files(species1, species2, fa_dir, aln_dir, bootstrap_count, result_file)
 
-    print('Finished species pair {0} - {1}'.format(species1,species2),flush=True)
+    print('Finished species pair {0} - {1}'.format(species1,species2), flush = True)
     os.chdir(root_dir)
 
     # END OF POSTPROCESS FUNCTION DEFINITION
-    
+
 # This defines the start of this script if someone wants to calculate
 # distances separately with this script
 if __name__ == "__main__":

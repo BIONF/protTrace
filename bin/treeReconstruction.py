@@ -1,3 +1,22 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#######################################################################
+# Copyright (C) 2020 Arpit Jain, Dominik Perisa,
+# Prof. Dr. Ingo Ebersberger
+#
+#  This script is part of ProtTrace.
+#
+#  This script is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License <http://www.gnu.org/licenses/> for
+#  more details
+#
+#  Contact: ebersberger@bio.uni-frankfurt.de
+#
+#######################################################################
+
 import os, sys
 import subprocess
 import time

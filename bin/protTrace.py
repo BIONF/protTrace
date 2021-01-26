@@ -1,4 +1,21 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#######################################################################
+# Copyright (C) 2020 Arpit Jain, Dominik Perisa,
+# Prof. Dr. Ingo Ebersberger
+#
+#  This script is part of ProtTrace.
+#
+#  This script is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License <http://www.gnu.org/licenses/> for
+#  more details
+#
+#  Contact: ebersberger@bio.uni-frankfurt.de
+#
+#######################################################################
 
 # Protein traceability prediction script (Main / Application)
 # Author: Arpit Jain
@@ -32,11 +49,11 @@ def main(argv):
         mandatory_arguments = parser.add_argument_group(title='Required arguments')
         input_group = mandatory_arguments.add_mutually_exclusive_group(required=True)
         input_group.add_argument('-i','--id',type=str,help='Path to a text file containing protein IDs')
-        input_group.add_argument('-f','--fasta',type=str,help='Path to a text file containing proteins in FASTA format')  
+        input_group.add_argument('-f','--fasta',type=str,help='Path to a text file containing proteins in FASTA format')
 
         mandatory_arguments.add_argument('-c','--config',type=str,required=True,help='Path to the configuration file which can be created with the bin/create_config.pl script')
 
-        modes = parser.add_argument_group(title='Additional modes',description='These options are used for maintenance.')      
+        modes = parser.add_argument_group(title='Additional modes',description='These options are used for maintenance.')
         modes.add_argument('-d','--distance',action='store_true',help='Only updates the ML distances between all species in the species mapping file')
 
         return parser.parse_args()
@@ -69,10 +86,10 @@ def main(argv):
         # This argument hopefully breaks anything but the intended routine
         proteinParams.species = 'ALL'
         distanceCalculation.calculate_species_distances(proteinParams)
-    else:    
+    else:
         # Check available pairwise species distances and calculate missing ones
         distanceCalculation.calculate_species_distances(proteinParams)
-    
+
         if id_list != '':
             with open(id_list, 'r') as id_file:
                 for line in id_file:
@@ -91,7 +108,7 @@ def main(argv):
                         print('##### Running for fasta id: {0} #####'.format(seqs[1:-1]))
                         input_id = seqs.split()[0][1:]
                         query_seq = next(fa)
-    
+
                     if proteinParams.preprocessing:
                         preprocessing.Preprocessing(input_id, query_seq, config_file)
                     if proteinParams.traceability_calculation:

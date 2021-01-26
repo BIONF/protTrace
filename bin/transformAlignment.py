@@ -1,3 +1,22 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#######################################################################
+# Copyright (C) 2020 Arpit Jain, Dominik Perisa,
+# Prof. Dr. Ingo Ebersberger
+#
+#  This script is part of ProtTrace.
+#
+#  This script is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License <http://www.gnu.org/licenses/> for
+#  more details
+#
+#  Contact: ebersberger@bio.uni-frankfurt.de
+#
+#######################################################################
+
 import os, sys
 
 # Script to transform MSA into indel blocks
@@ -47,7 +66,7 @@ def calculateIndelBlocks(f):
         #print(indelRows)
         if indelStart:
             indelBlocks.append(i)
-    
+
     #print(indelBlocks)
     return indelBlocks
 
@@ -99,13 +118,13 @@ def postTransformAlign(trans):
             t = t.replace(' ' + str(stateOld[i]) + ' ', ' ' + str(len(stateOld) - 1 - i) + ' ').replace(' ' + str(stateOld[i]) + '\n', ' ' + str(len(stateOld) -1 - i) + '\n')
     except:
         print('WARNING: Error while editing the transformed alignment file!')
-        pass	
+        pass
 
     for i in range(1, len(t.split('\n')) - 1):
         result.write(t.split('\n')[i] + '\n')
 
-        
-def main(phy_file, trans_file):		
+
+def main(phy_file, trans_file):
     if not os.stat(phy_file).st_size == 0:
         edit_file = preprocessPhy(phy_file)
         indelBlocksPos = calculateIndelBlocks(edit_file)
@@ -113,6 +132,6 @@ def main(phy_file, trans_file):
         postTransformAlign(trans_file)
         return len(indelBlocksPos)
     else:
-        print('Transformed alignment cannot be created for empty phylip files!')	
-    
-     
+        print('Transformed alignment cannot be created for empty phylip files!')
+
+

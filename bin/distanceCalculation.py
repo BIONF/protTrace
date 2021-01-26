@@ -1,3 +1,22 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#######################################################################
+# Copyright (C) 2020 Arpit Jain, Dominik Perisa,
+# Prof. Dr. Ingo Ebersberger
+#
+#  This script is part of ProtTrace.
+#
+#  This script is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License <http://www.gnu.org/licenses/> for
+#  more details
+#
+#  Contact: ebersberger@bio.uni-frankfurt.de
+#
+#######################################################################
+
 import os, sys
 import glob
 import random
@@ -23,7 +42,7 @@ def calculate_species_distances(config):
     query = config.species
     species_mapping = config.hamstr_oma_tree_map
 
-    # Gather the set of all subject species in this project 
+    # Gather the set of all subject species in this project
     # from the speciesTreeMapping file
     species_set = set()
     try:
@@ -33,7 +52,7 @@ def calculate_species_distances(config):
     except IOError:
         sys.exit('ERROR: Could not open %s. Please check the path.' %crossRefFile)
 
-    # Move to the dedicated distance calculation root 
+    # Move to the dedicated distance calculation root
     # directory for all species after noticing the previous directory to move back later
     previous_work_dir = os.getcwd()
     os.chdir(config.path_distance_work_dir)
@@ -62,7 +81,7 @@ def calculate_species_distances(config):
         # This means they stay backed up when the not saving cache option would wipe them
         if len(missing_species) > 0:
 
-            # The first, commented parallelization solution is only possible if hierarchical 
+            # The first, commented parallelization solution is only possible if hierarchical
             # multiprocessing is implemented, i.e. child processes are allowed to spawn child
             # processes on their own. Unless that is ensured, the second parallelized solution
             # can be used, where each species pair is computed in parallel.
@@ -75,7 +94,7 @@ def calculate_species_distances(config):
             #    with Pool(config.nr_processors // 4) as species_pair_process_pool:
             #        species_pair_process_pool.map(calculate_protein_distances_parallelized, [[query,species,config,config.path_cache,4,1,0] for species in missing_species if species is not query])
             if config.nr_processors > 1 and len(missing_species) > 1:
-                # Every pair of species is parallelized. Each pairwise distance computation 
+                # Every pair of species is parallelized. Each pairwise distance computation
                 # gets one core.
                 with Pool(config.nr_processors) as species_pair_process_pool:
                     species_pair_process_pool.map(calculate_protein_distances_parallelized, [[query,species,config,config.path_cache,1,1,0] for species in missing_species if species is not query])
@@ -103,7 +122,7 @@ def calculate_species_distances(config):
     os.chdir(previous_work_dir)
 
 def delete_temporary_files(species1, species2, fa_dir, aln_dir, bootstrap_count = 0, result_file = None):
-    # If there is a result file, but not completed, restrain from 
+    # If there is a result file, but not completed, restrain from
     # deleting temporary files for reuse
     if result_file is not None:
         if not os.path.exists(result_file) or len(open(result_file).read().split('\n')) == 0:
@@ -151,17 +170,17 @@ def check_species_max_likelihood_table(query,targets,config):
                 # Find the row where the first item corresponds to our query species
                 if split_row[0] == query:
                     # The first item was only necessary to recognize the query species
-                    # This way, we save a +1 index operation for every column 
+                    # This way, we save a +1 index operation for every column
                     # (and the headache)
                     split_row = split_row[1:]
-                    # Create a set of all species names whose index in this column 
+                    # Create a set of all species names whose index in this column
                     # contains a valid digit
                     computed_species_set = {computed_species_list[i] for i in range(len(split_row)) if split_row[i] is not None and split_row[i].isdigit()}
                     break
     except IOError:
         sys.exit('ERROR: Could not open %s. Please check the path.' %crossRefFile)
 
-    # This is done to remove references and in case 
+    # This is done to remove references and in case
     # targets is a list
     target_species_set = set(targets)
 
@@ -187,7 +206,7 @@ def sequence_pair_to_phylip(species1,species2,sequences,sampled_indices=None,boo
     if sampled_indices is not None:
         if len(sampled_indices) != len(sequences[0]):
             print("ERROR: The bootstrap sequence has not the same length as the protein pair count!")
-        # Sample the amino acids from both aligned sequences by their 
+        # Sample the amino acids from both aligned sequences by their
         # common index in the alignment
         for sampled_index in sampled_indices:
             local_sequences[0] += sequences[0][sampled_index]
@@ -230,9 +249,9 @@ def sequence_pair_to_phylip(species1,species2,sequences,sampled_indices=None,boo
     # Here, we just copy the first and last position
     alignment += "4 " + str(len(local_sequences[0])) + "\n"
     # The next 2 lines contain the respective species ids of each line
-    # We duplicate the sequence to generate an imaginative 
-    # 4 species alignment. We need this to calculate a 
-    # tree and calculate the distance between sister 
+    # We duplicate the sequence to generate an imaginative
+    # 4 species alignment. We need this to calculate a
+    # tree and calculate the distance between sister
     # clades (each clade is the same species twice)
     alignment += append_phylip_seq_with_spaces_with_species(species1,local_sequences[0])
     alignment += append_phylip_seq_with_spaces_with_species(species1 + "_dub",local_sequences[0])
@@ -309,7 +328,7 @@ def concatenate_alignment(species1, species2, alignment_generator, bootstrap_cou
 
     if bootstrap_count > 0:
         print('Concatenate and duplicate the bootstrapped pairwise alignments!')
-        # Generate the bootstrapped versions of the concatenated alignment for 
+        # Generate the bootstrapped versions of the concatenated alignment for
         # estimating the distance variance
         # Each alignment bootstrap creates a separate process
         # The pool iterates through "bootstrap_alignment_indices"
@@ -337,7 +356,7 @@ def concatenate_alignment_legacy(species1, species2, alignment_count, alignment_
     print('Collecting all pairwise alignments for concatenation!')
     for current_alignment in range(1, alignment_count):
         with open('{0}/seq_{1}.aln'.format(alignment_directory, str(current_alignment))) as fasta_input:
-            # The subalignment_positions file is used to record the 
+            # The subalignment_positions file is used to record the
             # start and stop positions of each aligned protein sequence in
             # the concatenation
 
@@ -354,7 +373,7 @@ def concatenate_alignment_legacy(species1, species2, alignment_count, alignment_
 
             # Add the current sequence length to the subalignment positions
             # The protein ID cannot be added at this point, since protein IDs
-            # are stripped to species IDs. You would need to record the 
+            # are stripped to species IDs. You would need to record the
             # subalignment positions when reading in the sequences
             if subalignment_count > -1:
                 subalignment_positions.append([subalignment_positions[subalignment_count][1] + 1,len(sequences[0]) - 1])
@@ -397,7 +416,7 @@ def concatenate_alignment_legacy(species1, species2, alignment_count, alignment_
 
     if bootstrap_count > 0:
         print('Concatenate and duplicate the bootstrapped pairwise alignments!')
-        # Generate the bootstrapped versions of the concatenated alignment for 
+        # Generate the bootstrapped versions of the concatenated alignment for
         # estimating the distance variance
         # Each alignment bootstrap creates a separate process
         # The pool iterates through "bootstrap_alignment_indices"
@@ -463,7 +482,7 @@ def provide_protein_pair_sequences(species1, species2, sequence_source_file):
 
     # All proteomes can be located in separate directories
     # that follow a systematic nomenclature
-    # Otherwise, we assume that all proteins of the 
+    # Otherwise, we assume that all proteins of the
     # species can be found within the oma_seqs.fa file
     #sequence_sources = set()
     #if os.path.exists(oma_proteomes_dir + '/proteome_' + species1):
@@ -503,7 +522,7 @@ def calculate_protein_distances_parallelized(args):
     """ A pickle-able dispatcher for calculate_protein_distances. """
     calculate_protein_distances(*args)
 
-### Calculates the pairwise species maximum likelihood distance 
+### Calculates the pairwise species maximum likelihood distance
 ### between species1 and species2. The distance is copied to the
 ### target_dir. The config is loaded from ProtTrace's configure.py
 ### if this script is executed directly.
@@ -601,9 +620,9 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
             yield (str(sequence_records[prot_pair[0]].seq), str(sequence_records[prot_pair[1]].seq))
 
     def align_pairwise_proteins_pairwise2(prot_pairs_generator, sequence_records, nr_processors):
-        """ Aligns all pairwise orthologous protein sequences between species1 and species2 using 
-            the Biopython pairwise2 module. If the distance calculation between species is done 
-            sequentially, then this process can spawn child processes by providing a nr_processors 
+        """ Aligns all pairwise orthologous protein sequences between species1 and species2 using
+            the Biopython pairwise2 module. If the distance calculation between species is done
+            sequentially, then this process can spawn child processes by providing a nr_processors
             count greater than 1. """
 
         if nr_processors > 1:
@@ -627,7 +646,7 @@ def calculate_protein_distances(species1, species2, config, target_dir, preset_n
 
             except KeyboardInterrupt:
                 sys.exit('The user interrupted the alignment of pairwise orthologous proteins.')
-            # Since this code section will be executed if the species pairs are parallelized, 
+            # Since this code section will be executed if the species pairs are parallelized,
             # we need to explicity propagate any exception ot the parent process.
             except Exception as e:
                 os.chdir(root_dir)

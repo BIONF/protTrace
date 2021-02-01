@@ -26,7 +26,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="ProtTrace",
-    version="1.8",
+    version="1.8.2",
     author="Dominik Perisa",
     author_email="dominik.perisa.bio@gmail.com",
     description="Calculates the evolutionary traceability of a protein",
@@ -36,7 +36,8 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     entry_points={
         'console_scripts': [
-            "prottrace = bin.protTrace:main"
+            "prottrace = bin.protTrace:main",
+            "distance = bin.distanceCalculation:main"
         ]},
     license="GPL-3.0",
     classifiers=[

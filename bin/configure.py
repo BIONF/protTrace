@@ -142,7 +142,7 @@ class setParams:
         # such as calculated species distances
         self.path_cache = self.parse_option(config_key_value_pairs, 'path_cache', self.create_path_option)
         # Pairwise species distances are calculated within this directory
-        self.path_distance_work_dir = self.parse_option(config_key_value_pairs, 'path_distance_work_dir', self.create_path_option)
+        self.path_distance_work_dir = self.parse_option(config_key_value_pairs, 'path_distances', self.create_path_option)
 
         # Input file paths
         self.species_MaxLikMatrix = self.parse_option(config_key_value_pairs, 'species_MaxLikMatrix', self.path_option)

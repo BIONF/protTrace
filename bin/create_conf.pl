@@ -22,14 +22,15 @@ use LWP::Simple;
 ##A simple perl script to check the dependencies for protTrace and for setting up the configure script
 
 #### Default settings and dependencies ##########
-my @dependencies = qw(linsi hmmscan hmmfetch makeblastdb blastp iqtree Rscript python perl java);
+my @dependencies = qw(linsi hmmscan hmmfetch makeblastdb blastp iqtree treepuzzle Rscript python perl java);
 my @neDependencies = qw(oneseq.pl figtree);
 my $minVersion->{linsi}=6;
 $minVersion->{hmmscan}=3.1;
 $minVersion->{blastp}=2.7;
 $minVersion->{iqtree}=1.671;
+$minVersion->{treepuzzle}=5.3;
 $minVersion->{Rscript} = 3;
-$minVersion->{python}=2.7;
+$minVersion->{python}=3.6;
 $minVersion->{java}=1.7;
 $minVersion->{"oneseq.pl"}=1;
 $minVersion->{figtree}=1.4;
@@ -282,8 +283,8 @@ sub testDep {
 					print "$message\n";
 					$issue = 1;
 				}
-				if ($prog eq 'python' and $versionshort > 3) {
-					my $message = "Fatal: I found python version $versionshort but protTrace requires python 2.7. Please install python 2.7 and restart the script";
+				if ($prog eq 'python' and $versionshort < 3) {
+					my $message = "Fatal: I found python version $versionshort but protTrace requires at least python 3.6. Please install python 3.6 or higher and restart the script";
 					print "$message\n";
 					printLog();
 					exit;
@@ -469,6 +470,7 @@ sub userOptions {
 					  simulation_runs => 100,
 					  path_output_dir => "$currwd/output",
 					  path_cache => "$currwd/cache",
+					  path_distances => "$currwd/distances",
 					  map_traceability_tree => 'YES',
 					  REvolver => "$currwd/used_files/REvolver.jar",
 					simulation_tree => "$currwd/used_files/stepWiseTree.nw",
@@ -483,6 +485,7 @@ sub userOptions {
 					fas_annotations => 'PROVIDEPATH2HaMStR/weight_dir',
 					hamstr_environment => 'default',
 					iqtree => "$currwd/used_files/iqtree",
+					treepuzzle => '/share/applications/tree-puzzle/bin/puzzle',
 					linsi => '/share/applications/bin/linsi',
 					hmmfetch => '/share/applications/bin/hmmfetch',
 					hmmscan => '/share/applications/bin/hmmscan',
@@ -518,6 +521,7 @@ sub userOptions {
 					  simulation_runs => 'Integer (Default 100)',
 					  path_output_dir => "Path to output directory (Default $currwd/output)",
 					  path_cache => "Path to cache directory (Default $currwd/cache)",
+					  path_distances => "Path to distance computation work directory (Default $currwd/distances)",
 					  map_traceability_tree => 'YES|NO (Default NO)',
 					  REvolver => "Path to REvolver (Default $currwd/used_files/REvolver.jar)",
 					simulation_tree => "Path to simulation tree (Default $currwd/used_files/stepWiseTree.nw)",
@@ -532,6 +536,7 @@ sub userOptions {
 					fas_annotations => 'Path to HaMStR weight_dir (Default NULL)',
 					hamstr_environment => 'Path to HaMStR directory (Default NULL)',
 					iqtree => 'Path to iqtree (Default NULL)',
+					treepuzzle => 'Path to treepuzzle (Default NULL)',
 					spartaABC => 'Path to spartaABC (Default NULL)',
 					linsi => 'Path to linsi (Default NULL)',
 					hmmfetch => 'Path to hmmfetch (Default NULL)',
@@ -547,9 +552,9 @@ sub userOptions {
 	@scaling = qw(calculate_scaling_factor default_scaling_factor);
 	@indel = qw(perform_msa calculate_indel run_spartaABC dawg_instead_of_indelible default_indel default_indel_distribution);
 	@trace = qw(traceability_calculation aa_substitution_matrix simulation_runs);
-	@path2Deps = qw(iqtree spartaABC linsi hmmfetch hmmscan blastp makeblastdb Rscript hamstr oneseq);
+	@path2Deps = qw(iqtree treepuzzle spartaABC linsi hmmfetch hmmscan blastp makeblastdb Rscript hamstr oneseq);
 	@usedFileList = qw(REvolver simulation_tree decay_script plot_figtree Xref_mapping_file reference_species_tree
-	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database fas_annotations hamstr_environment path_output_dir path_cache);
+	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database fas_annotations hamstr_environment path_output_dir path_cache path_distances);
 
 	my @options;
 	$options[0] = \@generalOptions;
@@ -633,6 +638,7 @@ sub printConfig {
 	print OUT "###\n";
 	print OUT "#####   Configuring paths for protTrace dependencies    #####\n";
 	print OUT "iqtree:$prepOptions{iqtree}\n";
+	print OUT "treepuzzle:$prepOptions{treepuzzle}\n";
 	print OUT "linsi:$prepOptions{linsi}\n";
 	print OUT "hmmfetch:$prepOptions{hmmfetch}\n";
 	print OUT "hmmscan:$prepOptions{hmmscan}\n";
@@ -663,6 +669,7 @@ sub printConfig {
 	print OUT "#####   Path Configuration (Where outputs will be saved) - Change this only if you want output and cache results at a different place then default. #####\n";
 	print OUT "path_output_dir:$prepOptions{path_output_dir}\n";
 	print OUT "path_cache:$prepOptions{path_cache}\n";
+	print OUT "path_distances:$prepOptions{path_distances}\n";
 	close OUT or die "could not close OUT after writing config file $name\n";
 }
 ##############

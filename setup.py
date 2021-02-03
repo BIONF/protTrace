@@ -26,7 +26,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="ProtTrace",
-    version="1.8.2",
+    version="1.8.3",
     author="Dominik Perisa",
     author_email="dominik.perisa.bio@gmail.com",
     description="Calculates the evolutionary traceability of a protein",

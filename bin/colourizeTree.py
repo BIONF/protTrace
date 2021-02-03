@@ -17,38 +17,40 @@
 #
 #######################################################################
 
-import os, sys
+import os
+import sys
 import math
 import subprocess
 
-### Script to colourize the species according to the traceability values
-### Reads in the generated nexus file by PTP and edits it according to our need
-### Represents the traceabilities as different colours on the leaves / tip labels
-### INPUT: 1. Nexus tree file
-###	   2. HaMStR mapping file
-###	   3. Species Id
-###	   4. Species tree
-###	   5. Decay result file
+# Script to colourize the species according to the traceability values
+# Reads in the generated nexus file by PTP and edits it according to our need
+# Represents the traceabilities as different colours on the tip labels
+# INPUT:
+# 1. Nexus tree file
+# 2. HaMStR mapping file
+# 3. Species Id
+# 4. Species tree
+# 5. Decay result file
+
 
 # Read the pairwise species maximum likelihood distance from
 # the table file or from cache.
 def gather_max_lik_dist(species1, species2, distanceMatrixFile):
-    
-    flag1 = True #To check if the species are present in the species ML dist matrix file. Otherwise, parse likelihood from cache directory.
+
+    # To check if the species are present in the species ML dist
+    # matrix file. Otherwise, parse likelihood from cache directory.
+    flag1 = True
     flag2 = True
 
-    #*** CHECK HERE FOR THE SEPARATION IDENTIFIER IN SPECIES LIKELIHOOD MATRIX FILE ('\t' or '|') ***#
-    sep = '\t'
-
-    # Read in the distance matrix   
+    # Read in the distance matrix
     speciesMaxFile = open(distanceMatrixFile).read().split('\n')
 
-    for l in range(len(speciesMaxFile) - 1):
-        if speciesMaxFile[l].split(sep)[0] == species1:
-            rowIndex = l
+    for line in range(len(speciesMaxFile) - 1):
+        if speciesMaxFile[line].split('\t')[0] == species1:
+            rowIndex = line
             flag1 = False
-        elif speciesMaxFile[l].split(sep)[0] == species2:
-            columnIndex = l
+        elif speciesMaxFile[line].split('\t')[0] == species2:
+            columnIndex = line
             flag2 = False
 
     if flag1 or flag2:
@@ -62,8 +64,8 @@ def gather_max_lik_dist(species1, species2, distanceMatrixFile):
 #            print('No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2))
             return 1.00
     else:
-        if not speciesMaxFile[rowIndex].split(sep)[columnIndex] == "NA":
-            return float(speciesMaxFile[rowIndex].split(sep)[columnIndex])
+        if not speciesMaxFile[rowIndex].split('\t')[columnIndex] == "NA":
+            return float(speciesMaxFile[rowIndex].split('\t')[columnIndex])
         else:
 #            print('No likelihood distance found between species: %s and %s. Using default likelihood distance of 1.0!' %(species1, species2))
             return 1.00
@@ -146,42 +148,54 @@ def getColourCode(spName, tempName, decayRate, decayPop, species_distances_file)
 
     return colCode, traceability
 
-def calculate_traceability(query_species,species_id,decay_rate,decay_pop,species_distances_file):
-    
-    ml_dist = gather_max_lik_dist(query_species, species_id, species_distances_file)
-    #print(ml_dist)
+
+def calculate_traceability(query_species, species_id, decay_rate, decay_pop,
+                           species_distances_file):
+
+    ml_dist = gather_max_lik_dist(query_species, species_id,
+                                  species_distances_file)
     if decay_rate < 0.01:
         traceability = 1
     else:
-        # This is the calculation of the protein's traceability index in a species (specified by ml_dist).
-        traceability = 1 - ((decay_pop * math.exp(decay_rate * ml_dist)) / (1 + decay_pop * (math.exp(decay_rate * ml_dist) - 1)))
+        # This is the calculation of the protein's traceability index in a
+        # species (specified by ml_dist).
+        traceability = 1 - ((decay_pop * math.exp(decay_rate * ml_dist)) /
+                            (1 + decay_pop *
+                             (math.exp(decay_rate * ml_dist) - 1)))
 
     return traceability
 
-### Writes the traceability values into two table files
+
+# Writes the traceability values into two table files
 # The table can be written into two styles:
 # table        - A regular table with target species names
 # phyloprofile - A table readable by PhyloProfile that uses NCBI Ids
-def create_traceability_output_file(query_species,query_protein,species_mapping_file,compute_fas,species_distances_file):
-    
+def create_traceability_output_file(query_species, query_protein,
+                                    species_mapping_file, compute_fas,
+                                    species_distances_file):
+
     # Retrieve the presence of orthologs among all other species
     orth_file_name = 'ogSeqs_' + query_protein + '.fa'
     if os.path.exists(orth_file_name):
         with open(orth_file_name) as of:
             # Distills the sequence headers to a set of species with orthologs
             # If the line contains underscores to differentiate same-species
-            # sequences, assume the part before the first underscore to be the species id
-            # The query species is also listed in the orthologs file
-            orth_species_set = {line[1:].split('_')[1] if '_' in line else line[1:] for line in of if line[0] == '>'}
+            # sequences, assume the part before the first underscore to be the
+            # species id. The query species is also listed in the orthologs
+            # file.
+            orth_species_set = {line[1:].split('_')[1] if '_' in line
+                                else line[1:] for line in of if line[0] == '>'}
 
     # FAS scores are only retrieved if the option was turned on in the config
     if compute_fas:
-       fas_file_name = 'ogSeqs_' + protId + '.fasScore'
-       if os.path.exists(fas_file_name):
-           with open(fas_file,'r') as ff:
-               # Creates a dictionary of IDs to FAS scores
-               # The ID resolution is the long beginning part of the line
-               fas_scores = {line.split()[2].split('_')[1] if '_' in line else line.split()[2] : line.split()[-1] for line in ff}
+        fas_file_name = 'ogSeqs_' + query_protein + '.fasScore'
+        if os.path.exists(fas_file_name):
+            with open(fas_file_name, 'r') as ff:
+                # Creates a dictionary of IDs to FAS scores
+                # The ID resolution is the long beginning part of the line
+                fas_scores = {line.split()[2].split('_')[1] if '_' in line
+                              else line.split()[2]: line.split()[-1]
+                              for line in ff}
 
     # We put all output table lines into this list
     output_lines = []
@@ -190,17 +204,23 @@ def create_traceability_output_file(query_species,query_protein,species_mapping_
 
     # The phyloprofile style includes an initial line with column headers
     if compute_fas:
-        output_phyloprofile_lines.append(["geneID","ncbiID","orthID","FAS","Traceability"])
+        output_phyloprofile_lines.append(["geneID", "ncbiID", "orthID", "FAS",
+                                          "Traceability"])
     else:
-        output_phyloprofile_lines.append(["geneID","ncbiID","orthID","Traceability"])
+        output_phyloprofile_lines.append(["geneID", "ncbiID", "orthID",
+                                          "Traceability"])
 
-    # The default output table uses the proper species name, which we will find in the mapping file later
-    # phyloprofile uses the query protein name, which is given in the parameter already
+    # The default output table uses the proper species name, which we will
+    # find in the mapping file later phyloprofile uses the query protein name,
+    # which is given in the parameter already
     query_name = query_protein
 
-    # Get the decay rate and decay pop of the protein to calculate the traceability
-    with open('decay_summary_%s.txt_parameter' %query_protein) as traceability_decay_parameters_file:
-        written_parameters = traceability_decay_parameters_file.read().split("\n")
+    # Get the decay rate and decay pop of the protein to calculate the
+    # traceability
+    with open('decay_summary_{0}.txt_parameter'
+              .format(query_protein)) as traceability_decay_parameters_file:
+        written_parameters = (traceability_decay_parameters_file
+                              .read().split("\n"))
         decay_rate = float(written_parameters[0])
         decay_pop = float(written_parameters[1])
 
@@ -215,11 +235,15 @@ def create_traceability_output_file(query_species,query_protein,species_mapping_
 
             species_id = species_line[-1]
 
-            # Get the evolutionary traceability in this species before deciding for a style
-            species_traceability = calculate_traceability(query_species,species_id,decay_rate,decay_pop,species_distances_file)
+            # Get the evolutionary traceability in this species before
+            # deciding for a style
+            species_traceability = calculate_traceability(query_species,
+                                        species_id, decay_rate, decay_pop,
+                                        species_distances_file)
 
             # Add lines to the table output
-            output_lines.append([query_name,species_line[1],str(species_traceability)])
+            output_lines.append([query_name, species_line[1],
+                                 str(species_traceability)])
 
             # Add lines to the phyloprofile table output
             orthology = 0
@@ -231,36 +255,51 @@ def create_traceability_output_file(query_species,query_protein,species_mapping_
                     fas = 1
                 if species_id != query_protein:
                     fas = fas_scores[species_id]
-                output_phyloprofile_lines.append([query_protein,"ncbi"+species_line[2],str(orthology),str(fas),species_traceability])
+                output_phyloprofile_lines.append([query_protein,
+                                                  "ncbi" + species_line[2],
+                                                  str(orthology),
+                                                  str(fas),
+                                                  species_traceability])
             else:
-                output_phyloprofile_lines.append([query_protein,"ncbi"+species_line[2],str(orthology),str(species_traceability)])
+                output_phyloprofile_lines.append([query_protein,
+                                                  "ncbi" + species_line[2],
+                                                  str(orthology),
+                                                  str(species_traceability)])
 
-            # The counter allows us to modify the query_name later when we find the query's line
+            # The counter allows us to modify the query_name later when we
+            # find the query's line
             if query_found == 0 and species_line[-1] == query_species:
                 query_name = species_line[1]
-                # We freeze the counter and replace the first column in the default table output after the loop
+                # We freeze the counter and replace the first column in the
+                # default table output after the loop
                 query_found = 1
             else:
                 counter += 1
 
-    # The query name has been most likely found in the middle of the mapping file
-    # Here, we replace the first column of any species we wrote up to this point
-    # If this step fails, the first column is populated with the query protein ID
+    # The query name has been likely found in the middle of the mapping file
+    # Here, we replace the first column of any species we wrote
+    # If this step fails, the first column is populated with the query protein
+    # ID
     for c in range(counter):
         output_lines[c][0] = query_name
 
     # Compile the output lines into one string with newlines
     # and the intended column separator
     output = "\n".join(["\t".join(line) for line in output_lines])
-    output_phyloprofile = "\n".join(["\t".join(line) for line in output_phyloprofile_lines])
+    output_phyloprofile = "\n".join(["\t".join(line) for line in
+                                     output_phyloprofile_lines])
 
     # Write both output files
-    with open('trace_results_%s.txt' %query_protein, 'w') as output_file:
+    with open('trace_results_{0}.txt'.format(query_protein),
+              'w') as output_file:
         output_file.write(output)
-    with open('%s_phyloMatrix.txt' %query_protein, 'w') as output_pp_file:
+    with open('{0}_phyloMatrix.txt'.format(query_protein),
+              'w') as output_pp_file:
         output_pp_file.write(output_phyloprofile)
 
-def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile, speciesId, cache_dir,intended_fas_score_calc):
+
+def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree,
+         speciesMaxLikFile, speciesId, cache_dir, intended_fas_score_calc):
     global sp_max_file, hamstrMapFile, cacheDir
 
     matrixDict = {}
@@ -295,7 +334,8 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
             # Adds FAS score information to the output table
             if os.path.exists(fasFile):
                 for line2 in open(fasFile):
-                    line2_species_id = line2.split()[2].split('_')[1] if '_' in line2 else line2.split()[2]
+                    line2_species_id = (line2.split()[2].split('_')[1]
+                                        if '_' in line2 else line2.split()[2])
                     if line2_species_id == currentSpecies:
                         foundSpeciesFlag = True
                         orth = line2.split()[3]
@@ -306,7 +346,9 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
                 orth = "0"
                 for line2 in open(orthFile):
                     if '>' in line2:
-                        line2_species_id = line2.split()[0].split('_')[1] if '_' in line2 else line2.split()[0][1:]
+                        line2_species_id = (line2.split()[0].split('_')[1]
+                                            if '_' in line2
+                                            else line2.split()[0][1:])
                         if line2_species_id == currentSpecies:
                             foundSpeciesFlag = True
                             orth = "1"
@@ -314,18 +356,21 @@ def main(nexusTreeFile, mapFile, protId, spTree, plotFigTree, speciesMaxLikFile,
             if not foundSpeciesFlag:
                 matrixDict[currentSpecies].append(orth + '#' + fas)
 
-    #print('Dictionary length: ', len(matrixDict))
+    # print('Dictionary length: ', len(matrixDict))
     try:
         hamstrMapFile = open(mapFile).read().split('\n')
         speciesTree = open(spTree).read()
-#        decayRate = float(open('decay_summary_%s.txt_parameter' %protId).read().split('\n')[1])
-#        decayPop = float(open('decay_summary_%s.txt_parameter' %protId).read().split('\n')[0])
+#        decayRate = float(open('decay_summary_%s.txt_parameter' %protId)
+# .read().split('\n')[1])
+#        decayPop = float(open('decay_summary_%s.txt_parameter' %protId)
+# .read().split('\n')[0])
 
     except IOError:
         print('ERROR: Colourizing tree encountered problem!!!')
 
     # Calculates and writes the protein traceability into output files
-    create_traceability_output_file(speciesId,protId,mapFile,intended_fas_score_calc,speciesMaxLikFile)
+    create_traceability_output_file(speciesId, protId, mapFile,
+                                    intended_fas_score_calc, speciesMaxLikFile)
 
     # Write the output table file
 #    traceResults = open('trace_results_%s.txt' %protId, 'w')

@@ -17,12 +17,15 @@
 #
 #######################################################################
 
-import os, sys
+import os
+import sys
 import subprocess
 import time
 import maxLikDistMatrix
+from prottrace import print_progress, print_error, print_warning
 
 # Module to reconstruct tree using RAxML and do scaling factor calculation
+
 
 # Calculate the median of a set
 def median(lst):
@@ -38,41 +41,52 @@ def median(lst):
 #       fnew.write(orth_file[i][:6] + '\n' + orth_file[i+1] + '\n')
 #   fnew.close()
 
+
 # Perform MSA of the new renamed ortholog sequences file (MAFFT linsi)
 def msa_convert():
     if os.path.exists(phy_file):
         print("Reusing existing alignment file: phy_file")
     else:
         print("Generating MSA")
-        #subprocess.run([linsi,"--phylipout","ogSeqs_{0}.fa".format(protein_id),"ogSeqs_{0}.phy".format(protein_id)])
-        os.system('{0} --phylipout ogSeqs_{1}.fa > ogSeqs_{3}.phy'.format(linsi, protein_id, protein_id))
+        # subprocess.run([linsi,"--phylipout","ogSeqs_{0}.fa"
+        # .format(protein_id),"ogSeqs_{0}.phy".format(protein_id)])
+        os.system('{0} --phylipout ogSeqs_{1}.fa > ogSeqs_{3}.phy'
+                  .format(linsi, protein_id, protein_id))
+
 
 ########### added by ingo to get rid of raxml dependency
 def run_iqtree(config):
     if makeTree:
-        if reuse_cache and os.path.exists('ogSeqs_' + protein_id + '.phy.treefile') and os.path.exists('ogSeqs_' + protein_id + '.phy.ckp.gz'):
-            print('ML tree already exists. Reusing it.')
+        if (reuse_cache
+            and os.path.exists('ogSeqs_' + protein_id + '.phy.treefile')
+            and os.path.exists('ogSeqs_' + protein_id + '.phy.ckp.gz')):
+            print_progress('ML tree already exists. Reusing it.')
         else:
-            os.system('rm -rf RAxML_*')
-            os.system('{0} -nt {1} -s ogSeqs_{2}.phy -m {3} -keep-ident -redo' %(config.iqtree, nr_proc, protein_id, aaMatrix))
+            # os.system('rm -rf RAxML_*')
+            os.system('{0} -nt {1} -s ogSeqs_{2}.phy -m {3} -keep-ident -redo'
+                      .format(config.iqtree, nr_proc, protein_id, aaMatrix))
         #print('complete..')
+
+
 # Remove all the temp files generated
 def rm_temp():
 
     os.system('rm temp_parameters_%s.txt' %protein_id)
     os.system('rm maxLikDist_%s.txt' %protein_id)
 
+
 # Calculate the scaling factor based on maximum likelihood distances
 def scalingFactorMax():
     scales = []
     # Generate maximum likelihood distance file for orthologs
-    ### NOTE THE FILE USED HERE!!!!*******************************************!!!!
-    outfile = open('ogSeqs_%s.phy.mldist' %protein_id).read().split('\n')
+    outfile = open('ogSeqs_{0}.phy.mldist'
+                   .format(protein_id).read().split('\n'))
     maxLikDistMatrix.main(outfile, protein_id)
     try:
-        orthMaxFile = open('maxLikDist_%s.txt' %protein_id).read().split('\n')
+        orthMaxFile = open('maxLikDist_{0}.txt'
+                           .format(protein_id)).read().split('\n')
         speciesMaxFile = open(species_maxLikMatrix).read().split('\n')
-        hamstrFile = open(map_file).read().split('\n')
+        # hamstrFile = open(map_file).read().split('\n')
         for i in range(len(orthMaxFile) - 1):
             line = orthMaxFile[i].split('\t')[0]
             if '_' in line:
@@ -80,11 +94,12 @@ def scalingFactorMax():
             else:
                 species1 = line
 
-            ###
-            ### This block is needed when max likelihood matrix do not have OMA identifiers ###
-            ###
-            #print(species1)
-            #for j in range(len(hamstrFile) - 1):
+            #
+            # This block is needed when max likelihood matrix do not have OMA
+            # identifiers.
+            #
+            # print(species1)
+            # for j in range(len(hamstrFile) - 1):
             #	if species1 == hamstrFile[j].split('\t')[3]:
             #		hamstr1 = hamstrFile[j].split('\t')[0]
             #		break
@@ -96,14 +111,13 @@ def scalingFactorMax():
                 else:
                     species2 = line
 
-                #for j in range(len(hamstrFile) - 1):
+                # for j in range(len(hamstrFile) - 1):
                 #	if species2 == hamstrFile[j].split('\t')[3]:
                 #		hamstr2 = hamstrFile[j].split('\t')[0]
                 #		break
-                #print(species1, species2)
+                # print(species1, species2)
                 maxDistOrth = float(orthMaxFile[i].split('\t')[k + 1])
-                maxDistSpecies = 0 #Maximum likelihood distance from species max. likelihood matrix
-                #print(maxDistOrth)
+                maxDistSpecies = 0
                 flag1 = True
                 flag2 = True
                 for l in range(len(speciesMaxFile) - 1):
@@ -113,9 +127,10 @@ def scalingFactorMax():
                     elif speciesMaxFile[l].split('\t')[0] == species2:
                         columnIndex = l
                         flag2 = False
-                #if not flag1 and not flag2:
-                #	maxDistSpecies = float(speciesMaxFile[rowIndex].split('\t')[columnIndex])
-                #else:
+                # if not flag1 and not flag2:
+                #	maxDistSpecies = float(speciesMaxFile[rowIndex]
+                #   .split('\t')[columnIndex])
+                # else:
                 #	maxDistSpecies = 1.0
                 mlPresent = True
                 if flag1 or flag2:
@@ -158,6 +173,7 @@ def scalingFactorMax():
     else:
         return sf
 
+
 # Main module for running tree reconstruction
 def main(Linsi, Orthologs, AaMatrix, Protein_id, Map_file, Species_maxLikMatrix, Scale_file, Tree_file, delTemp, defScale, cache_dir, ortholog_tree_reconstruction, nr_processors, use_cache, config):
 
@@ -177,24 +193,23 @@ def main(Linsi, Orthologs, AaMatrix, Protein_id, Map_file, Species_maxLikMatrix,
     nr_proc = nr_processors
     reuse_cache = use_cache
 
-    #sf = 1.00
+    # sf = 1.00
     if len(orth_file) > 7:
         try:
-#           rename_orth_file()
             msa_convert()
             run_iqtree(config)
             if reuse_cache and os.path.exists(scaleFile):
-                print('Pre-computed scaling factor found. Reusing it.')
+                print_progress('Scaling factor already exists. Reusing it.')
             else:
                 sf = scalingFactorMax()
-                print('Scaling factor: {0}'.format(sf))
+                print_progress('Scaling factor: {0}'.format(sf))
             if delTemp:
                 rm_temp()
-        except:
-            print('### ERROR: Some step in the tree reconstruction was invalid!! ###')
+        except Exception:
+            print_error('Some step in the tree reconstruction was invalid!')
             pass
     else:
-        print('Using default scaling factor: {0}'.format(sf))
+        print_progress('Using default scaling factor: {0}'.format(sf))
 
     with open(scaleFile, 'w') as fnew:
         fnew.write(str(sf))

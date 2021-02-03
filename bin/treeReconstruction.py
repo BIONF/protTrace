@@ -22,7 +22,7 @@ import sys
 import subprocess
 import time
 import maxLikDistMatrix
-from prottrace import print_progress, print_error, print_warning
+from log import print_progress, print_error, print_warning
 
 # Module to reconstruct tree using RAxML and do scaling factor calculation
 

@@ -22,7 +22,7 @@ import sys
 import configure
 import subprocess
 import dendropy
-from prottrace import print_progress, print_error, print_warning, time_report
+from log import print_progress, print_error, print_warning, time_report
 from multiprocessing import Pool
 
 # Module where actual REvolver / BLAST cycles run takes place

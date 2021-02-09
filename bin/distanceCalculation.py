@@ -24,6 +24,7 @@ import random
 import time
 # import subprocess
 # from multiprocessing.pool import ThreadPool
+from data_api import oma_api
 from multiprocessing.pool import Pool
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -243,11 +244,12 @@ def delete_temporary_files(species1, species2, fa_dir=None, aln_dir=None,
     # deleting temporary files for reuse
     if result_file is not None:
         if (not os.path.exists(result_file)
-            or len(open(result_file).read().split('\n')) == 0):
+                or len(open(result_file).read().split('\n')) == 0):
             return
     try:
-        #os.system('rm -rf {0} {1} temp_puzzleParams.txt'
+        # os.system('rm -rf {0} {1} temp_puzzleParams.txt'
         #          .format(fa_dir, aln_dir))
+        os.system('rm -rf temp_puzzleParams.txt')
         os.system('rm -rf {0}_{1}.phy*'
                   .format(species1, species2))
         # This check rather exists to prevent file not found errors
@@ -486,7 +488,7 @@ def concatenate_alignment(species1, species2, alignment_generator,
                                      concatenated_alignments[1]),
                 '{0}_{1}.phy'.format(species1, species2),
                 'phylip')
-    #sequence_pair_to_phylip(species1, species2, concatenated_alignments)
+    # sequence_pair_to_phylip(species1, species2, concatenated_alignments)
 
     def generate_multiprocessing_to_phylip_args_list(species1, species2,
                                                      sequences,
@@ -496,7 +498,7 @@ def concatenate_alignment(species1, species2, alignment_generator,
         # Sample a set of position indices to draw aligned amino acids from
         # both sequences
         for bootstrap_position_indices in generate_bootstraps(
-            len(sequences[0]), bootstrap_count):
+                len(sequences[0]), bootstrap_count):
             i += 1
             yield [species1, species2, sequences, subalignment_positions,
                    bootstrap_position_indices, i]
@@ -524,6 +526,7 @@ def concatenate_alignment(species1, species2, alignment_generator,
             sys.exit('The user interrupted the generation of bootstrapped '
                      'alignments!')
 
+
 def concatenate_alignment_legacy(species1, species2, alignment_count,
                                  alignment_directory, bootstrap_count=0,
                                  nr_processors=1):
@@ -532,7 +535,6 @@ def concatenate_alignment_legacy(species1, species2, alignment_count,
     # For bootstrapping, the first index tells us the aligned protein pair
     # The second index tells us the species
     sequences = ["", ""]
-    protein_pair = 0
     current_species = 2
     subalignment_positions = []
     subalignment_count = -1
@@ -636,16 +638,17 @@ def concatenate_alignment_legacy(species1, species2, alignment_count,
             sys.exit('The user interrupted the generation of bootstrapped '
                      'alignments!')
 
-def search_protein_pairs(species1, species2, pair_table):
+
+def search_protein_pairs(species_1, species_2, pairs_src, src_type='oma'):
     """ Searches the given table for mutual presences of
     species 1 and species 2 within the first two columns
     and returns both columns verbatim in the order the
     species were passed to this function. """
 
-    def generate_large_orthologous_pair_file_buffers(pair_table):
+    def generate_large_orthologous_pair_file_buffers(pairs_src):
         # Read in oma_pair lines that contain proteins
         # of both species together
-        with open(pair_table, 'r') as pair_mapping:
+        with open(pairs_src, 'r') as pair_mapping:
             tmp_lines = pair_mapping.readlines(134217728)
             while tmp_lines:
                 # Identify the input species pair
@@ -655,26 +658,46 @@ def search_protein_pairs(species1, species2, pair_table):
                 tmp_lines = pair_mapping.readlines(134217728)
                 print('Read: {0}'.format(str(time.time() - startingtime)))
 
-
-    def generate_pairwise_orthologous_lines(species1, species2, pair_table):
-        with open(pair_table, 'r') as pair_mapping:
-            for line in pair_mapping:
-                if species1 in line and species2 in line:
+    def gen_pairwise_orth_lines(species_1, species_2, pairs_src):
+        with open(pairs_src, 'r') as pair_table:
+            for line in pair_table:
+                if species_1 in line and species_2 in line:
                     yield line
+
+    def read_pairs_src(pairs_src, src_type):
+        if src_type == 'oma':
+            src_func = pairs_src.get_pairwise_orthologs
+            src_args = [species_1, species_2]
+        elif src_type == 'file':
+            src_func = gen_pairwise_orth_lines
+            src_args = [species_1, species_2, pairs_src]
+
+        for line in src_func(*src_args):
+            yield line
+
+    def order_columns(columns, species_1, species_2, src_type):
+        if src_type == 'oma':
+            col_1 = 2
+            data_col_1 = 0
+            col_2 = 3
+            data_col_2 = 1
+        elif src_type == 'file':
+            col_1, data_col_1 = 0
+            col_2, data_col_2 = 1
+
+        if species_1 in columns[col_1]:
+            return (columns[data_col_1], columns[data_col_2])
+        else:
+            return (columns[data_col_2], columns[data_col_1])
 
     try:
         sequence_count = 1
-        for line in generate_pairwise_orthologous_lines(species1, species2,
-                                                        pair_table):
+        for line in read_pairs_src(pairs_src, src_type):
             columns = line.rstrip().split('\t')
             # The previous generator already established that
             # both species are present in the columns. Here, we
             # look at the exact column position.
-            if species1 in columns[0]:
-                yield (columns[0], columns[1])
-            else:
-                yield (columns[1], columns[0])
-
+            yield order_columns(columns, species_1, species_2, src_type)
             sequence_count += 1
 
             # Inform the user about the current progress
@@ -690,7 +713,8 @@ def search_protein_pairs(species1, species2, pair_table):
     except FileNotFoundError:
         sys.exit(print_error('The OMA pairs file is missing!'))
 
-def provide_protein_pair_sequences(species1, species2, sequence_source_file):
+
+def provide_protein_pair_sequences(species1, species2, sequence_source):
     """ Provide a dict of protein ids and sequences. """
 
     # All proteomes can be located in separate directories
@@ -708,12 +732,13 @@ def provide_protein_pair_sequences(species1, species2, sequence_source_file):
     #    sequence_sources.add(oma_seqs)
 
     try:
-        sequence_index = SeqIO.index(sequence_source_file, 'fasta')
-        if (species1 + "00001" not in sequence_index
-                or species2 + "00001" not in sequence_index):
-            print_error('Species are not represented in the sequence fasta '
-                  'file!')
-        return sequence_index
+        return sequence_source.index_seqs()
+        # sequence_index = SeqIO.index(sequence_source_file, 'fasta')
+        # if (species1 + "00001" not in sequence_index
+        #         or species2 + "00001" not in sequence_index):
+        #     print_error('Species are not represented in the sequence fasta '
+        #           'file!')
+        # return sequence_index
     except KeyboardInterrupt:
         print('Gathering the sequences of pairwise orthologs was interrupted '
               'by the user.')
@@ -735,14 +760,16 @@ def align_pairwise2_parallelized(args):
     # One alignment consists of a tuple of four elements:
     # sequence 1, sequence 2, score, beginning, 0-based character count
 
-    #starttime = time.time()
-    alignment = pairwise2.align.globalds(args[0], args[1],
-                                    substitution_matrices.load('BLOSUM62'),
-                                    -10.0, -1.0,
-                                    penalize_end_gaps=True,
-                                    one_alignment_only=True)[0]
+    # starttime = time.time()
+    alignment = pairwise2 \
+        .align    \
+        .globalds(args[0], args[1],
+                  substitution_matrices.load('BLOSUM62'),
+                  -10.0, -1.0,
+                  penalize_end_gaps=True,
+                  one_alignment_only=True)[0]
 
-    #print('Aligned: {0}'.format(str(time.time() - starttime)))
+    # print('Aligned: {0}'.format(str(time.time() - starttime)))
 
     # Somewhere between Bio 1.7.2 and 1.7.8, pairwise2 now returns an
     # Alignment object with seqA and seqB, instead of a list containing
@@ -767,6 +794,7 @@ def calculate_protein_distances_parallelized(args):
     """ A pickle-able dispatcher for calculate_protein_distances. """
     calculate_protein_distances(*args)
 
+
 # Calculates the pairwise species maximum likelihood distance
 # between species1 and species2. The distance is copied to the
 # target_dir. The config is loaded from ProtTrace's configure.py
@@ -779,11 +807,13 @@ def calculate_protein_distances(species1, species2,
     print_progress('Calculating the protein distance between {0} and {1}.'
                    .format(species1, species2))
 
+    oma = oma_api(config)
+
     # Read the configuration of ProtTrace for paths
-    oma_seqs = config.path_oma_seqs
-    oma_pairs = config.path_oma_pairs
-    concatAlignment = config.concat_alignments_script
-    oma_proteomes_dir = config.path_distance_work_dir
+    # oma_seqs = config.path_oma_seqs
+    # oma_pairs = config.path_oma_pairs
+    # concatAlignment = config.concat_alignments_script
+    # oma_proteomes_dir = config.path_distance_work_dir
     # linsi = config.msa
     treepuzzle = config.treepuzzle
     if treepuzzle is None:
@@ -805,7 +835,6 @@ def calculate_protein_distances(species1, species2,
     # and the target species
     # print('Gather orthologous protein pairs.')
     # print('Preprocessing:\tParsing sequence pairs and aligning them...')
-
 
     # If the counter has never been incremented,
     # we can assume that the species pair is missing in the file
@@ -848,7 +877,8 @@ def calculate_protein_distances(species1, species2,
     #        #filename.replace('.fa', '.aln').replace(fa_dir, aln_dir)))
     #        # Run the alignment program in parallel threads
     #        tp = ThreadPool(nr_processors)
-    #        tp.map(align_protein_pair, ['{0}/seq_{1}.fa'.format(fa_dir, str(c))
+    #        tp.map(align_protein_pair, ['{0}/seq_{1}.fa'
+    #                                    .format(fa_dir, str(c))
     #                                   for c in range(1, sequence_count)])
     #        tp.close()
     #        tp.join()
@@ -938,14 +968,14 @@ def calculate_protein_distances(species1, species2,
                 raise e
 
     sequence_records = provide_protein_pair_sequences(
-        species1, species2, oma_seqs)
+        species1, species2, oma)
 
     # The collection of orthologous pairs, their sequences, their alignments
     # and their concatenation are all chained with generators here.
     concatenate_alignment(species1, species2,
                           align_pairwise_proteins(
                               search_protein_pairs(species1, species2,
-                                                   oma_pairs),
+                                                   oma, 'oma'),
                               sequence_records, nr_processors),
                           bootstrap_count, nr_processors)
 
@@ -1108,8 +1138,12 @@ def main():
 
     if os.path.exists(config.path_cache):
         target_dir = config.path_cache
-        if os.path.exists('{0}/{1}_{2}.lik'.format(config.path_cache,
-                                                   query, target)):
+
+        # Check whether any combination of both species exist.
+        # Their distances should be identical.
+        precomputed_1 = '{0}/{1}_{2}.lik'.format(target_dir, query, target)
+        precomputed_2 = '{0}/{1}_{2}.lik'.format(target_dir, target, query)
+        if os.path.exists(precomputed_1) or os.path.exists(precomputed_2):
             print('Species distance is already computed!')
             return 0
 

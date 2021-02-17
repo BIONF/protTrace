@@ -25,28 +25,6 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="ProtTrace",
-    version="1.8.4",
-    author="Dominik Perisa",
-    author_email="dominik.perisa.bio@gmail.com",
-    description="Calculates the evolutionary traceability of a protein",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/BIONF/protTrace",
-    packages=setuptools.find_packages(),
-    entry_points={
-        'console_scripts': [
-#            "prottrace.setup = bin.setupProtTrace:main",
-            "prottrace = bin.protTrace:main",
-            "distance = bin.distanceCalculation:main"
-        ]},
-    license="GPL-3.0",
-    classifiers=[
-        "Environment :: Console",
-        "Intended Audience :: Science/Research",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-        "Natural Language :: English",
-        "Programming Language :: Python :: 3",
-        ],
-    python_requires='>=3.7.2',
 )

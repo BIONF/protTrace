@@ -22,10 +22,10 @@
 import os
 import sys
 import argparse
-import configure
+import prottrace.utils.configure
 from collections import OrderedDict
 from pathlib import Path
-from log import print_warning, print_error
+from prottrace.utils.log import print_warning, print_error
 from Bio import SeqIO
 
 

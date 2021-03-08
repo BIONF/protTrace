@@ -22,7 +22,7 @@
 
 import os
 import sys
-from log import print_error
+from prottrace.utils.log import print_error
 
 
 class setParams:

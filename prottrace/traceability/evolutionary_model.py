@@ -20,12 +20,13 @@
 # Preprocessing steps of ProtTrace include finding orthologs, their sequences
 # and computing their evolutionary model parameters.
 
-import os, sys
+import os
+import sys
 import glob
-import configure
-import hamstr_search
-import treeReconstruction
-import transformAlignment
+import prottrace.utils.configure
+import prottrace.fdog_api.hamstr_search
+import prottrace.traceability.tree_reconstruction
+import prottrace.traceability.transform_alignment
 import dendropy
 import subprocess
 import random

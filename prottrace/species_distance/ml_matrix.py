@@ -21,7 +21,8 @@
 ### INPUT -> outfile (from TREEPUZZLE)
 ### OUTPUT -> maxLikDist.txt
 
-import os, sys
+import os
+import sys
 
 def main(infile, prot_id):
     outfile = open('maxLikDist_%s.txt' %prot_id, 'w')

@@ -17,7 +17,8 @@
 #
 #######################################################################
 
-import os, sys
+import os
+import sys
 import glob
 import subprocess
 from multiprocessing import Pool

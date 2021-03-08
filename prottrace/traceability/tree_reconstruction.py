@@ -21,9 +21,12 @@ import os
 import sys
 import subprocess
 import time
-import maxLikDistMatrix
-from log import print_progress, print_error, print_warning
-
+import prottrace.species_distance.ml_matrix
+from prottrace.utils.log import {
+    print_progress,
+    print_error,
+    print_warning
+}
 # Module to reconstruct tree using RAxML and do scaling factor calculation
 
 

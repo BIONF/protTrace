@@ -19,10 +19,15 @@
 
 import os
 import sys
-import configure
+import prottrace.utils.configure
 import subprocess
 import dendropy
-from log import print_progress, print_error, print_warning, time_report
+from prottrace.utils.log import {
+    print_progress,
+    print_error,
+    print_warning,
+    time_report
+}
 from multiprocessing import Pool
 
 # Module where actual REvolver / BLAST cycles run takes place

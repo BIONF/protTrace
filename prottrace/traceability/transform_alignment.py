@@ -17,7 +17,8 @@
 #
 #######################################################################
 
-import os, sys
+import os
+import sys
 
 # Script to transform MSA into indel blocks
 # The output file is used as input for IQTree24 to calculate indel rates

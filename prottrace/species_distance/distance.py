@@ -24,7 +24,7 @@ import random
 import time
 # import subprocess
 # from multiprocessing.pool import ThreadPool
-from data_api import oma_api
+from prottrace.utils.data_api import oma_api
 from multiprocessing.pool import Pool
 from Bio import SeqIO
 from Bio.Seq import Seq

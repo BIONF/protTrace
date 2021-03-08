@@ -17,10 +17,11 @@
 #
 #######################################################################
 
-import os, sys
+import os
+import sys
 import dendropy
-import configure
-import colourizeTree
+import prottrace.utils.configure
+import prottrace.traceability.calculate_traceability as colourize_tree
 
 ### Module to read in the decay parameters file
 ### Calculate traceability for every species in the species tree

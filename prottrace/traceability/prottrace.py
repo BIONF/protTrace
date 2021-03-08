@@ -35,12 +35,12 @@
 import os
 import sys
 import argparse
-import configure
-import distanceCalculation
-import preprocessing
-import traceabilityCalculation
-import mapToSpeciesTree
-from log import print_progress, time_report
+import prottrace.utils.configure
+import prottrace.species_distance.distance
+import prottrace.traceability.evolutionary_model
+import prottrace.traceability.calculate_traceability
+import prottrace.traceability.colourize_tree
+from prottrace.utils.log import print_progress, time_report
 
 
 def main(argv):

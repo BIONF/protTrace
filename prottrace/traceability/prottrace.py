@@ -32,14 +32,20 @@
 # the input file
 #
 
-import os
+""" The main entry point for ProtTrace which dispatches the query onto the
+    different modules. """
+
+
 import sys
 import argparse
-import prottrace.utils.configure
-import prottrace.species_distance.distance
-import prottrace.traceability.evolutionary_model
-import prottrace.traceability.calculate_traceability
-import prottrace.traceability.colourize_tree
+from pathlib import Path
+from prottrace.utils.configure import set_params
+from prottrace.species_distances.distance import calculate_species_distances
+from prottrace.traceability.evolutionary_model import main as evol_model
+from prottrace.traceability.self_hit_statistics import main as trace
+from prottrace.traceability.calculate_traceability import main as calc_trace
+from prottrace.traceability.colourize_tree import main as colourize_tree
+from prottrace.utils.data_api import prot_id, species_mapping, fasta
 from prottrace.utils.log import print_progress, time_report
 
 
@@ -58,13 +64,18 @@ def main(argv):
                                                         'Required arguments')
         input_group = mandatory_arguments.add_mutually_exclusive_group(
             required=True)
-        input_group.add_argument('-i', '--id', type=str, help=''
-                                 'Path to a text file containing protein IDs')
-        input_group.add_argument('-f', '--fasta', type=str, help=''
-                                 'Path to a text file containing proteins in '
+        input_group.add_argument('-i', '--id',
+                                 type=lambda p: Path(p).resolve(),
+                                 help='Path to a text file containing '
+                                 'protein IDs')
+        input_group.add_argument('-f', '--fasta',
+                                 type=lambda p: Path(p).resolve(),
+                                 help='Path to a text file containing '
+                                 'proteins in '
                                  'FASTA format')
 
-        mandatory_arguments.add_argument('-c', '--config', type=str,
+        mandatory_arguments.add_argument('-c', '--config',
+                                         type=lambda p: Path(p).resolve(),
                                          required=True, help='Path to the '
                                          'configuration file which can be '
                                          'created with the '
@@ -85,65 +96,65 @@ def main(argv):
 
     arguments = interpret_arguments()
 
-    id_list, fasta_list = '', ''
-    only_update_all_distances = False
+    # The config argument is required
+    config_file = arguments.config
+    protein_params = set_params(config_file)
+
+    spec_mappings = species_mapping(protein_params)
 
     # One of these arguments is required already
     if arguments.id:
-        id_list = arguments.id
+        id_list = gen_ids(arguments.id, spec_mappings)
     if arguments.fasta:
-        fasta_list = arguments.fasta
+        fasta_list = gen_fasta(arguments.fasta, spec_mappings)
 
-    # The config argument is required
-    config_file = arguments.config
-
+    only_update_all_distances = False
     if arguments.distance:
         only_update_all_distances = True
-
-    config_file = os.path.abspath(config_file)
-
-    # Calling the class in configure.py module and setting the tool parameters
-    proteinParams = configure.setParams(config_file)
 
     # This is a special setting, where no protein ID is needed and its only
     # purpose is to update the distances between all species in the species
     # list
     if only_update_all_distances:
         # This argument hopefully breaks anything but the intended routine
-        proteinParams.species = 'ALL'
-        distanceCalculation.calculate_species_distances(proteinParams)
+        protein_params.species = 'ALL'
+        calculate_species_distances(protein_params)
     else:
         # Check available pairwise species distances and calculate missing ones
-        distanceCalculation.calculate_species_distances(proteinParams)
+        calculate_species_distances(protein_params)
 
-        if id_list != '':
-            with open(id_list, 'r') as id_file:
-                for line in id_file:
-                    input_id = line.split()[0]
-                    print_progress('Running for OMA id {0}'.format(input_id))
-                    if proteinParams.preprocessing:
-                        preprocessing.Preprocessing(input_id, 'None',
-                                                    config_file)
-                    if proteinParams.traceability_calculation:
-                        traceabilityCalculation.main(input_id, config_file)
-                    if proteinParams.mapTraceabilitySpeciesTree:
-                        mapToSpeciesTree.main(input_id, config_file)
-        elif fasta_list != '':
-            with open(fasta_list) as fa:
-                for seqs in fa:
-                    if '>' in seqs:
-                        print_progress('Running for fasta id: {0}'
-                                       .format(seqs[1:-1]))
-                        input_id = seqs.split()[0][1:]
-                        query_seq = next(fa)
+    if id_list != '':
+        process_query_list(id_list, protein_params)
+    elif fasta_list != '':
+        process_query_list(fasta_list, protein_params)
 
-                    if proteinParams.preprocessing:
-                        preprocessing.Preprocessing(input_id, query_seq,
-                                                    config_file)
-                    if proteinParams.traceability_calculation:
-                        traceabilityCalculation.main(input_id, config_file)
-                    if proteinParams.mapTraceabilitySpeciesTree:
-                        mapToSpeciesTree.main(input_id, config_file)
+
+def gen_ids(id_file, spec_mapping):
+    """ Reads the id file into protein ID objects. """
+
+    with id_file.open('r') as i_file:
+        for line in i_file:
+            yield prot_id(line.rstrip(), spec_mapping)
+
+
+def gen_fasta(fasta_file, spec_mapping):
+    """ Reads the fasta_file into records. """
+
+    for record in fasta.gen_fasta_records(fasta_file):
+        yield prot_id(record.id, spec_mapping, record.seq)
+
+
+def process_query_list(id_list, protein_params):
+    for query in id_list:
+        print_progress(f'Running for ID: {query.id}')
+        if protein_params.preprocessing:
+            evol_model(query, protein_params)
+        if protein_params.traceability_calculation:
+            trace(query, protein_params)
+        if protein_params.mapTraceabilitySpeciesTree:
+            calc_trace.main(query, protein_params)
+        if protein_params.colourize_species_tree:
+            colourize_tree.main(query, protein_params)
 
 
 if __name__ == "__main__":

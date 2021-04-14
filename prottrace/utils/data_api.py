@@ -19,23 +19,66 @@
 
 """ This python module organizes data access for ProtTrace. """
 
-import os
 import sys
-import argparse
-import prottrace.utils.configure
-from collections import OrderedDict
 from pathlib import Path
-from prottrace.utils.log import print_warning, print_error
+from prottrace.oma_api.api import oma_sq, oma_pw, oma_gr
+from prottrace.fdog_api.api import fdog_api, fdog_api_species
+from prottrace.utils.configure import set_params
+from prottrace.utils.file import generate_splitted_lines
+from prottrace.utils.log import print_error
 from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+
+
+class prot_id:
+    __slots__ = ['id', 'spec_names', 'seq']
+
+    def __init__(self, pr_id, spec_mapping, seq=None):
+        self.id = pr_id
+        self.spec_names = spec_mapping
+        self.seq = seq
+
+    def spec_name(self):
+        return self.spec_names.species_id
+
+    def spec_equals(self, other, form=None):
+        """ Returns whether the other species name is equal to this protein's
+        species name. """
+
+        if form is None:
+            return self.spec_names.species_id == other
+        elif form == 'oma':
+            return self.spec_names.oma == other
+        elif form == 'ncbi':
+            return self.spec_names.ncbi == other
+
+    def filepath(self):
+        """ Generates a fasta filename that remains valid as long as the
+        protein id remains the same. """
+        return Path(f'seq_{self.id}.fa')
+
+    def write_to_fasta(self):
+        """ Writes a fasta file containing its protein ID and its sequence.
+        Returns the name of the written file. """
+        filename = self.filepath()
+        if not filename.exists():
+            record = SeqRecord(self.seq, id=self.id)
+            SeqIO.write(record, filename, 'fasta')
+        return filename
+
+    def remove_fasta(self):
+        """ Deletes a fasta file made from its own protein ID. """
+        fasta_path = Path(self.filepath())
+        fasta_path.unlink(missing_ok=True)
 
 
 class species_mapping_unit:
-    __slots__ = ['name', 'species_id', 'ncbi', 'oma']
+    __slots__ = ['name', 'species_id', 'fdog', 'ncbi', 'oma']
 
     def __init__(self, mapping_columns):
         self.name = mapping_columns[1]
         if self.column_exists(mapping_columns, 0):
-            self.hamstr_id = mapping_columns[0]
+            self.fdog = mapping_columns[0]
         if self.column_exists(mapping_columns, 2):
             self.ncbi = mapping_columns[2]
             self.species_id = mapping_columns[2]
@@ -49,9 +92,13 @@ class species_mapping_unit:
 
     @staticmethod
     def generate_species_mapping(config):
-        with open(config.hamstr_oma_tree_map, 'r') as sm:
-            for line in sm:
-                yield species_mapping(line.rstrip().split('\t'))
+        with config.species_map.open('r') as sm:
+            for line in generate_splitted_lines(sm):
+                yield species_mapping_unit(line)
+
+    def __str__(self):
+        return f'Name: {self.name}\tID: {self.species_id}\tNCBI: {self.ncbi}\t'
+        'OMA: {self.oma}'
 
 
 class species_mapping:
@@ -66,287 +113,113 @@ class species_mapping:
             if id_mapping.species_id == species:
                 return id_mapping
 
+    def get_spec_from_prot(self, protein):
+        oma_spec = oma_sq.prot_id_to_spec_id(protein)
+        return self.get_species(oma_spec)
+
+    def __str__(self):
+        return '\n'.join([str(m) for m in self.mappings])
+
+
+class orth_group:
+    __slots__ = ['members', 'path']
+
+    def __init__(self, config, prot_name, proteomes):
+        mapping = species_mapping(config)
+        group_api = self.resolve_group_api(config)
+        self.members = list(self.collect_members(prot_name,
+                                                 group_api,
+                                                 mapping))
+        self.collect_sequences(proteomes, config)
+        self.path = self.filepath(prot_name)
+
+    def collect_members(self, prot_name, api, mapping):
+        for member_prot in api.gen_members(prot_name):
+            yield prot_id(member_prot, mapping.get_spec_from_prot(member_prot))
+
+    def collect_sequences(self, preloaded_proteomes, config):
+        """ Get the sequences of orthologous group members. Previously
+        instantiated proteomes are searched for first, before loading other
+        species' proteomes from fasta files. """
+        for member in self.members:
+            for p in preloaded_proteomes:
+                if p.species_name == member.spec_name():
+                    member.seq = p.get_protein(member.id)
+            # If no preloaded proteome is available, load others on-demand.
+            proteome_on_demand = proteome(config, member.spec_name())
+            member.seq = proteome_on_demand.get_protein(member.spec_name())
+            # The just loaded proteome is added to the temporary list of
+            # preloaded proteomes. They are lost when exiting this function.
+            preloaded_proteomes.append(proteome_on_demand)
+
+    def filepath(self, prot_name):
+        """ Generates a valid filename as long as the protein name stays
+        the same. """
+        return Path(f'ogSeqs_{prot_name}.fa')
+
+    def write_to_file(self):
+        with self.path.open('w') as orth_file:
+            for member in self.members:
+                member_record = SeqRecord(
+                    member.seq,
+                    id=member.id)
+                SeqIO.write(member_record, orth_file, 'fasta')
+
+    def resolve_group_api(self, config):
+        if config.search_oma_database:
+            return oma_gr
+        else:
+            return fdog_api
+
+
+class fasta:
+    """ A container of SeqIO records. """
+    __slots__ = ['records']
+
+    def __init__(self, fasta):
+        self.records = list(SeqIO.parse(str(fasta)))
+
+    @staticmethod
+    def gen_fasta_records(filename):
+        for record in SeqIO.parse(str(filename)):
+            yield record
+
 
 class proteome:
-    __slots__ = ['source_name', 'source_file', 'species_name']
+    __slots__ = ['source_api', 'species_name']
 
-    def __init__(self, config, species_name=''):
-        self.species_name = species_name
-        if config.search_oma_database:
-            self.source_file = config.path_oma_seqs
-        else:
-            if self.species_name == '':
-                print_error('Access to a genome stored in HaMStR requires a '
-                            'species name!')
-                sys.exit()
-            self.source_file = self.get_hamstr_gen_path(config,
-                                                        self.species_name)
-        # The file basename is stored for sanity checks.
-        self.source_name = self.source_file.split('/')[-1]
-
-    def get_hamstr_gen_path(self, config, species_name):
-        """ Builds the path to a genome stored within the HaMStR directory. """
-        hamstr_config = hamstr_api(config)
-        return hamstr_config.resolve_path('genome_dir') + '/' + species_name
-
-    def get_indexed_proteome(self):
-        """ SeqIO can index a fasta file for dictionary-like access. This is
-        useful for random access when the protein ids are known. """
-        return SeqIO.index(self.source_file, 'fasta')
-
-
-class hamstr_api:
-    """ Manages hamstr related functions. """
-    __slots__ = ['path', 'environment']
-
-    def __init__(self, prot_config):
-        """ Class initialiser """
-        self.path = prot_config.hamstr
-        self.environment = prot_config.hamstr_environment
-
-    def resolve_path(self, directory):
-        """ Evaluates whether the directory must be adjusted to a
-        non-standard environment. """
-        absolute_directory = self.path + "/" + directory
-        if self.environment != "":
-            absolute_directory += "_" + self.environment
-            return absolute_directory
-
-
-class oma_api:
-    """ Manages content from OMA database. """
-    __slots__ = ['oma_pairs', 'oma_seqs', 'oma_group', 'oma_pairs_seek']
-
-    def __init__(self, config):
-        self.oma_pairs = config.path_oma_pairs
-
-        ipf = Path(str(self.oma_pairs))
-        self.oma_pairs_seek = ipf.with_suffix(ipf.suffix + '.indexed')
-
-        self.oma_seqs = config.path_oma_seqs
-        self.oma_group = config.path_oma_group
-
-    @staticmethod
-    def prot_id_to_spec_id(protein_id):
-        """ Extracts the OMA species ID from an OMA protein ID. """
-        return protein_id[1:5]
-
-    @staticmethod
-    def prot_ids_to_spec_ids(protein_ids):
-        """ Extracts the OMA species IDs from OMA protein IDs. """
-        for prot in protein_ids:
-            yield prot[1:5]
-
-    def index_pairs(self):
-        """ Adds seek positions to a previously sorted oma_pairs.txt file.
-            The species IDs should have also been added as 3th and 4th columns.
-            """
-        pair_index = []
-
-        def format_pair_index(species, pos):
-            """ Produces the text output of a species pair - position dataset.
-            """
-            pair_format = ['%']
-            pair_format.extend(species)
-            pair_format.extend([str(p) for p in pos])
-            return '\t'.join(pair_format)
-
-        def pair_seek_positions(filename):
-            """ Annotates the byte positions of species pairs in an
-                orthologous pair file, such as oma_pairs.txt. """
-            # The same set of species pair can appear at very different
-            # sections of the file.
-            pair_index = OrderedDict()
-            previous = ''
-
-            with open(filename, 'r') as pairs:
-                # The position is told before reading the line.
-                for pos, spl_line in generate_splitted_lines_with_pos(pairs):
-                    # frozenset enables their use as dict keys
-                    current_species = frozenset(spl_line[2:4])
-                    if current_species != previous:
-                        if previous != '':
-                            # The previous ending position tells us the length
-                            # of the section
-                            pair_index[previous].append(
-                                pos - pair_index[previous][-1])
-
-                        # The starting position of the current species pair is
-                        # added.
-                        if current_species not in pair_index:
-                            # OrderedDict preserves the order.
-                            pair_index[current_species] = []
-                        pair_index[current_species].append(pos)
-
-                        # Update the previous species for the upcoming section.
-                        previous = current_species
-
-            return '\n'.join([format_pair_index(key, pair_index[key])
-                              for key in pair_index]) + '\n'
-
-        pair_index = pair_seek_positions(self.oma_pairs)
-
-        with self.oma_pairs_seek.open('w', encoding='utf-8') as indxd_pairs:
-            for ind in pair_index:
-                indxd_pairs.write(ind)
-
-    def get_pairwise_orthologs(self, species_1, species_2):
-        """ Lazily reads the lines of pairwise ortholog protein IDs of the
-        appropriate species pair. """
-
-        def search_seek_pnts_legacy(filepath, checked_species):
-            """ Collect the seek points for species of interest. """
-            seek_points = []
-            with filepath.open('r') as handler:
-                for spl_line in generate_splitted_lines(handler):
-                    if spl_line[0] == '%':
-                        if set(spl_line[1:3]) == checked_species:
-                            seek_points.append([int(pnt) for pnt
-                                                in spl_line[3:]])
-                    else:
-                        break
-            return seek_points
-
-        def generate_pairs_legacy(filename, seek_points, species_1, species_2):
-            with open(filename, 'r', encoding='utf-8') as handler:
-                for pnts in seek_points:
-                    for i in range(0, len(pnts), 2):
-                        handler.seek(pnts[i], os.SEEK_SET)
-                        content = handler.read(pnts[i+1])
-                        content = content.split('\n')
-                        # The last bit can be empty because the pointer shows
-                        # where to exactly start the next section.
-                        if content[-1] == '':
-                            del content[-1]
-
-                        # Validation of the first entry.
-                        first_entry = content[0].split('\t')
-                        if (not set(first_entry[2:4]) ==
-                                set((species_1, species_2))
-                                and len(first_entry) == 4):
-                            print_error('The pairwise orthologous section was '
-                                        'wrong! Species pair: {0} {1}'
-                                        .format(species_1, species_2))
-                            raise ValueError
-
-                        # Validation of the last entry.
-                        last_entry = content[-1].split('\t')
-                        if (not set(last_entry[2:4]) ==
-                                set((species_1, species_2))
-                                and len(last_entry) == 4):
-                            print_error('The pairwise orthologous section was '
-                                        'wrong! Species pair: {0} {1}'
-                                        .format(species_1, species_2))
-                            raise ValueError
-                            print_error('The pairwise orthologous section was '
-                                        'wrong! Species pair: {0} {1}'
-                                        .format(species_1, species_2))
-                            raise ValueError
-
-                        # The content is given out per line.
-                        for line in content:
-                            yield line
-
-        def generate_pairs(oma_pairs, species_1, species_2):
-            """ Collects pairwise orthologous protein ID lines from the
-            species-specific pairwise protein ID table. """
-
-            sp_oma_pairs_1 = '{0}/{1}_{2}.txt'.format(oma_pairs, species_1,
-                                                      species_2)
-
-            sp_oma_pairs_2 = '{0}/{2}_{1}.txt'.format(oma_pairs, species_1,
-                                                      species_2)
-            if os.path.exists(sp_oma_pairs_1):
-                definitive_path = sp_oma_pairs_1
-            elif os.path.exists(sp_oma_pairs_2):
-                definitive_path = sp_oma_pairs_2
-            with open(definitive_path, 'r') as pair_src:
-                for line in pair_src:
-                    yield line
-
-        # query_species = set((species_1, species_2))
-        # seek_points = search_seek_pnts(self.oma_pairs_seek, query_species)
-        return generate_pairs(self.oma_pairs, species_1, species_2)
-
-    def index_seqs(self, necessary_ids=None):
-        try:
-            sequence_index = SeqIO.index(self.oma_seqs, 'fasta')
-            # The produced index is checked for all necessary species.
-            if necessary_ids is not None:
-                self.index_seqs_check(sequence_index, necessary_ids)
-            return sequence_index
-        except KeyboardInterrupt:
-            print_warning('User interrupted the indexing of OMA sequences.')
+    def __init__(self, config, species_name):
+        if self.species_name == '':
+            print_error('Access to a genome stored in HaMStR requires a '
+                        'species name!')
             sys.exit()
-        except FileNotFoundError as e:
-            print_error('The OMA seqs FASTA file is missing!')
-            raise e
+        self.species_name = species_name
+        self.source_api = self.resolve_api(config)(config, species_name)
 
-    def index_seqs_check(self, sequence_index, identifiers):
-        """ Returns an indexed oma_seqs file after checking whether all
-        provided OMA species IDs are present. """
+    def resolve_api(self, config):
+        """ Resolves the preferred source of proteomes. Returns the class
+            ready to initialize. """
+        if config.search_oma_database:
+            return oma_sq
+        else:
+            return fdog_api_species
 
-        sequence_index = self.index_seqs()
-        for ident in identifiers:
-            if ident not in sequence_index:
-                print_error('{0} could not be found in the OMA seqs file!')
-                sys.exit()
-
-
-def index_oma_pairs(config, force=False, testpair=None):
-    config = configure.setParams(arguments.config)
-
-    oma = oma_api(config)
-    if not os.path.exists(oma.oma_pairs_seek) or force:
-        oma.index_pairs()
-
-    if testpair is not None:
-        test_spec = arguments.testpair.split('_')
-        return oma.get_pairwise_orthologs(test_spec[0], test_spec[1])
-    return 0
+    def get_protein(self, identifier):
+        return self.source_api.get_protein(identifier)
 
 
-def generate_splitted_lines_with_pos(handler):
-    while True:
-        previous_pos = handler.tell()
-        line = handler.readline()
-        if not line:
-            break
-        yield (previous_pos, line.rstrip().split('\t'))
+def gen_pairwise_orthologs(config, species_1, species_2):
+    """ Accesses more specific APIs to get pairwise orthologs between species.
+    """
 
-
-def generate_splitted_lines(lines):
-    while True:
-        line = lines.readline()
-        if not line:
-            break
-        yield line.rstrip().split('\t')
+    pw_api = oma_pw(config)
+    return pw_api.get_pariwise_orthologs(species_1, species_2)
 
 
 if __name__ == "__main__":
-    def Argparse():
-        parser = argparse.ArgumentParser(description='Prepares the larger '
-                                         'sized OMA pairs file for reading in '
-                                         'pairwise orthologs.')
-        parser.add_argument('-c', '--config', type=str, help='The path to a '
-                            'ProtTrace configuration file.')
-        parser.add_argument('-f', '--force', action='store_true', help='Force '
-                            'overrides an existing index file.')
-        parser.add_argument('-t', '--testpair', type=str, nargs='?',
-                            default=None, help='Define a '
-                            'pair of "species1_species2" to get from the '
-                            'indexed OMA pairs file.')
-        return parser.parse_args()
+    """ This script is only executed as a script for testing purposes! """
+    config_file = Path('test.config')
+    config = set_params(config_file)
 
-    arguments = Argparse()
-
-    outcode = 1
-    if arguments.testpair is not None:
-        print(index_oma_pairs(arguments.config, arguments.force,
-                              arguments.testpair))
-        outcode = 0
-    else:
-        outcode = index_oma_pairs(arguments.config, arguments.force,
-                                  arguments.testpair)
-
-    sys.exit(outcode)
+    test_mapping = species_mapping(config)
+    print(test_mapping)

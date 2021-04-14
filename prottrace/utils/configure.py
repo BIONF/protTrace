@@ -20,12 +20,12 @@
 # Module to read in program config file and prepare variables
 # to be imported in other modules
 
-import os
 import sys
+from pathlib import Path
 from prottrace.utils.log import print_error
 
 
-class setParams:
+class set_params:
     """ Stores the configuration for ProtTrace. """
 
     def string_option(self, value):
@@ -55,21 +55,21 @@ class setParams:
     def path_option(self, value):
         """ Returns the absolute path to the path given
             in the name value pair. """
-        return os.path.abspath(value)
+        return Path(value)
 
-    def create_path_option(self, value):
+    def create_dir_option(self, value):
         """ Creates the path specified in the name value pair
             if it does not exist yet. """
         created_path = self.path_option(value)
-        if not os.path.exists(created_path):
-            os.mkdir(created_path)
+        if not created_path.exists():
+            created_path.mkdir()
         return created_path
 
     def read_config_file(self, config_file):
         """ Reads the config file in, splits it into lines, ignores empty and
             commented lines. """
         valid_lines = []
-        with open(config_file, 'r') as config:
+        with config_file.open('r') as config:
             for line in config:
                 line = line.rstrip()
                 # Rejects empty lines and possibly indented lines starting
@@ -112,11 +112,11 @@ class setParams:
                 configs['search_oma_database'])
             self.orthologs_prediction = self.boolean_option(
                 configs['orthologs_prediction'])
-            self.run_hamstr = self.boolean_option(configs['run_hamstr'])
-            self.run_hamstrOneSeq = self.boolean_option(
-                configs['run_hamstrOneSeq'])
-            if not self.run_hamstrOneSeq:
-                self.run_hamstr = False
+            self.run_fdog = self.boolean_option(configs['run_fdog'])
+            self.run_fdogOneSeq = self.boolean_option(
+                configs['run_fdogOneSeq'])
+            if not self.run_fdogOneSeq:
+                self.run_fdog = False
             self.fas_score = self.boolean_option(configs['fas_score'])
             self.preprocessing = self.boolean_option(configs['preprocessing'])
             self.traceability_calculation = self.boolean_option(
@@ -169,29 +169,29 @@ class setParams:
             self.R = self.path_option(configs['Rscript'])
 
             # HaMStR
-            self.hamstr = self.path_option(configs['hamstr'])
-            self.hamstrOneSeq = self.path_option(configs['oneseq'])
-            self.hamstr_environment = self.string_option(
-                configs['hamstr_environment'])
-            if self.hamstr_environment == 'default':
-                self.hamstr_environment = ''
+            self.fdog = self.path_option(configs['fdog'])
+            self.fdogOneSeq = self.path_option(configs['oneseq'])
+            self.fdog_environment = self.string_option(
+                configs['fdog_environment'])
+            if self.fdog_environment == 'default':
+                self.fdog_environment = ''
 
             # Set output and cache directory paths or create default ones
             # Each protein creates its own subdirectory within this output
             # directory
-            self.path_work_dir = self.create_path_option(
+            self.path_work_dir = self.create_dir_option(
                 configs['path_output_dir'])
             # The cache directory contains global intermediary files,
             # such as calculated species distances
-            self.path_cache = self.create_path_option(configs['path_cache'])
+            self.path_cache = self.create_dir_option(configs['path_cache'])
             # Pairwise species distances are calculated within this directory
-            self.path_distance_work_dir = self.create_path_option(
+            self.path_distance_work_dir = self.create_dir_option(
                 configs['path_distances'])
 
             # Input file paths
             self.species_MaxLikMatrix = self.path_option(
                 configs['species_MaxLikMatrix'])
-            self.hamstr_oma_tree_map = self.path_option(
+            self.species_map = self.path_option(
                 configs['Xref_mapping_file'])
             self.species_MaxLikMatrix = self.path_option(
                 configs['species_MaxLikMatrix'])

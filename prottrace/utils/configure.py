@@ -22,7 +22,7 @@
 
 import sys
 from pathlib import Path
-from prottrace.utils.log import print_error
+from utils.log import print_error
 
 
 class set_params:
@@ -193,8 +193,6 @@ class set_params:
                 configs['species_MaxLikMatrix'])
             self.species_map = self.path_option(
                 configs['Xref_mapping_file'])
-            self.species_MaxLikMatrix = self.path_option(
-                configs['species_MaxLikMatrix'])
             self.path_oma_seqs = self.path_option(configs['path_oma_seqs'])
             self.path_oma_pairs = self.path_option(configs['path_oma_pairs'])
             self.path_oma_group = self.path_option(configs['path_oma_group'])

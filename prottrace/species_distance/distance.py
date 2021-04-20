@@ -20,6 +20,7 @@
 import os
 import sys
 import time
+import argparse
 from pathlib import Path
 
 from multiprocessing.pool import Pool
@@ -32,7 +33,8 @@ from Bio.Align import substitution_matrices
 from Bio.Align import MultipleSeqAlignment as msa
 from Bio.Phylo.Consensus import bootstrap
 
-from utils.data_api import oma_api
+from utils.configure import set_params
+from utils.data_api import gen_proteomes, gen_pairwise_orthologs
 
 # Supporting script for maximum likelihood calculations #
 
@@ -47,7 +49,7 @@ def calculate_species_distances(config):
     # Read the query species from the ProtTrace configuration
     # The special species, 'ALL', updates all species in the mapping file
     query = config.species
-    species_mapping = config.hamstr_oma_tree_map
+    species_mapping = config.species_map
 
     def read_species_set(species_mapping_file):
         """ Gather the set of all subject species in this project
@@ -388,7 +390,7 @@ def concatenate_alignment(species_1, species_2, alignment_generator,
                              suffix=f'_bootstrap_{count}')
 
 
-def search_protein_pairs(species_1, species_2, pairs_src, src_type='oma'):
+def search_protein_pairs(species_1, species_2, config):
     """ Searches the given table for mutual presences of
     species 1 and species 2 within the first two columns
     and returns both columns verbatim in the order the
@@ -413,16 +415,16 @@ def search_protein_pairs(species_1, species_2, pairs_src, src_type='oma'):
                 if species_1 in line and species_2 in line:
                     yield line
 
-    def read_pairs_src(pairs_src, src_type):
-        if src_type == 'oma':
-            src_func = pairs_src.get_pairwise_orthologs
-            src_args = [species_1, species_2]
-        elif src_type == 'file':
-            src_func = gen_pairwise_orth_lines
-            src_args = [species_1, species_2, pairs_src]
+    # def read_pairs_src(pairs_src, src_type):
+    #     if src_type == 'oma':
+    #         src_func = pairs_src.get_pairwise_orthologs
+    #         src_args = [species_1, species_2]
+    #     elif src_type == 'file':
+    #         src_func = gen_pairwise_orth_lines
+    #         src_args = [species_1, species_2, pairs_src]
 
-        for line in src_func(*src_args):
-            yield line
+    #     for line in src_func(*src_args):
+    #         yield line
 
     def order_columns(columns, species_1, species_2, src_type):
         if src_type == 'oma':
@@ -441,7 +443,8 @@ def search_protein_pairs(species_1, species_2, pairs_src, src_type='oma'):
 
     try:
         sequence_count = 1
-        for line in read_pairs_src(pairs_src, src_type):
+        src_type = 'oma'
+        for line in gen_pairwise_orthologs(config, species_1, species_2):
             columns = line.rstrip().split('\t')
             # The previous generator already established that
             # both species are present in the columns. Here, we
@@ -546,8 +549,6 @@ def calculate_protein_distances(species1, species2,
     print_progress('Calculating the protein distance between {0} and {1}.'
                    .format(species1, species2))
 
-    oma = oma_api(config)
-
     treepuzzle = config.treepuzzle
     if treepuzzle is None:
         print_error('No path to TreePUZZLE has been configured!')
@@ -567,21 +568,14 @@ def calculate_protein_distances(species1, species2,
                    'sequences.')
 
     def generate_PairwiseAlignment_arguments(prot_pairs_generator,
-                                             sequence_records):
+                                             proteomes):
         """ Collects the sequences of pairwise orthologous proteins. """
         for prot_pair in prot_pairs_generator:
-            yield (str(sequence_records[0][prot_pair[0]].seq),
-                   str(sequence_records[1][prot_pair[1]].seq))
-
-    def generate_pairwise2_arguments(prot_pairs_generator,
-                                     sequence_records):
-        """ Collects the sequences of pairwise orthologous proteins. """
-        for prot_pair in prot_pairs_generator:
-            yield (str(sequence_records[0][prot_pair[0]].seq),
-                   str(sequence_records[1][prot_pair[1]].seq))
+            yield (str(proteomes[0].get_protein(prot_pair[0]).seq),
+                   str(proteomes[1].get_protein(prot_pair[1]).seq))
 
     def align_pairwise_proteins(prot_pairs_generator,
-                                sequence_records,
+                                proteomes,
                                 nr_processors):
         """ Aligns all pairwise orthologous protein sequences between species1
             and species2 using the Biopython pairwise2 module. If the distance
@@ -595,7 +589,7 @@ def calculate_protein_distances(species1, species2,
                     for alignment in align_processes.imap_unordered(
                             align_PairwiseAlignment_parallelized,
                             generate_PairwiseAlignment_arguments(
-                            prot_pairs_generator, sequence_records),
+                            prot_pairs_generator, proteomes),
                             1000):
                         yield alignment
 
@@ -606,7 +600,7 @@ def calculate_protein_distances(species1, species2,
         else:
             try:
                 for arguments in generate_PairwiseAlignment_arguments(
-                        prot_pairs_generator, sequence_records):
+                        prot_pairs_generator, proteomes):
                     yield align_PairwiseAlignment_parallelized(arguments)
 
             except KeyboardInterrupt:
@@ -619,27 +613,21 @@ def calculate_protein_distances(species1, species2,
                 os.chdir(root_dir)
                 raise e
 
-    sequence_records = provide_protein_pair_sequences(
-        species1, species2, oma)
+    """ Load proteome sequences. """
+
+    proteomes = list(gen_proteomes(config, species1, species2))
+
+    """ Align pairwise orthologous sequences and concatenate them. """
 
     # The collection of orthologous pairs, their sequences, their alignments
     # and their concatenation are all chained with generators here.
     concatenate_alignment(species1, species2,
                           align_pairwise_proteins(
-                              search_protein_pairs(species1, species2,
-                                                   oma, 'oma'),
-                              sequence_records, nr_processors),
+                              search_protein_pairs(species1, species2, config),
+                              proteomes, nr_processors),
                           bootstrap_count, nr_processors)
 
-    # align_pairwise_proteins_mafft(nr_processors, fa_dir, sequence_count)
-
-    # Collect all pairwise protein alignments, concatenate them
-    # and calculate the summarized pairwise species distance
-    # print('Preprocessing complete..\nConcatenating the alignments..')
-
-    # Concatenate and bootstrap the pairwise protein alignments
-    # concatenate_alignment_legacy(species1, species2, sequence_count, aln_dir,
-    # bootstrap_count, nr_processors)
+    """ Calculate the pairwise species distance. """
 
     # Executes TreePUZZLE to calculate the distance between the species pair
     def calculate_pairwise_distance(concat_file, treepuzzle):
@@ -750,8 +738,6 @@ def print_error(message):
 def main():
     """ The entry point to calculate the distance between two species. """
 
-    import argparse
-
     def Argparse():
         """ Parses the arguments into an object. """
 
@@ -778,11 +764,10 @@ def main():
     config_file = os.path.abspath(arguments.config)
     nr_processors = arguments.processors
 
-    import configure
-    config = configure.setParams(config_file)
+    config = set_params(config_file)
 
     if query is None:
-        query = configure.species
+        query = config.species
 
     target_dir = None
 

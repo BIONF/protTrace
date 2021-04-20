@@ -21,13 +21,16 @@
 
 import sys
 from pathlib import Path
-from prottrace.oma_api.api import oma_sq, oma_pw, oma_gr
-from prottrace.fdog_api.api import fdog_api, fdog_api_species
-from prottrace.utils.configure import set_params
-from prottrace.utils.file import generate_splitted_lines
-from prottrace.utils.log import print_error
+
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
+
+from databases.oma_api.api import oma_sq, oma_pw, oma_gr
+from databases.fdog_api.api import fdog_api, fdog_api_species
+
+from utils.configure import set_params
+from utils.file import generate_splitted_lines
+from utils.log import print_error
 
 
 class prot_id:
@@ -108,6 +111,15 @@ class species_mapping:
         self.mappings = list(species_mapping_unit.
                              generate_species_mapping(config))
 
+    def all_species(self):
+        return [unit.id for unit in self.mappings]
+
+    def combinations(self):
+        for unit_1 in self.mappings:
+            for unit_2 in self.mappings:
+                if unit_1 != unit_2:
+                    yield (unit_1, unit_2)
+
     def get_species(self, species):
         for id_mapping in self.mappings:
             if id_mapping.species_id == species:
@@ -152,6 +164,9 @@ class orth_group:
             # preloaded proteomes. They are lost when exiting this function.
             preloaded_proteomes.append(proteome_on_demand)
 
+    def at_least_4_sequences(self):
+        return len(self.members) > 3
+
     def filepath(self, prot_name):
         """ Generates a valid filename as long as the protein name stays
         the same. """
@@ -189,23 +204,40 @@ class proteome:
     __slots__ = ['source_api', 'species_name']
 
     def __init__(self, config, species_name):
-        if self.species_name == '':
+        if species_name == '':
             print_error('Access to a genome stored in HaMStR requires a '
                         'species name!')
             sys.exit()
         self.species_name = species_name
-        self.source_api = self.resolve_api(config)(config, species_name)
+        self.source_api = self.resolve_api(config, species_name)
+        if not self.source_api.seqs_file.exists():
+            print_error(f'The fasta file {self.source_api.seqs_file} is '
+                        'invalid')
 
-    def resolve_api(self, config):
-        """ Resolves the preferred source of proteomes. Returns the class
-            ready to initialize. """
+    def resolve_api(self, config, species_name):
+        """ Resolves the preferred source of proteomes. The respective api
+        class is initialized and returned. """
         if config.search_oma_database:
-            return oma_sq
+            return oma_sq(config, species_name)
         else:
-            return fdog_api_species
+            return fdog_api_species(config, species_name)
 
     def get_protein(self, identifier):
+        """ Returns the sequence record of the given identifier. """
         return self.source_api.get_protein(identifier)
+
+    # def get_index(self):
+    #     """ Loads the proteome sequence dictionary and returns it. It is
+    #     called an index, because it is typically loaded with SeqIO.index. """
+    #     self.source_api.load_index()
+    #     return self.source_api.index
+
+
+def gen_proteomes(config, *species):
+    """ Generates a proteome api for every given species. """
+
+    for s in species:
+        yield proteome(config, s)
 
 
 def gen_pairwise_orthologs(config, species_1, species_2):
@@ -213,7 +245,7 @@ def gen_pairwise_orthologs(config, species_1, species_2):
     """
 
     pw_api = oma_pw(config)
-    return pw_api.get_pariwise_orthologs(species_1, species_2)
+    return pw_api.get_pairwise_orthologs(species_1, species_2)
 
 
 if __name__ == "__main__":

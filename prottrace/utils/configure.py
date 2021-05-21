@@ -49,8 +49,11 @@ class set_params:
             result. """
         if str(value) in set(['YES', 'yes', 'True', 'true']):
             return True
-        else:
+        elif str(value) in set(['NO', 'no', 'False', 'false']):
             return False
+        else:
+            raise ValueError('Boolean options accept either "true", "false", '
+                             'or other predefined, equivalent strings.')
 
     def path_option(self, value):
         """ Returns the absolute path to the path given
@@ -129,8 +132,8 @@ class set_params:
             self.delete_temp = self.boolean_option(
                 configs['delete_temporary_files'])
             self.reuse_cache = self.boolean_option(configs['reuse_cache'])
-            self.mapTraceabilitySpeciesTree = self.boolean_option(
-                configs['map_traceability_tree'])
+            self.colorize_species_tree = self.boolean_option(
+                configs['colorize_species_tree'])
             self.includeParalogs = self.boolean_option(
                 configs['include_paralogs'])
             self.phylogeneticTreeReconstruction = self.boolean_option(
@@ -189,8 +192,8 @@ class set_params:
                 configs['path_distances'])
 
             # Input file paths
-            self.species_MaxLikMatrix = self.path_option(
-                configs['species_MaxLikMatrix'])
+            self.ML_table = self.path_option(
+                configs['ML_table'])
             self.species_map = self.path_option(
                 configs['Xref_mapping_file'])
             self.path_oma_seqs = self.path_option(configs['path_oma_seqs'])

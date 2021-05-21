@@ -18,6 +18,7 @@
 #######################################################################
 
 from pathlib import Path
+from utils.log import print_warning
 
 # This module defines classes for handling evolutionary model parameters.
 
@@ -26,11 +27,11 @@ class evol_parameters:
     """ A container of evolutionary model parameters for ProtTrace. Parameters
     are first initialized using thir default values from the ProtTrace config.
     Later insertions then turn the default flag off. """
-    __slots__ = ['_query', '_indel_rate', '_indel_length_distribution',
+    __slots__ = ['_query_id', '_indel_rate', '_indel_length_distribution',
                  '_scaling_factor']
 
     def __init__(self, query, config):
-        self._query = query
+        self._query_id = query.id
 
         self._indel_rate = evol_parameter(
             config.default_indel)
@@ -51,20 +52,23 @@ class evol_parameters:
     def scaling_factor(self):
         return self._scaling_factor.value
 
-    def set_rate(self, rate):
-        self._indel_rate.set_value(rate)
+    def set_indel_rate(self, rate):
+        if not check_none('indel rate', rate):
+            self._indel_rate.set_value(rate)
 
-    def set_distribution(self, dist):
-        self._indel_length_distribution.set_value(dist)
+    def set_indel_length_distribution(self, dist):
+        if not check_none('indel length distribution', dist):
+            self._indel_length_distribution.set_value(dist)
 
     def set_scaling_factor(self, scale):
-        self._scaling_factor.set_value(scale)
+        if not check_none('substitution scaling factor', scale):
+            self._scaling_factor.set_value(scale)
 
     def file_exists(self):
-        return Path(self._query.id + '_parameters.txt').exists()
+        return Path(self._query_id + '_parameters.txt').exists()
 
     def write_to_file(self):
-        filepath = Path(self._query.id + '_parameters.txt')
+        filepath = Path(self._query_id + '_parameters.txt')
         content = (''
                    f'indel rate:\t{str(self.indel_rate)}\n'
                    'indel length distribution:\t'
@@ -76,6 +80,12 @@ class evol_parameters:
             evol_file.write(content)
 
         return filepath
+
+
+def check_none(name, value):
+    if value is None:
+        print_warning(f'The {name} was invalid. Reverting to default')
+    return value is None
 
 
 class evol_parameter:

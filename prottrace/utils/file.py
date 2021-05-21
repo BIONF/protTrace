@@ -46,7 +46,7 @@ def generate_splitted_lines_with_pos(handler):
         yield (previous_pos, line.rstrip().split('\t'))
 
 
-def generate_splitted_lines(lines, comment='#'):
+def generate_splitted_lines(lines, sep='\t', comment='#'):
     for line in lines:
         if comment not in line:
-            yield line.rstrip().split('\t')
+            yield line.rstrip().split(sep)

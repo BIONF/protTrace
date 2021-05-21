@@ -34,82 +34,60 @@ from Bio.Align import MultipleSeqAlignment as msa
 from Bio.Phylo.Consensus import bootstrap
 
 from utils.configure import set_params
-from utils.data_api import gen_proteomes, gen_pairwise_orthologs
+from utils.data_api import (
+    map_distance_species,
+    gen_proteomes,
+    gen_pairwise_orthologs
+)
 
 # Supporting script for maximum likelihood calculations #
 
 
-def calculate_species_distances(config):
-    """ Orchestrates the calculation of species distances between
-    the query species and all other species in the
-    speciesTreeMapping list. <config> is expected as an
-    instance of the ProtTrace configuration (generated with
-    configure.setParams) """
+def calculate_species_distances(config, species_ids):
+    """ Orchestrates the calculation of species distances between the query
+    species and all other species in the speciesTreeMapping list. <config> is
+    expected as an instance of the ProtTrace configuration (generated with
+    configure.setParams). This function is NOT the main entry for standalone
+    usage! """
 
     # Read the query species from the ProtTrace configuration
     # The special species, 'ALL', updates all species in the mapping file
     query = config.species
-    species_mapping = config.species_map
-
-    def read_species_set(species_mapping_file):
-        """ Gather the set of all subject species in this project
-        from the speciesTreeMapping file. """
-        species_set = set()
-        try:
-            with open(species_mapping_file, 'r') as sm:
-                for line in sm:
-                    species_set.add(line.split()[-1])
-            return species_set
-        except IOError:
-            sys.exit(print_error('Could not open {0}. Please check the path.'
-                     .format(species_mapping_file)))
 
     prepare_directories(config)
     previous_work_dir = move_working_dir(None, config)
 
     def search_and_complement_missing_species(query, species_set, config,
+                                              mappings,
                                               check_table=True,
                                               check_cache=True):
 
         # Set the default set of missing species
         missing_species = species_set
 
-        def check_table_for_missing_species(missing_species,
-                                            query, species_set, config):
+        def spec_pres_in_table(missing_species, query, config, mappings):
 
-            if check_table and len(missing_species) > 0:
-                # Exclude all species with existing distances in
-                # species_max_likelihood. The function will return a SET of
-                # species. Their order when iterated will be random!
-                missing_species = check_species_max_likelihood_table(
-                    query,
-                    species_set,
-                    config)
+            return missing_species.difference(
+                map_distance_species(config, mappings, query))
 
+        def spec_pres_in_cache(missing_species, query, config):
+
+            if not os.path.exists(config.path_cache):
+                return missing_species
+            # Exclude missing species with existing .lik files in the cache
+            # directory. We check the cache directory for
+            # {query species}_{missing species}.lik files
+            missing_species = {species for species in missing_species
+                               if not Path(f'{config.path_cache}/'
+                                           f'{query}_{species}.lik').exists()}
             return missing_species
 
-        def check_cache_for_missing_species(missing_species, query, config):
-
-            if check_cache and len(missing_species) > 0:
-                if not os.path.exists(config.path_cache):
-                    return missing_species
-                # Exclude missing species with existing .lik files in the cache
-                # directory. We check the cache directory for
-                # {query species}_{missing species}.lik files
-                missing_species = {species for species in missing_species
-                                   if not os.path.isfile("{0}/{1}_{2}.lik"
-                                                         .format(
-                                                            config.path_cache,
-                                                            query, species))}
-            return missing_species
-
-        missing_species = check_table_for_missing_species(missing_species,
-                                                          query,
-                                                          species_set,
-                                                          config)
-        missing_species = check_cache_for_missing_species(missing_species,
-                                                          query,
-                                                          config)
+        if check_table and len(missing_species) > 0:
+            missing_species = spec_pres_in_table(missing_species, query,
+                                                 config, mappings)
+        if check_cache and len(missing_species) > 0:
+            missing_species = spec_pres_in_cache(missing_species, query,
+                                                 config)
 
         # If we are still missing species distances, we calculate them now
         # All distances are copied to the cache directory. This means they stay
@@ -142,7 +120,14 @@ def calculate_species_distances(config):
     # False, False)
     # sys.exit()
 
-    species_set = read_species_set(species_mapping)
+    species_set = set(species_ids.all_species())
+    if query != 'ALL' and query not in species_set:
+        raise ValueError('The species query ID in the config file should be '
+                         'part of the mapping file for sanity!')
+    # We want to calculate distances between our query and subject species. We
+    # do not need the query within the set. The query argument will be passed
+    # to following functions to filter the query out on their own.
+    species_set.remove(query)
 
     if query == 'ALL':
         # Here, we use each species as a query
@@ -150,12 +135,21 @@ def calculate_species_distances(config):
             # Existing distances in the cache are excluded, but this routine
             # replaces distances in the ML table
             search_and_complement_missing_species(species, species_set, config,
+                                                  species_ids,
                                                   False, True)
     else:
-        search_and_complement_missing_species(query, species_set, config)
+        search_and_complement_missing_species(query, species_set, config,
+                                              species_ids)
 
     # Return to the previous working directory
     move_working_dir(previous_work_dir, config)
+
+    # Exiting ProtTrace, if the special query ID ALL is used to calculate the
+    # pairwise species distances of all species in the mapping file.
+    if query == 'ALL':
+        print_progress('Updated all pairwise species distances. '
+                       'Exiting ProtTrace')
+        sys.exit()
 
 
 def prepare_directories(config, target_dir=None, species1=None, species2=None):
@@ -249,7 +243,7 @@ def check_species_max_likelihood_table(query, targets, config):
 
     # Check whether all query-subject pairs have already
     # computed distances in the species_max_likelihood file
-    species_max_likelihood = config.species_MaxLikMatrix
+    species_max_likelihood = config.ML_matrix
     # We need a list first, because we first fetch the names
     # in the first line, then we fetch existing numbers
     # in the query species row, where both indices must
@@ -594,9 +588,9 @@ def calculate_protein_distances(species1, species2,
                         yield alignment
 
             except KeyboardInterrupt:
-                sys.exit('The user interrupted the alignment of pairwise '
-                         'orthologous proteins.')
-
+                print_warning('The user interrupted the alignment of pairwise '
+                              'orthologous proteins.')
+                sys.exit()
         else:
             try:
                 for arguments in generate_PairwiseAlignment_arguments(

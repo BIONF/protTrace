@@ -19,16 +19,20 @@
 
 import os
 import sys
-import prottrace.utils.configure
 import subprocess
+
 import dendropy
-from prottrace.utils.log import {
-    print_progress,
-    print_error,
-    print_warning,
-    time_report
-}
 from multiprocessing import Pool
+from pathlib import Path
+
+from utils.data_api import proteome
+from utils.file import dir_move
+from utils.log import (
+    print_progress,
+    print_warning,
+    print_error,
+    time_report
+)
 
 # Module where actual REvolver / BLAST cycles run takes place
 # After every REvolver run, detection probability is checked with reciprocal
@@ -36,69 +40,81 @@ from multiprocessing import Pool
 # rate is calculated using decay script
 
 
-def main(p_id, config_file):
-    # Global variables are needed, since the multiprocessing.Pool.map function
-    # only maps one parameter onto each run. All other outside parameters in
-    # use need to be globally available.
-    global prot_id
-    prot_id = p_id
+def main(p_id, config):
 
-    global prot_config
-    prot_config = configure.setParams(config_file)
+    # We only need the main ID from the prot_id class
+    prot_id = p_id.id
+
+    prot_config = config
+
     cache = prot_config.reuse_cache
     nr_proc = prot_config.nr_processors
 
-    rootDir = os.getcwd()
-    work_dir = prot_config.path_work_dir + '/' + prot_id
-    os.chdir(work_dir)
+    work_dir = dir_move(prot_config.path_work_dir / prot_id)
 
-    if os.path.exists(work_dir + '/omaId.txt'):
-        global blastHitId
-        blastHitId = open(work_dir + '/omaId.txt').read().split('\n')[0]
-    else:
-        sys.exit(print_error('No reciprocal BLAST hit id found!'))
+    xml_file = Path('revolver_config_' + prot_id + '.xml')
 
-    global xml_file
-    xml_file = 'revolver_config_' + prot_id + '.xml'
+    """ Prepare the query species proteome as a BLAST database within the
+    current working directory. """
 
-    global proteome_file
-    proteome_file = work_dir + '/' + 'proteome_' + prot_id
+    # Instantiates the proteome of the query species
+    q_proteome = proteome(prot_config, prot_config.species)
+
+    # Creates the filename for the link we use in this module.
+    proteome_file = work_dir.current / ('proteome_' + prot_id)
+
+    # The proteome instance asks his source api to link the original proteome
+    # file. With a symlink, we need to make sure that the link does not exist
+    # yet.
+    if not proteome_file.exists():
+        q_proteome.transfer_proteome(proteome_file)
+
+    # Runs Makeblastdb
+    prepare_blastdb(prot_config, str(proteome_file))
+
+    """ Prepare the simulation tree. """
 
     trees = dendropy.TreeList.get_from_path(prot_config.simulation_tree,
-                                            "newick")
-    global taxonset
+                                            'newick')
     taxonset = []
     for element in trees.taxon_namespace:
         taxonset.append(str(element).replace("'", ""))
     taxonset = taxonset[::-1]
 
-    print_progress('Running REvolver / BLAST cycles')
-    start_time = time_report()
+    def gen_REvolver_args(prot_id, prot_config, xml_file, proteome_file,
+                          taxonset):
+        for run in range(prot_config.simulation_runs):
+            yield [run, prot_id, prot_config, xml_file, proteome_file,
+                   taxonset]
 
-    if cache and os.path.exists('decay_summary_{0}.txt_parameter'
-                                .format(prot_id)):
-        pass
-    else:
+    def run_traceability(prot_id, prot_config, xml_file, proteome_file,
+                         taxonset):
+
+        print_progress('Running REvolver / BLAST cycles')
+        timestop = time_report()
+        results = None
         try:
-            pool = Pool(processes=nr_proc)
-            results = pool.map(actual_traceability_calculation,
-                               range(prot_config.simulation_runs))
+            with Pool(processes=nr_proc) as pool:
+                results = pool.map(actual_traceability_calculation,
+                                   gen_REvolver_args(prot_id, prot_config,
+                                                     xml_file, proteome_file,
+                                                     taxonset))
         except KeyboardInterrupt:
-            pool.terminate()
-            pool.close()
-            sys.exit("Interrupting REvolver")
-        except Exception:
-            print_error('An error occured during the self identification '
-                        'process')
+            sys.exit('The user interrupted REvolver.')
+        except Exception as e:
+            raise e
+            print_warning('An error occured during the self identification '
+                          'process')
             pass
-        finally:
-            pool.terminate()
-            pool.join()
 
-        start_time.print_time('REvolver/BLAST', 'mins')
+        if results is None:
+            # Make sure to fall back to default values!
+            return
 
-        with open('full_decay_results_{0}.txt'.format(prot_id), 'w') as ffull,\
-                open('decay_summary_{0}.txt'.format(prot_id), 'w') as fsum:
+        timestop.print_time('REvolver/BLAST', 'mins')
+
+        with open(f'full_decay_results_{prot_id}.txt', 'w') as ffull,\
+                open(f'decay_summary_{prot_id}.txt', 'w') as fsum:
 
             detection_probability = {}
             for res in results:
@@ -118,28 +134,60 @@ def main(p_id, config_file):
                 fsum.write(str(float(count) / float(
                     prot_config.simulation_runs)) + '\n')
 
-        print('##### Calculating decay parameters #####')
+        print_progress('Calculating decay parameters.')
         decayParams(prot_config.R, prot_id, prot_config.decay_script)
 
-    os.chdir(rootDir)
+    print(Path(f'decay_summary_{prot_id}.txt_parameter').exists())
+    if cache and Path(f'decay_summary_{prot_id}.txt_parameter').exists():
+        pass
+    else:
+        run_traceability(prot_id, prot_config, xml_file, proteome_file,
+                         taxonset)
+
+    # To remove this temporary file, we need access to the query prot_id class.
+    if prot_config.delete_temp:
+        p_id.remove_fasta()
+    work_dir.reverse()
 
 
-def actual_traceability_calculation(run):
-    temp_revolver_config_file = '{0}_revolver_config.xml'.format(run)
-    os.system('cp {0} {1}'.format(xml_file, temp_revolver_config_file))
-    temp_data = open(temp_revolver_config_file).read()
+def prepare_blastdb(prot_config, proteome_file):
+    """ Creating a BLAST database for future searches. """
+    print_progress('Making a BLAST database of the gene set.')
+    cmd = [prot_config.makeblastdb, '-in', proteome_file, '-input_type',
+           'fasta', '-dbtype', 'prot']
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError:
+        print_error('The query gene set could not be processed into a BLASTDB')
+    # os.system('{0} -in {1} -input_type fasta -dbtype prot'
+    #           .format(config.path_makeblastdb,  proteome_file))
 
-    with open(temp_revolver_config_file, 'w') as ftemp:
+
+def actual_traceability_calculation(args):
+    """ Perform a single REvolver into BLAST run. """
+
+    run = args[0]
+    prot_id = args[1]
+    prot_config = args[2]
+    xml_file = args[3]
+    proteome_file = args[4]
+    taxonset = args[5]
+
+    temp_revolver_config_file = Path(f'{run}_revolver_config.xml')
+    os.system(f'cp {str(xml_file)} {str(temp_revolver_config_file)}')
+    temp_data = temp_revolver_config_file.open('r').read()
+
+    with temp_revolver_config_file.open('w') as ftemp:
         ftemp.write(temp_data.replace('REvolver_output',
                                       'REvolver_output_' + str(run)))
 
-    revolver_output_dir = 'REvolver_output_{0}'.format(run)
-    if not os.path.exists(revolver_output_dir):
-        os.mkdir(revolver_output_dir)
+    revolver_output_dir = Path(f'REvolver_output_{run}')
+    if not revolver_output_dir.exists():
+        revolver_output_dir.mkdir()
 
     detection_probability = {}
 
-    print('Run: {0}'.format(run))
+    print_progress(f'Run: {run}')
 
     success = False
     trials = 0
@@ -148,7 +196,8 @@ def actual_traceability_calculation(run):
         try:
             try:
                 run_revolver(prot_config.REvolver, temp_revolver_config_file)
-            except Exception:
+            except subprocess.CalledProcessError as e:
+                raise e
                 # The exception is raised by the subprocess routine that
                 # calles REvolver
                 print("REvolver threw an exception!")
@@ -156,7 +205,8 @@ def actual_traceability_calculation(run):
             try:
                 blastOutput = run_blast(prot_config.blastp, prot_id,
                                         proteome_file, revolver_output_dir)
-            except Exception:
+            except subprocess.CalledProcessError as e:
+                raise e
                 # The exception is raised by the subprocess routine that
                 # calles BLASTP
                 print("BLASTP threw an exception during the reblast!")
@@ -166,7 +216,8 @@ def actual_traceability_calculation(run):
                 linecount = 1
                 for line in blastOutput.split('\n'):
                     if taxa == line.split('\t')[0]:
-                        if line.split('\t')[1] == blastHitId:
+                        if line.split('\t')[1] == prot_id:
+                            # blastHitId:
                             detection = 1
                             break
                         linecount += 1
@@ -177,26 +228,33 @@ def actual_traceability_calculation(run):
         except KeyboardInterrupt:
             print('Keyboard interruption by user!')
             raise Exception
+
     if trials >= 10:
         print_warning('Too many trials for REvolver!')
 
     if prot_config.delete_temp:
-        os.system('rm -r {0}'.format(revolver_output_dir))
-        os.system('rm {0}'.format(temp_revolver_config_file))
+        temp_revolver_config_file.unlink()
+        os.system(f'rm -r {revolver_output_dir}')
 
     return detection_probability
 
 
 def decayParams(r, prot_id, decay_script):
-    command = ('{0} --quiet --vanilla {1} ' +
-               'decay_summary_{2}.txt').format(r, decay_script, prot_id)
-    print_progress('Decay parameter calculation command: {0}'.format(command))
-    os.system(command)
+    """ Runs the Rscript to calculate the decay parameters from the REvolver
+    runs. """
+    # command = (f'{r} --quiet --vanilla {decay_script} '
+    #            f'decay_summary_{prot_id}.txt')
+
+    output_file = f'decay_summary_{prot_id}.txt'
+    command = [r, '--quiet', '--vanilla', decay_script, output_file]
+    print_progress(f'Decay parameter calculation command: {command}')
+
+    subprocess.run(command, check=True)
 
 
 def run_revolver(REvolver, xml_file):
-    command = ["java", "-Xmx2G", "-Xms2G", "-cp", REvolver, "revolver",
-               xml_file]
+    command = ['java', '-Xmx2G', '-Xms2G', '-cp', REvolver, 'revolver',
+               str(xml_file)]
     try:
         subprocess.check_output(command, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
@@ -227,10 +285,10 @@ def run_blast(blastp, prot_id, proteome, revolverOut):
     # Performs the reblast against the query proteome.
 
     # Declares the BLASTP process.
-    blast_process = subprocess.Popen([blastp, "-query",
-                                      "{0}/out.fa".format(revolverOut),
-                                      "-db", proteome, "-outfmt",
-                                      "6 qseqid sseqid"],
+    blast_process = subprocess.Popen([blastp, '-query',
+                                      f'{revolverOut}/out.fa',
+                                      '-db', proteome, '-outfmt',
+                                      '6 qseqid sseqid'],
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
     # Waits for BLASTP to be finished and retrieves the result and error
@@ -240,14 +298,14 @@ def run_blast(blastp, prot_id, proteome, revolverOut):
     # bytes and strings are not interchangeable anymore.
     result = result.decode('utf-8')
     error = error.decode('utf-8')
-    # This error message is caught and print(ed only once.)
-    if error[0:54] == "BLAST engine error: Warning: Sequence contains no data":
-        print("BLAST engine error: Warning: Sequence contains no data")
+    # This error message is caught and printed only once.
+    if error[0:54] == 'BLAST engine error: Warning: Sequence contains no data':
+        print('BLAST engine error: Warning: Sequence contains no data')
         print('Either an sequence in the simulation step was deleted to zero '
               'amino-acids or REvolver did not execute properly!')
     elif error == 'Command line argument error: Argument \"query\". File is '\
             'not accessible: {0}/out.fa\n'.format(revolverOut):
-        print("REvolver did not produce an output fasta file!")
+        print('REvolver did not produce an output fasta file!')
     elif error != "":
         print(error)
     return result

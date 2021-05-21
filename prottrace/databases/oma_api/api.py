@@ -34,13 +34,13 @@ class oma:
     @staticmethod
     def prot_id_to_spec_id(protein_id):
         """ Extracts the OMA species ID from an OMA protein ID. """
-        return protein_id[1:5]
+        return protein_id[0:5]
 
     @staticmethod
     def prot_ids_to_spec_ids(protein_ids):
         """ Extracts the OMA species IDs from OMA protein IDs. """
         for prot in protein_ids:
-            yield prot[1:5]
+            yield prot[0:5]
 
 
 class oma_pw(oma):
@@ -79,11 +79,17 @@ class oma_gr(oma):
     """ Manages OMA groups. """
 
     def __init__(self, config):
-        self.oma_groups = config.path_oma_groups
+        self.oma_groups = config.path_oma_group
 
     def gen_members(self, prot_name):
-        with self.oma_groups.open('r') as gr_file:
-            for line in generate_splitted_lines(gr_file):
+
+        def gen_gr_lines(instance):
+            with instance.oma_groups.open('r') as gr_file:
+                for line in generate_splitted_lines(gr_file):
+                    yield line
+
+        for line in gen_gr_lines(self):
+            if prot_name in line:
                 # The first two elements of an oma_groups.txt file shows the
                 # group number and fingerprint. The member protein ids are
                 # shown from element 3 onwards.
@@ -106,7 +112,13 @@ class oma_sq(oma):
     def get_protein(self, identifier):
         """ Searches the protein sequence in the SeqRecord index of the
         oma-seqs file. """
-        return self.index[identifier]
+        return str(self.index[identifier].seq)
+
+    def get_proteome_file(self):
+        """ Returns the Path of the original proteome that this class has
+        been instantiated with. The proteome must be exclusive to one species.
+        """
+        return self.seqs_file
 
     def index_seqs(self, necessary_ids=None):
         try:

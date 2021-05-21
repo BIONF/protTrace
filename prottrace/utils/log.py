@@ -17,32 +17,38 @@
 #
 #######################################################################
 
+from time import (
+    time,
+    strftime,
+    localtime
+)
+
 
 def print_progress(message, force_flush=False):
-    print('###\t{0}\t###'.format(message), flush=force_flush)
+    print(f'###\t{message}\t###', flush=force_flush)
 
 
 def print_warning(message):
-    print('Warning: {0}'.format(message))
+    print(f'Warning: {message}')
 
 
 def print_error(message):
-    print('ERROR: {0}'.format(message))
+    print(f'ERROR: {message}')
 
 
 class time_report():
     __slots__ = ['start_time']
 
     def __init__(self):
-        self.start_time = time.time()
+        self.start_time = time()
 
     def time_passed(self):
         """ Returns the time passed since starting this instance in
         minutes. """
-        return time.time() - self.start_time
+        return time() - self.start_time
 
     def format_secs(self):
-        return '{0} seconds'.format(str(self.time_passed))
+        return f'{str(self.time_passed())} seconds'
 
     def mins_passed(self):
         """ Scales the time passed to minutes. """
@@ -50,7 +56,7 @@ class time_report():
 
     def format_mins(self):
         """ Formats the time passed to show minutes. """
-        return '{0} minutes'.format(str(self.mins_passed()))
+        return f'{str(self.mins_passed())} minutes'
 
     def hrs_passed(self):
         """ Scales the time passed to hours. """
@@ -58,7 +64,7 @@ class time_report():
 
     def format_hrs(self):
         """ Formats the time passed to show hours.. """
-        return '{0} hours'.format(str(self.hrs_passed()))
+        return f'{str(self.hrs_passed())} hours'
 
     def format_passed(self, message, scale='sec'):
         """ Formats a given time with a specified message. """
@@ -70,15 +76,14 @@ class time_report():
         elif scale == 'hrs':
             scaled_time = self.format_hrs()
 
-        return '####\tTime taken: {0} for {1}\t####'.format(
-            scaled_time, message)
+        return f'Time taken: {scaled_time} for {message}'
 
     def print_time(self, message, scale='sec'):
         """ Prints the time passed onto the user interface. """
-        print(self.format_passed(self, message, scale), flush=True)
+        print_progress(self.format_passed(message, scale), force_flush=True)
 
     @staticmethod
     def format_verbose(message):
         """ Formats the current clock time verbosely. """
-        print('#### {0}: {1} ####'.time.strftime(
-            '%a, %d %b %Y %H:%M:%S +0000', time.localtime()))
+        formatted_time = strftime('%a, %d %b %Y %H:%M:%S +0000')
+        print_progress(f'{formatted_time}: {localtime()}')

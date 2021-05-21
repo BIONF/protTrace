@@ -36,6 +36,9 @@ class fdog_api():
     def get_genome(self, species_name):
         return Path(self.path_genome / species_name)
 
+    def gen_members():
+        return None
+
 
 class fdog_api_species(fdog_api):
     """ Accesses the genome of a particular species in fDOG. """

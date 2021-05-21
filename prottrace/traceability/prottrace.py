@@ -35,21 +35,31 @@
 """ The main entry point for ProtTrace which dispatches the query onto the
     different modules. """
 
-
-import sys
 import argparse
 from pathlib import Path
-from prottrace.utils.configure import set_params
-from prottrace.species_distances.distance import calculate_species_distances
-from prottrace.traceability.evolutionary_model import main as evol_model
-from prottrace.traceability.self_hit_statistics import main as trace
-from prottrace.traceability.calculate_traceability import main as calc_trace
-from prottrace.traceability.colourize_tree import main as colourize_tree
-from prottrace.utils.data_api import prot_id, species_mapping, fasta
-from prottrace.utils.log import print_progress, time_report
+
+from utils.configure import set_params
+from utils.data_api import (
+    prot_id,
+    species_mapping,
+    fasta,
+    proteome
+)
+from utils.log import (
+    print_progress,
+    print_error,
+    time_report
+)
+
+from species_distance.distance import calculate_species_distances
+
+from traceability.evolutionary_model import main as evol_model
+from traceability.self_hit_statistics import main as trace
+from traceability.calculate_traceability import main as calc_trace
+from traceability.colorize_tree import main as colorize_tree
 
 
-def main(argv):
+def main():
 
     def interpret_arguments():
         """ Parses the arguments into an object """
@@ -100,41 +110,54 @@ def main(argv):
     config_file = arguments.config
     protein_params = set_params(config_file)
 
+    """ Load the mapping file which translates species IDs between databases.
+    """
     spec_mappings = species_mapping(protein_params)
-
-    # One of these arguments is required already
-    if arguments.id:
-        id_list = gen_ids(arguments.id, spec_mappings)
-    if arguments.fasta:
-        fasta_list = gen_fasta(arguments.fasta, spec_mappings)
 
     only_update_all_distances = False
     if arguments.distance:
         only_update_all_distances = True
 
-    # This is a special setting, where no protein ID is needed and its only
+    # This is a special species ID, where no protein ID is needed and its only
     # purpose is to update the distances between all species in the species
-    # list
+    # list. Prottrace is exited when the distance calculation is finished.
     if only_update_all_distances:
-        # This argument hopefully breaks anything but the intended routine
         protein_params.species = 'ALL'
-        calculate_species_distances(protein_params)
-    else:
-        # Check available pairwise species distances and calculate missing ones
-        calculate_species_distances(protein_params)
+    calculate_species_distances(protein_params, spec_mappings)
 
-    if id_list != '':
-        process_query_list(id_list, protein_params)
-    elif fasta_list != '':
-        process_query_list(fasta_list, protein_params)
+    # One of these arguments is required already. Both gen functions generate
+    # the same basic information. Fasta arguments just also fill in the query
+    # sequence.
+    if arguments.id:
+        # Adds the query sequences via the config.
+        query_list = gen_ids(arguments.id, spec_mappings, protein_params)
+        if query_list is None:
+            print_error('An error occurred when reading query IDs')
+    if arguments.fasta:
+        query_list = gen_fasta(arguments.fasta, spec_mappings)
+        if query_list is None:
+            print_error('An error occurred when reading query IDs')
+
+    process_query_list(query_list, protein_params)
 
 
-def gen_ids(id_file, spec_mapping):
+def gen_ids(id_file, spec_mapping, config):
     """ Reads the id file into protein ID objects. """
 
-    with id_file.open('r') as i_file:
-        for line in i_file:
-            yield prot_id(line.rstrip(), spec_mapping)
+    # You can only specify one species within the config as your query species.
+    # Therefore, we assume that all query proteins represent this species and
+    # that we can load its proteome once to fill in the query sequences.
+    query_proteome = proteome(config, spec_mapping.get_species(config.species))
+
+    try:
+        with id_file.open('r') as i_file:
+            for line in i_file:
+                query_id = line.rstrip()
+                yield prot_id(query_id, spec_mapping,
+                              query_proteome.get_protein(query_id))
+    except KeyError:
+        print_error(f'The query species "{config.species}" is not the species '
+                    f'of the given query protein ID "{query_id}"')
 
 
 def gen_fasta(fasta_file, spec_mapping):
@@ -145,25 +168,26 @@ def gen_fasta(fasta_file, spec_mapping):
 
 
 def process_query_list(id_list, protein_params):
+    """ Runs all requested ProtTrace steps for a given id_list. """
     for query in id_list:
         print_progress(f'Running for ID: {query.id}')
         if protein_params.preprocessing:
             evol_model(query, protein_params)
+        # Trace the detectability of the query protein.
         if protein_params.traceability_calculation:
             trace(query, protein_params)
-        if protein_params.mapTraceabilitySpeciesTree:
-            calc_trace.main(query, protein_params)
-        if protein_params.colourize_species_tree:
-            colourize_tree.main(query, protein_params)
+        # Calculate the evolutionary traceability from raw trace values.
+        calc_trace(query, protein_params)
+        if protein_params.colorize_species_tree:
+            colorize_tree(query, protein_params)
 
 
 if __name__ == "__main__":
-    if len(sys.argv[1:]) > 0:
-        time_report.format_verbose('Start time')
-        time_record = time_report()
+    time_report.format_verbose('Start time')
+    time_record = time_report()
 
-        # Execute the software.
-        main(sys.argv[1:])
+    # Execute the software.
+    main()
 
-        time_record.print_time('TOTAL TIME', 'hrs')
-        time_report.format_verbose('End time')
+    time_record.print_time('TOTAL TIME', 'hrs')
+    time_report.format_verbose('End time')

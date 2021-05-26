@@ -137,7 +137,6 @@ def main(p_id, config):
         print_progress('Calculating decay parameters.')
         decayParams(prot_config.R, prot_id, prot_config.decay_script)
 
-    print(Path(f'decay_summary_{prot_id}.txt_parameter').exists())
     if cache and Path(f'decay_summary_{prot_id}.txt_parameter').exists():
         pass
     else:

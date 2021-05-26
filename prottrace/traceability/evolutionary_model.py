@@ -124,7 +124,7 @@ def exec_steps(query, prot_config, work_dir_path, cache):
     # Defines the file name of the reconstructed species tree. This tree
     # is used to extract the mean phylogenetic speed between species.
     # But also later when normalizing indel rates.
-    tree_file = Path(f'og_seqs_{query.id}.phy.treefile')
+    tree_file = Path(f'ogSeqs_{query.id}.phy.treefile')
 
     # Reconstructs the phylogeny of the orthologous sequences and
     # calculates the substitution rate scaling from this tree.
@@ -324,9 +324,9 @@ def calculate_indels(query, evol_params, tree_file, phy_file, orth,
     # any case. If no tree is found, we still use default indel values.
     if tree_file.exists():
         # Decide whether SpartaABC is used for calculating indel values.
-        if prot_config.run_sparta_abc:
+        if prot_config.run_spartaABC:
             path_posterior_params = Path(
-                'sparta_abc_raw_output.posterior_params')
+                'spartaABC_raw_output.posterior_params')
 
             # Calculate indel values using SpartaABC.
             exec_step(prot_config.run_sparta_abc,
@@ -354,7 +354,7 @@ def calculate_indels_sparta_abc(query, evol_params, orth, tree_file,
     # FASTA format.
 
     # Define the filename for the MSA file.
-    aln_file = Path(f'og_seqs_{query.id}.fa')
+    aln_file = Path(f'ogSeqs_{query.id}.fa')
 
     # Perform the MSA using MAFFT.
     exec_step(prot_config.perform_msa,
@@ -372,7 +372,7 @@ def calculate_indels_sparta_abc(query, evol_params, orth, tree_file,
     # DAWG performs on nucleotides, which is unsupported by ProtTrace.
     # DAWG support is considered deprecated.
     # seq_evolve_with_dawg = prot_config.evolve_dawg
-    path_posterior_params = Path('sparta_abc_raw_output.posterior_params')
+    path_posterior_params = Path('spartaABC_raw_output.posterior_params')
 
     # The delete temporary files option needs both control files
     # to be named to check them.
@@ -606,11 +606,11 @@ def calculate_indels_parsimony(query, evol_params, phy_file, tree_file,
 
     """ Prepare the alignment to be read by IQTree. """
 
-    print_progress("Transforming MSA based on indel blocks")
+    print_progress('Transforming MSA based on indel blocks')
 
     # Try to transform the multiple sequence alignment. If this
     # throws an error,  continue with the default value.
-    trans_file = Path('og_seqs_' + query.id + '.trans')
+    trans_file = Path(f'ogSeqs_{query.id}.trans')
     alignment_length = 0
     try:
         alignment_length = trans_align(phy_file, trans_file)
@@ -626,9 +626,10 @@ def calculate_indels_parsimony(query, evol_params, phy_file, tree_file,
     # Reads the contents of the protein tree that was reconstructed for
     # calculating substitution scaling rates.
     try:
-        trees = dendropy.tree_list.get_from_path(tree_file, 'newick')
+        trees = dendropy.TreeList.get_from_path(tree_file, 'newick')
         tree_lengths = [tree.length() for tree in trees]
-    except Exception:
+    except Exception as e:
+        raise e
         print_error('Could not read the reconstructed species tree')
         sys.exit()
 
@@ -670,9 +671,6 @@ def calculate_indels_parsimony(query, evol_params, phy_file, tree_file,
     print_progress(f'Indel rate: {indel}; Indel length distribution: '
                    f'{indel_distribution}')
 
-    if __debug__:
-        print(f'Parsimony based indel parameters: {indel}, '
-              f'{indel_distribution}')
     evol_params.set_indel_rate(indel)
     evol_params.set_indel_length_distribution(indel_distribution)
 

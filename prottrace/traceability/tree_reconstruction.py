@@ -17,7 +17,6 @@
 #
 #######################################################################
 
-import os
 import sys
 from pathlib import Path
 import subprocess
@@ -52,9 +51,9 @@ def median(lst):
 # Perform MSA of the new renamed ortholog sequences file (MAFFT mafft)
 def msa_convert(query_id, phy_file, config):
     if phy_file.exists():
-        print('Reusing existing alignment file: phy_file')
+        print_progress('Reusing existing alignment file: phy_file')
     else:
-        print('Generating MSA')
+        print_progress('Generating MSA')
         subprocess.run([config.mafft, '--phylipout', f'ogSeqs_{query_id}.fa',
                         '>', f'ogSeqs_{query_id}.phy'], check=True, shell=True)
         # os.system('{0} --phylipout ogSeqs_{1}.fa > ogSeqs_{3}.phy'
@@ -88,8 +87,13 @@ def run_iqtree(protein_id, reuse_cache, config):
 # Remove all the temp files generated
 def rm_temp(protein_id):
 
-    os.system(f'rm temp_parameters_{protein_id}.txt')
-    os.system(f'rm maxLikDist_{protein_id}.txt')
+    try:
+        # The missing_ok parameter is added in version 3.8. Let's keep some
+        # downwards compatibility.
+        Path('temp_parameters_{protein_id}.txt').unlink()
+        Path('maxLikDist_{protein_id}.txt').unlink()
+    except FileNotFoundError:
+        pass
 
 
 class species_pair_distance:
@@ -162,26 +166,32 @@ def scaling_factor_max(protein_id, orth_group, cache_manager, config):
     # protein_dist = Path(f'ogSeqs_{protein_id}.phy.mldist').read().split('\n')
     # ml_matrix_main(protein_dist, protein_id)
 
+    print_progress('Collecting orthologous protein ML distances')
+
     # Collect the pairwise protein distance of all sequences in the
     # orthologous group. Each distance will be linked to a pair of species IDs.
     orth_dists = gen_orth_ml_dists(protein_id, orth_group)
+
+    print_progress('Collecting pairwise species ML distances')
 
     # Collect the median pairwise species distance of all species represented
     # by protein sequences in this orthologous group.
     spec_dists = {pair.spec_set: pair for pair in
                   orth_group.gen_species_ml_dists(config)}
 
+    print_progress('Drawing the median of all orthologous / species ML '
+                   'distance ratios')
+
     try:
-        for orth in orth_dists:
-            scales = [orth.distance / spec_dists[orth.spec_set].distance
-                      for orth in orth_dists]
+        scales = [orth.distance / spec_dists[orth.spec_set].distance
+                  for orth in orth_dists]
     except KeyError:
         print_warning('There are not as many pairwise species distances '
                       'available as there are orthologous protein sequence '
                       'ML distances')
     # try:
     #     # orth_max = Path(f'maxLikDist_{protein_id}').read().split('\n')
-    #     species_max = config.species_maxLikMatrix.open('r').read().split('\n')
+    # species_max = config.species_maxLikMatrix.open('r').read().split('\n')
     #     # fdogFile = map_file.open('r').read().split('\n')
     #     for i in range(len(orth_max) - 1):
     #         line = orth_max[i].split('\t')[0]
@@ -225,7 +235,7 @@ def scaling_factor_max(protein_id, orth_group, cache_manager, config):
     #                 if species_max[species_max_i].split('\t')[0] == species1:
     #                     rowIndex = species_max_i
     #                     flag1 = False
-    #                 elif species_max[species_max_i].split('\t')[0] == species2:
+    #           elif species_max[species_max_i].split('\t')[0] == species2:
     #                     columnIndex = species_max_i
     #                     flag2 = False
     #             # if not flag1 and not flag2:

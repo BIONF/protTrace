@@ -148,9 +148,9 @@ def create_traceability_output_file(query, mappings, compute_fas,
     # Get the decay rate and decay pop of the protein to calculate the
     # traceability
     with Path(f'decay_summary_{qu_prot}.txt_parameter').open('r') as t_decay_f:
-        written_parameters = t_decay_f.read().split("\n")
-        decay_rate = float(written_parameters[0].rstrip())
-        decay_pop = float(written_parameters[1].rstrip())
+        written_parameters = t_decay_f.read().split('\n')
+        decay_pop = float(written_parameters[0].rstrip())
+        decay_rate = float(written_parameters[1].rstrip())
 
     # Fill the output table lines with information.
     # Start with the species names from the mapping file.

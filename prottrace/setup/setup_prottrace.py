@@ -19,8 +19,9 @@
 
 import sys
 import os
-import argparse
-import subprocess
+
+from argparse import ArgumentParser
+from subprocess import run
 from pathlib import Path
 
 
@@ -36,7 +37,7 @@ def main():
 
     def load_arguments():
         version = '1.8.4'
-        parser = argparse.ArgumentParser(description='The setup for ProtTrace '
+        parser = ArgumentParser(description='The setup for ProtTrace '
                                          'version {0}. Information can be '
                                          'changed later in the configuration '
                                          'file.'.format(version))
@@ -79,7 +80,7 @@ def main():
     create_directories(args.out, args.cache, args.dist_dir)
 
     setup_path = Path('./bin/setup/setup.sh')
-    subprocess.run([str(setup_path)])
+    run([str(setup_path)])
 
 #    def organize_config(config_path, args):
 #        """ Fills the ProtTrace configuration file with the determined

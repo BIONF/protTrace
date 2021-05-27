@@ -20,15 +20,15 @@
 import os
 import sys
 import time
-import argparse
+from argparse import ArgumentParser
 from pathlib import Path
 
 from multiprocessing.pool import Pool
-from Bio import SeqIO
+from Bio.SeqIO import write as SeqIO_write
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from Bio import pairwise2
-from Bio import Align
+from Bio.pairwise2 import align as pairwise2_align
+from Bio.Align import PairwiseAligner
 from Bio.Align import substitution_matrices
 from Bio.Align import MultipleSeqAlignment as msa
 from Bio.Phylo.Consensus import bootstrap
@@ -367,7 +367,7 @@ def concatenate_alignment(species_1, species_2, alignment_generator,
     #         yield random.choices(range(alignment_length), k=alignment_length)
 
     def write_phylip(spec_1, spec_2, concats, suffix=''):
-        SeqIO.write(duplicate_seqs(spec_1, spec_2, concats),
+        SeqIO_write(duplicate_seqs(spec_1, spec_2, concats),
                     f'{species_1}_{species_2}{suffix}.phy', 'phylip')
 
     # Write the main concatenated alignment into a phylip file to calculate
@@ -487,7 +487,7 @@ def align_pairwise2_parallelized(args):
     # sequence 1, sequence 2, score, beginning, 0-based character count
 
     starttime = time.time()
-    alignment = pairwise2.align.globalds(args[0], args[1],
+    alignment = pairwise2_align.globalds(args[0], args[1],
                                          substitution_matrices.load(
                                              'BLOSUM62'), -10.0, -1.0,
                                          penalize_end_gaps=True,
@@ -510,8 +510,8 @@ def align_PairwiseAlignment_parallelized(args):
         # The PairwiseAligner object stores the settings of the alignment
         # process. This object cannot be pickled, so it has to be created in
         # every task again.
-        aligner = Align.PairwiseAligner(open_gap_score=-10.0,
-                                        extend_gap_score=-1.0)
+        aligner = PairwiseAligner(open_gap_score=-10.0,
+                                  extend_gap_score=-1.0)
         aligner.mode = 'global'
         aligner.substitution_matrix = substitution_matrices.load('BLOSUM62')
 
@@ -735,9 +735,9 @@ def main():
     def Argparse():
         """ Parses the arguments into an object. """
 
-        parser = argparse.ArgumentParser(description='Calculates the maximum '
-                                         'lokelihood protein distance between '
-                                         'two species')
+        parser = ArgumentParser(description='Calculates the maximum '
+                                'likelihood protein distance between '
+                                'two species')
         parser.add_argument('-q', '--query', type=str, nargs='?', default=None,
                             help='The query species. It is taken from the '
                             'config per default.')

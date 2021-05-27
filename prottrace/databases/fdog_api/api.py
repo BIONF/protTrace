@@ -20,7 +20,7 @@
 """ This module manages access to fDog interfaces. """
 
 from pathlib import Path
-from Bio import SeqIO
+from Bio.SeqIO import parse as SeqIO_parse
 
 
 class fdog_api():
@@ -50,6 +50,6 @@ class fdog_api_species(fdog_api):
 
     def get_protein(self, identifier):
         prot = super(fdog_api_species, self).get_genome(self.species_name)
-        for record in SeqIO.parse(str(prot)):
+        for record in SeqIO_parse(str(prot)):
             if record.id == identifier:
                 return record

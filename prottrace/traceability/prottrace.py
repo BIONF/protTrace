@@ -35,7 +35,7 @@
 """ The main entry point for ProtTrace which dispatches the query onto the
     different modules. """
 
-import argparse
+from argparse import ArgumentParser
 from pathlib import Path
 
 from utils.configure import set_params
@@ -64,11 +64,11 @@ def main():
     def interpret_arguments():
         """ Parses the arguments into an object """
 
-        parser = argparse.ArgumentParser(description=''
-                                         'Calculates the evolutionary '
-                                         'traceability of query proteins to '
-                                         'species specified in the species '
-                                         'mapping file.')
+        parser = ArgumentParser(description=''
+                                'Calculates the evolutionary '
+                                'traceability of query proteins to '
+                                'species specified in the species '
+                                'mapping file.')
 
         mandatory_arguments = parser.add_argument_group(title=''
                                                         'Required arguments')

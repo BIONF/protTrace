@@ -22,9 +22,15 @@
 
 import os
 import sys
+
+from subprocess import (
+    run,
+    CalledProcessError,
+    PIPE
+)
 from pathlib import Path
-import subprocess
-import dendropy
+from dendropy import TreeList
+
 from traceability.tree_reconstruction import main as tree_reconst
 from traceability.transform_alignment import main as trans_align
 from utils.data_api import (
@@ -260,9 +266,9 @@ def run_hmmscan(query, hmm_file, config):
 
     # Execute hmmscan.
     try:
-        subprocess.run([hmmscan, '--notextw', '-o', hmm_file, '-E', '0.01',
-                        pfam_database, seq_file], check=True)
-    except subprocess.CalledProcessError:
+        run([hmmscan, '--notextw', '-o', hmm_file, '-E', '0.01',
+             pfam_database, seq_file], check=True)
+    except CalledProcessError:
         print_error('Hmmscan did not run correctly. Check the given pfam '
                     'files and the query sequence')
         sys.exit()
@@ -306,9 +312,9 @@ def multiple_sequence_alignment(program, nr_processors, orth_file, output_file,
         # Runs the MSA performing program. The pipe for MAFFT requires
         # shell=TRUE, I would like to be proven wrong. Shell=TRUE also requires
         # the command to be passed as a single string.
-        subprocess.run(' '.join(cmd), check=True, shell=True)
+        run(' '.join(cmd), check=True, shell=True)
 
-    except subprocess.CalledProcessError:
+    except CalledProcessError:
         # Failed MSAs result in a warning.
         print_warning('MSA did not work. Probably less than 2 sequences were '
                       'found for this alignment')
@@ -497,8 +503,8 @@ def calculate_indels_sparta_abc(query, evol_params, orth, tree_file,
 
     # Runs SpartaABC
     try:
-        subprocess.run([str(path_spartaabc), 'Sparta.conf'], check=True)
-    except subprocess.called_process_error:
+        run([str(path_spartaabc), 'Sparta.conf'], check=True)
+    except CalledProcessError:
         path_posterior_params.unlink()
         sys.exit(print_error('SpartaABC threw an error! Removing the '
                              'incomplete posterior parameters file.'))
@@ -626,7 +632,7 @@ def calculate_indels_parsimony(query, evol_params, phy_file, tree_file,
     # Reads the contents of the protein tree that was reconstructed for
     # calculating substitution scaling rates.
     try:
-        trees = dendropy.TreeList.get_from_path(tree_file, 'newick')
+        trees = TreeList.get_from_path(tree_file, 'newick')
         tree_lengths = [tree.length() for tree in trees]
     except Exception as e:
         raise e
@@ -644,10 +650,8 @@ def calculate_indels_parsimony(query, evol_params, phy_file, tree_file,
                    str(tree_file), "-tina", "-st", "MULTI"]
         command_str = ' '.join(command)
         print_progress(f'IQ-Tree command: {command_str}')
-        result = subprocess.run(command,
-                                stdout=subprocess.PIPE,
-                                check=True).stdout.decode('utf-8')
-    except subprocess.CalledProcessError:
+        result = run(command, stdout=PIPE, check=True).stdout.decode('utf-8')
+    except CalledProcessError:
         print_warning('IQ-Tree could not estimate indel rates!')
 
     # Parses the result from IQ-Tree.

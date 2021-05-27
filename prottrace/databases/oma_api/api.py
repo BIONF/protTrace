@@ -22,7 +22,7 @@
 import sys
 from pathlib import Path
 
-from Bio import SeqIO
+from Bio.SeqIO import index as SeqIO_index
 
 from utils.file import generate_splitted_lines
 from utils.log import print_warning, print_error
@@ -122,7 +122,7 @@ class oma_sq(oma):
 
     def index_seqs(self, necessary_ids=None):
         try:
-            sequence_index = SeqIO.index(str(self.seqs_file), 'fasta')
+            sequence_index = SeqIO_index(str(self.seqs_file), 'fasta')
             # The produced index is checked for all necessary species.
             if necessary_ids is not None:
                 self.index_seqs_check(sequence_index, necessary_ids)

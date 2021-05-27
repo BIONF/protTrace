@@ -19,9 +19,17 @@
 
 import os
 import sys
-import subprocess
+from subprocess import (
+    run as subprocess_run,
+    DEVNULL,
+    STDOUT,
+    PIPE,
+    CalledProcessError,
+    check_output,
+    Popen
+)
 
-import dendropy
+from dendropy import TreeList
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -74,8 +82,7 @@ def main(p_id, config):
 
     """ Prepare the simulation tree. """
 
-    trees = dendropy.TreeList.get_from_path(prot_config.simulation_tree,
-                                            'newick')
+    trees = TreeList.get_from_path(prot_config.simulation_tree, 'newick')
     taxonset = []
     for element in trees.taxon_namespace:
         taxonset.append(str(element).replace("'", ""))
@@ -155,9 +162,11 @@ def prepare_blastdb(prot_config, proteome_file):
     cmd = [prot_config.makeblastdb, '-in', proteome_file, '-input_type',
            'fasta', '-dbtype', 'prot']
     try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError:
+        subprocess_run(cmd, check=True, stdout=DEVNULL)
+    except CalledProcessError:
         print_error('The query gene set could not be processed into a BLASTDB')
+
+    # Legacy command:
     # os.system('{0} -in {1} -input_type fasta -dbtype prot'
     #           .format(config.path_makeblastdb,  proteome_file))
 
@@ -195,7 +204,7 @@ def actual_traceability_calculation(args):
         try:
             try:
                 run_revolver(prot_config.REvolver, temp_revolver_config_file)
-            except subprocess.CalledProcessError as e:
+            except CalledProcessError as e:
                 raise e
                 # The exception is raised by the subprocess routine that
                 # calles REvolver
@@ -204,7 +213,7 @@ def actual_traceability_calculation(args):
             try:
                 blastOutput = run_blast(prot_config.blastp, prot_id,
                                         proteome_file, revolver_output_dir)
-            except subprocess.CalledProcessError as e:
+            except CalledProcessError as e:
                 raise e
                 # The exception is raised by the subprocess routine that
                 # calles BLASTP
@@ -246,17 +255,19 @@ def decayParams(r, prot_id, decay_script):
 
     output_file = f'decay_summary_{prot_id}.txt'
     command = [r, '--quiet', '--vanilla', decay_script, output_file]
-    print_progress(f'Decay parameter calculation command: {command}')
 
-    subprocess.run(command, check=True)
+    # if __debug__:
+    #     print(f'Decay parameter calculation command: {command}')
+
+    subprocess_run(command, check=True)
 
 
 def run_revolver(REvolver, xml_file):
     command = ['java', '-Xmx2G', '-Xms2G', '-cp', REvolver, 'revolver',
                str(xml_file)]
     try:
-        subprocess.check_output(command, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
+        check_output(command, stderr=STDOUT)
+    except CalledProcessError as e:
         # The exception gets caught to not halt the entire ProtTrace process.
         # This is especially important when processing multiple query proteins.
         # Since each protein is processed consecutively.
@@ -284,12 +295,9 @@ def run_blast(blastp, prot_id, proteome, revolverOut):
     # Performs the reblast against the query proteome.
 
     # Declares the BLASTP process.
-    blast_process = subprocess.Popen([blastp, '-query',
-                                      f'{revolverOut}/out.fa',
-                                      '-db', proteome, '-outfmt',
-                                      '6 qseqid sseqid'],
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE)
+    blast_process = Popen([blastp, '-query', f'{revolverOut}/out.fa', '-db',
+                           proteome, '-outfmt', '6 qseqid sseqid'],
+                          stdout=PIPE, stderr=PIPE)
     # Waits for BLASTP to be finished and retrieves the result and error
     # messages.
     result, error = blast_process.communicate()

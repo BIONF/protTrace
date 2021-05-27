@@ -17,10 +17,10 @@
 #
 #######################################################################
 
-import math
+from math import exp
 from pathlib import Path
 
-from Bio import SeqIO
+from Bio.SeqIO import parse as SeqIO_parse
 
 from utils.data_api import (
     species_mapping,
@@ -87,13 +87,13 @@ def calculate_traceability(query, subject, decay_rate, decay_pop, config):
         traceability = 1
     else:
         ml_dist = get_species_distance(config, query, subject, default=1.0)
-        # ml_dist = gather_max_lik_dist(query, subject, species_dist_file, cache)
+        # ml_dist = gather_max_lik_dist(query, subject, species_dist_file,
+        #                               cache)
 
         # This is the calculation of the protein's traceability index in a
         # species (specified by ml_dist).
-        traceability = 1 - ((decay_pop * math.exp(decay_rate * ml_dist)) /
-                            (1 + decay_pop *
-                             (math.exp(decay_rate * ml_dist) - 1)))
+        traceability = 1 - ((decay_pop * exp(decay_rate * ml_dist)) /
+                            (1 + decay_pop * (exp(decay_rate * ml_dist) - 1)))
 
     return traceability
 
@@ -110,16 +110,16 @@ def create_traceability_output_file(query, mappings, compute_fas,
 
     # Retrieve the presence of orthologs among all other species
     orth_species_set = [record.description for record in
-                        SeqIO.parse(f'ogSeqs_{qu_prot}.fa', 'fasta')]
+                        SeqIO_parse(f'ogSeqs_{qu_prot}.fa', 'fasta')]
     # if orth_file_name.exists():
     #     with orth_file_name.open('r') as of:
-    #         # Distills the sequence headers to a set of species with orthologs
-    #         # If the line contains underscores to differentiate same-species
-    #         # sequences, assume the part before the first underscore to be the
-    #         # species id. The query species is also listed in the orthologs
-    #         # file.
-    #         orth_species_set = {line[1:].split('_')[1] if '_' in line
-    #                             else line[1:] for line in of if line[0] == '>'}
+    #       # Distills the sequence headers to a set of species with orthologs
+    #       # If the line contains underscores to differentiate same-species
+    #       # sequences, assume the part before the first underscore to be the
+    #       # species id. The query species is also listed in the orthologs
+    #       # file.
+    #       orth_species_set = {line[1:].split('_')[1] if '_' in line
+    #                           else line[1:] for line in of if line[0] == '>'}
 
     # # FAS scores are only retrieved if the option was turned on in the config
     # if compute_fas:
@@ -294,7 +294,8 @@ def main(query, config):
 #                speciesName = fdogMapFile[i].split('\t')[1]
 #                break
 #
-#        colourize(speciesName, speciesId, nexusTreeFile, speciesTree, decayRate, decayPop, traceResults, matrixDict)
+#        colourize(speciesName, speciesId, nexusTreeFile, speciesTree,
+#                     decayRate, decayPop, traceResults, matrixDict)
 #
 #    traceResults.close()
 #
@@ -303,14 +304,19 @@ def main(query, config):
 #        # in PDF format.
 #        try:
 #            # LEGACY code
-#            # subprocess.check_output('java -cp %s figtreepdf %s' %(plotFigTree, nexusTreeFile.replace('.nexus', '_edit.nexus')),shell=True)
-#            subprocess.check_output(['java','-Djava.awt.headless=true','-cp',plotFigTree,'figtreepdf',nexusTreeFile.replace('.nexus', '_edit.nexus')])
+#            # subprocess.check_output('java -cp %s figtreepdf %s'
+# %(plotFigTree, nexusTreeFile.replace('.nexus', '_edit.nexus')),shell=True)
+#            subprocess.check_output(['java','-Djava.awt.headless=true',
+# '-cp',plotFigTree,'figtreepdf',nexusTreeFile.replace('.nexus',
+# '_edit.nexus')])
 #            print("Done!")
 #        except subprocess.CalledProcessError as e:
 #            print(e.output)
-#            print('WARNING: No representation of traceabilities on tree possible.\nJAVA program figtreepdf not responding!!!')
+#            print('WARNING: No representation of traceabilities on tree
+# possible.\nJAVA program figtreepdf not responding!!!')
 #
-#    # Writing the traceability output as a matrix which can be read with PhyloProfile
+#    # Writing the traceability output as a matrix which can be read with
+# PhyloProfile
 #    print('Creating matrix file for PhyloProfile...')
 #    matrixFile = open('%s_phyloMatrix.txt' %protId, 'w')
 #    if intended_fas_score_calc:
@@ -322,7 +328,10 @@ def main(query, config):
 #        oma_id = fdogMapFile[j].split()[-1]
 #        for elements in matrixDict[oma_id]:
 #            if intended_fas_score_calc:
-#                matrixFile.write(protId + '\t' + ncbiId + '\t' + elements.split('#')[0] + '\t' + elements.split('#')[1] + '\t' + elements.split('#')[2] + '\n')
+#                matrixFile.write(protId + '\t' + ncbiId + '\t' +
+# elements.split('#')[0] + '\t' + elements.split('#')[1] + '\t' +
+# elements.split('#')[2] + '\n')
 #            else:
-#                matrixFile.write(protId + '\t' + ncbiId + '\t' + elements.split('#')[0] + '\t' + elements.split('#')[2] + '\n')
+#                matrixFile.write(protId + '\t' + ncbiId + '\t' +
+# elements.split('#')[0] + '\t' + elements.split('#')[2] + '\n')
 #    matrixFile.close()

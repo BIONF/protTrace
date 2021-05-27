@@ -22,7 +22,10 @@
 import sys
 from pathlib import Path
 
-from Bio import SeqIO
+from Bio.SeqIO import (
+    parse as SeqIO_parse,
+    write as SeqIO_write
+)
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
@@ -88,7 +91,7 @@ class prot_id:
         if not filename.exists():
             record = SeqRecord(Seq(str(self.seq)), id=self.id,
                                description=self.spec_id)
-            SeqIO.write(record, str(filename), 'fasta')
+            SeqIO_write(record, str(filename), 'fasta')
         return filename
 
     def remove_fasta(self):
@@ -304,7 +307,7 @@ class orth_group:
                     Seq(member.seq),
                     id=member.id,
                     description=member.spec_id)
-                SeqIO.write(member_record, orth_file, 'fasta')
+                SeqIO_write(member_record, orth_file, 'fasta')
 
     def resolve_group_api(self, config):
         if config.search_oma_database:
@@ -318,11 +321,11 @@ class fasta:
     __slots__ = ['records']
 
     def __init__(self, fasta):
-        self.records = list(SeqIO.parse(str(fasta), 'fasta'))
+        self.records = list(SeqIO_parse(str(fasta), 'fasta'))
 
     @staticmethod
     def gen_fasta_records(filename):
-        for record in SeqIO.parse(str(filename), 'fasta'):
+        for record in SeqIO_parse(str(filename), 'fasta'):
             yield record
 
 
@@ -423,9 +426,9 @@ def map_distance_species(config, mappings, query=None):
             found_species.add(mappings.get_species(
                 specs[1 - specs.index(query)]).species_id)
 
-    if __debug__:
-        already_computed = '\t'.join(found_species)
-        print(f'Precalculated species distances to: {already_computed}')
+    # if __debug__:
+    #     already_computed = '\t'.join(found_species)
+    #     print(f'Precalculated species distances to: {already_computed}')
 
     return found_species
 

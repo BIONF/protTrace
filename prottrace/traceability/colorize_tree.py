@@ -19,7 +19,8 @@
 
 import os
 import sys
-import dendropy
+
+from dendropy import TreeList
 
 from utils.configure import set_params
 from utils.log import print_progress
@@ -41,7 +42,7 @@ def main(query, config):
     nexus_file = 'nexus_' + prot_id + '.nexus'
 
     # Save the species name into a variable taxonset
-    trees = dendropy.TreeList.get_from_path(config.species_tree, "newick")
+    trees = TreeList.get_from_path(config.species_tree, "newick")
     taxonset = []
     for element in trees.taxon_namespace:
         taxonset.append(str(element).replace("'", "").replace(" ", "_"))

@@ -71,8 +71,8 @@ def run_iqtree(protein_id, reuse_cache, config):
         cmd = [str(config.iqtree), '-nt', str(config.nr_processors), '-s',
                f'ogSeqs_{protein_id}.phy', '-m',
                config.aa_substitution_matrix, '-keep-ident', '-redo']
-        if __debug__:
-            print(cmd)
+        # if __debug__:
+        #     print(f'The command to run IQTree: {cmd}')
         try:
             subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError:
@@ -124,10 +124,10 @@ def gen_orth_ml_dists(protein_id, orth):
         # contains the number of species. We do make a sanity check first,
         # though.
         if (len(prot_dists[0]) == 1):
-            if __debug__:
-                print('DEBUG: The first line in the orthologous group species '
-                      'distance file correctly contains the number of member '
-                      'species.')
+            # if __debug__:
+            #     print('DEBUG: The first line in the orthologous group '
+            #           'species distance file correctly contains the number '
+            #           'of member species.')
             del prot_dists[0]
 
     def get_pairwise_prot_dist(pairwise_distances, count_1, count_2):

@@ -20,11 +20,24 @@
 #######################################################################
 
 import setuptools
+from setuptools.command.install import install
+from subprocess import run
 
-with open("README.md", "r", encoding="utf-8") as fh:
+
+class post_install_command(install):
+    """ Post-installation for installation mode. """
+    def run(self):
+        install.run(self)
+        run(['./prottrace/setup/setup.sh'])
+
+
+with open('README.md', 'r', encoding='utf-8') as fh:
     long_description = fh.read()
 
 setuptools.setup(
     long_description=long_description,
-    long_description_content_type="text/markdown",
+    long_description_content_type='text/markdown',
+    cmdclass={
+        'install': post_install_command
+    },
 )

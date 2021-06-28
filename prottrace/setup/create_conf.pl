@@ -22,15 +22,15 @@ use LWP::Simple;
 ##A simple perl script to check the dependencies for protTrace and for setting up the configure script
 
 #### Default settings and dependencies ##########
-my @dependencies = qw(linsi hmmscan hmmfetch makeblastdb blastp iqtree treepuzzle Rscript python perl java);
+my @dependencies = qw(linsi hmmscan hmmfetch makeblastdb blastp iqtree puzzle Rscript python perl java);
 my @neDependencies = qw(oneseq.pl figtree);
 my $minVersion->{linsi}=6;
 $minVersion->{hmmscan}=3.1;
 $minVersion->{blastp}=2.7;
 $minVersion->{iqtree}=1.671;
-$minVersion->{treepuzzle}=5.3;
+$minVersion->{puzzle}=5.3;
 $minVersion->{Rscript} = 3;
-$minVersion->{python}=3.6;
+$minVersion->{python}=3.7;
 $minVersion->{java}=1.7;
 $minVersion->{"oneseq.pl"}=1;
 $minVersion->{figtree}=1.4;
@@ -59,16 +59,17 @@ my @checkList;
 my @OptionList = userOptions();
 ##################
 my $helpmessage = "SYNOPSIS
-This script checks for the essential program dependencies of protTrace and creates the config file controlling the protTrace run\n
+This script checks for the essential program dependencies of protTrace and creates the config file controlling the protTrace run.\n
 
-USAGE: create_conf.pl -name [-update -hamstr -getOma]
+USAGE: create_conf.pl -name [-quiet -update -hamstr -getOma]
 
 OPTIONS
--name=<>	specify the name of the config file
--update		set this flag to update an existing config file provided via -name
--hamstr		set this flag if you want to make use of the HaMStR enviromnet. If not set, missing HaMStR dependencies are not traced.
--getOma		set this flag to retrieve OMA orthologs from the OMA database
--getPfam	set this flag to retrieve the Pfam-A database";
+-name=<>	specify the name of the config file.
+-getOma=<>	set this flag with y to retrieve OMA orthologs from the OMA database.
+-getPfam=<>	set this flag with y to retrieve the Pfam-A database.
+-quiet		set this flag to suppress console messages and user interactivity.
+-update		set this flag to update an existing config file provided via -name.
+-hamstr		set this flag if you want to make use of the HaMStR enviromnet. If not set, missing HaMStR dependencies are not traced.";
 ####################
 ## Options
 my $update; ## update an existing script provided via -name
@@ -77,6 +78,7 @@ my $help;
 #my $install; ## flag that sets whether conda will be used to install the dependencies that are available via the conda package manager
 my $full; ## set this flag to check also for the non-essential dependencies;
 my $paths;
+my $quiet;
 my $hamstr;
 my @log = qw();
 my @textarray = qw();
@@ -88,10 +90,14 @@ GetOptions (
 	"name=s" => \$name,
 	"help" => \$help,
 	"h"	=> \$help,
+	"quiet" => \$quiet,
 	"hamstr" => \$hamstr,
 	"getOma" => \$getOma,
 	"getPfam" => \$getPfam
 	);
+
+$quiet //= 0;
+
 if ($help){
 	print "\n\n\n$helpmessage\n\n";
 	exit;
@@ -135,7 +141,10 @@ if (1){
 	my @updateKeys = qw();
 	my @select;
 	my $entry;
-	my @toCheck = getCheckList();
+	my @toCheck;
+       	if (!$quiet) {
+		@toCheck = getCheckList();
+	}
 	if (!defined $toCheck[0]){
 		print "nothing to update\n";
 		push @log, "nothing to update";
@@ -206,6 +215,9 @@ if (1){
 }
 checkPaths();
 ############## get the OMA orthologs
+
+$getOma //= 0;
+
 if ($getOma){
 	my $message;
 	my $omaret = retrieveData($omaLink, $prepOptions{path_oma_group});
@@ -214,8 +226,9 @@ if ($getOma){
 		$message = "Oma files are in place under $prepOptions{path_oma_group} and $prepOptions{path_oma_seqs}";
 		push @log, $message;
 		print "$message\n";
-                print "Reformatting fasta\n";
-                my $return = reformatFasta($prepOptions{path_oma_seqs});
+		# print "Reformatting fasta\n";
+		# With how ProtTrace now splits the oma-seqs file, regardless of single-line preformatting, we do not need this function anymore.
+		# my $return = reformatFasta($prepOptions{path_oma_seqs});
 
 	}
 	else {
@@ -225,6 +238,9 @@ if ($getOma){
 	}
 }
 ############# get the Pfam data
+
+$getPfam //= 0;
+
 if ($getPfam) {
 	my $message;
 	my $pfamret = retrieveData($pfamLink, $prepOptions{pfam_database});
@@ -299,7 +315,10 @@ sub testDep {
 			my $message = "There is an issue with $prog. Please select [p(path)|q(uit)|s(kip)]: ";
 			print $message;
 			push @log, $message;
-			my $q=<>;
+			my $q="s";
+			if (!$quiet) {
+				$q=<>;
+			}
 			if ($q =~ /^q/i) {
 				print "you chose to quit. Exiting...\n";
 				printLog();
@@ -472,20 +491,22 @@ sub userOptions {
 					  path_cache => "$currwd/cache",
 					  path_distances => "$currwd/distances",
 					  map_traceability_tree => 'YES',
+					  colorize_species_tree => 'NO',
 					  REvolver => "$currwd/used_files/REvolver.jar",
-					simulation_tree => "$currwd/used_files/stepWiseTree.nw",
+					simulation_tree => "$currwd/used_files/stepwise_evolution.nw",
 					decay_script => "$currwd/used_files/r_nonlinear_leastsquare.R",
 					plot_figtree => "$currwd/used_files/plotPdf.jar",
-					Xref_mapping_file => "$currwd/used_files/speciesTreeMapping.txt",
-					reference_species_tree => "$currwd/used_files/speciesTree.nw",
-					species_MaxLikMatrix => "$currwd/used_files/speciesLikelihoodMatrix.txt",
+					Xref_mapping_file => "$currwd/used_files/species_mapping.txt",
+					reference_species_tree => "$currwd/used_files/colourizable_species_tree.nw",
+					species_MaxLikMatrix => "$currwd/used_files/ML_table.txt",
 					path_oma_seqs => "$currwd/used_files/oma-seqs.fa",
 					path_oma_group => "$currwd/used_files/oma-groups.txt",
+					path_oma_pairs => "$currwd/used_files/oma-pairs.txt",
 					pfam_database => "$currwd/used_files/Pfam-A.hmm",
 					fas_annotations => 'PROVIDEPATH2HaMStR/weight_dir',
 					hamstr_environment => 'default',
 					iqtree => "$currwd/used_files/iqtree",
-					treepuzzle => '/share/applications/tree-puzzle/bin/puzzle',
+					puzzle => '/share/applications/tree-puzzle/bin/puzzle',
 					linsi => '/share/applications/bin/linsi',
 					hmmfetch => '/share/applications/bin/hmmfetch',
 					hmmscan => '/share/applications/bin/hmmscan',
@@ -523,6 +544,7 @@ sub userOptions {
 					  path_cache => "Path to cache directory (Default $currwd/cache)",
 					  path_distances => "Path to distance computation work directory (Default $currwd/distances)",
 					  map_traceability_tree => 'YES|NO (Default NO)',
+					  colorize_species_tree => 'YES|NO (Default NO)',
 					  REvolver => "Path to REvolver (Default $currwd/used_files/REvolver.jar)",
 					simulation_tree => "Path to simulation tree (Default $currwd/used_files/stepWiseTree.nw)",
 					decay_script => "Path to decay script (Default $currwd/used_files/r_nonlinear_leastsquare.)",
@@ -536,7 +558,7 @@ sub userOptions {
 					fas_annotations => 'Path to HaMStR weight_dir (Default NULL)',
 					hamstr_environment => 'Path to HaMStR directory (Default NULL)',
 					iqtree => 'Path to iqtree (Default NULL)',
-					treepuzzle => 'Path to treepuzzle (Default NULL)',
+					puzzle => 'Path to puzzle (Default NULL)',
 					spartaABC => 'Path to spartaABC (Default NULL)',
 					linsi => 'Path to linsi (Default NULL)',
 					hmmfetch => 'Path to hmmfetch (Default NULL)',
@@ -546,13 +568,13 @@ sub userOptions {
 					Rscript => 'Path to Rscript (Default NULL)',
 					hamstr => 'Path to hamstr.pl (Default NULL)',
 					oneseq =>  'Path to oneseq.pl (Default NULL)');
-	@generalOptions = qw(species nr_of_processors delete_temporary_files reuse_cache map_traceability_tree);
+	@generalOptions = qw(species nr_of_processors delete_temporary_files reuse_cache map_traceability_tree colorize_species_tree);
 	@preProcessing = qw(preprocessing orthologs_prediction search_oma_database);
 	@prepAdvanced = qw(run_hamstr run_hamstrOneSeq include_paralogs fas_score);
 	@scaling = qw(calculate_scaling_factor default_scaling_factor);
 	@indel = qw(perform_msa calculate_indel run_spartaABC dawg_instead_of_indelible default_indel default_indel_distribution);
 	@trace = qw(traceability_calculation aa_substitution_matrix simulation_runs);
-	@path2Deps = qw(iqtree treepuzzle spartaABC linsi hmmfetch hmmscan blastp makeblastdb Rscript hamstr oneseq);
+	@path2Deps = qw(iqtree puzzle spartaABC linsi hmmfetch hmmscan blastp makeblastdb Rscript hamstr oneseq);
 	@usedFileList = qw(REvolver simulation_tree decay_script plot_figtree Xref_mapping_file reference_species_tree
 	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database fas_annotations hamstr_environment path_output_dir path_cache path_distances);
 
@@ -634,11 +656,12 @@ sub printConfig {
 	print OUT "###\n";
 	print OUT "#####   Writing traceability results to file and on reference species tree      #####\n";
 	print OUT "map_traceability_tree:$prepOptions{map_traceability_tree}\n";
+	print OUT "colorize_species_tree:$prepOptions{colorize_species_tree}\n";
 	print OUT "#####\n";
 	print OUT "###\n";
 	print OUT "#####   Configuring paths for protTrace dependencies    #####\n";
 	print OUT "iqtree:$prepOptions{iqtree}\n";
-	print OUT "treepuzzle:$prepOptions{treepuzzle}\n";
+	print OUT "puzzle:$prepOptions{puzzle}\n";
 	print OUT "linsi:$prepOptions{linsi}\n";
 	print OUT "hmmfetch:$prepOptions{hmmfetch}\n";
 	print OUT "hmmscan:$prepOptions{hmmscan}\n";
@@ -656,9 +679,10 @@ sub printConfig {
 	print OUT "plot_figtree:$prepOptions{plot_figtree}\n";
 	print OUT "Xref_mapping_file:$prepOptions{Xref_mapping_file}\n";
 	print OUT "reference_species_tree:$prepOptions{reference_species_tree}\n";
-	print OUT "species_MaxLikMatrix:$prepOptions{species_MaxLikMatrix}\n";
+	print OUT "ML_table:$prepOptions{species_MaxLikMatrix}\n";
 	print OUT "path_oma_seqs:$prepOptions{path_oma_seqs}\n";
 	print OUT "path_oma_group:$prepOptions{path_oma_group}\n";
+	print OUT "path_oma_pairs:$prepOptions{path_oma_pairs}\n";
 	print OUT "pfam_database:$prepOptions{pfam_database}\n";
 	print OUT "fas_annotations:$prepOptions{fas_annotations}\n";
 	print OUT "hamstr_environment:$prepOptions{hamstr_environment}\n";
@@ -679,18 +703,24 @@ sub printLog{
 	print OUT "\n";
 	close OUT or die "could not properly close filehandle of log file\n";
 }
+
 ##############
 sub retrieveData {
 	my ($URL, $destination) = @_;
-	my $message = "retrieving data from $URL and copying to $destination";
+	# Remove trailing newlines from the destination string
+	$URL =~ s/[\r\n]+$//;
+	$destination =~ s/[\r\n]+$//;
+	my $zippedDestination = "$destination.gz";
+	my $message = "retrieving data from $URL and copying to $zippedDestination\n";
 	push @log, $message;
-	print $message . "\n";
+	print $message;
 	my $answer = getAnswerFile($destination);
 	if ($answer =~ /^y/i){
-		getstore($URL, "$destination.gz");
-		push @log, "Downloading $destination";
-		print "unzipping $destination.gz\n";
-		`gunzip "$destination.gz"`;
+		print "Downloading $URL";
+		my $status = LWP::Simple::getstore($URL, $zippedDestination);
+		push @log, "Downloading $zippedDestination";
+		print "unzipping $zippedDestination\n";
+		`gunzip "$zippedDestination"`;
 	}
 	else {
 		$message = "$destination already exists, and you chose to keep it";
@@ -710,6 +740,9 @@ sub getAnswerFile {
 	my $answer = 'y';
 	my $message = '';
 	if (-e $filename){
+		if ($quiet){
+			return('n');
+		}
 		$message = "file $filename already exists! Do you want to overwrite?[y|n]: ";
 		push @log, $message;
 		print $message;

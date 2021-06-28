@@ -115,9 +115,9 @@ class set_params:
                 configs['search_oma_database'])
             self.orthologs_prediction = self.boolean_option(
                 configs['orthologs_prediction'])
-            self.run_fdog = self.boolean_option(configs['run_fdog'])
+            self.run_fdog = self.boolean_option(configs['run_hamstr'])
             self.run_fdogOneSeq = self.boolean_option(
-                configs['run_fdogOneSeq'])
+                configs['run_hamstrOneSeq'])
             if not self.run_fdogOneSeq:
                 self.run_fdog = False
             self.fas_score = self.boolean_option(configs['fas_score'])
@@ -165,17 +165,17 @@ class set_params:
             self.hmmfetch = self.path_option(configs['hmmfetch'])
             self.hmmscan = self.path_option(configs['hmmscan'])
             self.iqtree = self.path_option(configs['iqtree'])
-            self.treepuzzle = self.path_option(configs['treepuzzle'])
+            self.treepuzzle = self.path_option(configs['puzzle'])
             # self.clustalw = self.path_option(configs['clustalw'])
             self.blastp = self.path_option(configs['blastp'])
             self.makeblastdb = self.path_option(configs['makeblastdb'])
             self.R = self.path_option(configs['Rscript'])
 
             # HaMStR
-            self.fdog = self.path_option(configs['fdog'])
+            self.fdog = self.path_option(configs['hamstr'])
             self.fdogOneSeq = self.path_option(configs['oneseq'])
             self.fdog_environment = self.string_option(
-                configs['fdog_environment'])
+                configs['hamstr_environment'])
             if self.fdog_environment == 'default':
                 self.fdog_environment = ''
 
@@ -203,8 +203,6 @@ class set_params:
             self.species_tree = self.path_option(
                 configs['reference_species_tree'])
             self.simulation_tree = self.path_option(configs['simulation_tree'])
-            self.concat_alignments_script = self.path_option(
-                configs['concat_alignments'])
             self.decay_script = self.path_option(configs['decay_script'])
             self.plot_figtree = self.path_option(configs['plot_figtree'])
             self.fas_annotations = self.path_option(configs['fas_annotations'])

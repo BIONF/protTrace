@@ -1,3 +1,5 @@
+YEAST@559292@1	Saccharomyces cerevisiae	559292	YEAST
+HUMAN@9606@1	Homo sapiens	9606	HUMAN
 AERPE@272557@1	Aeropyrum pernix k1	272557	AERPE
 CALMQ@397948@1	Caldivirga maquilingensis	397948	CALMQ
 IGNH4@453591@1	Ignicoccus hospitalis	453591	IGNH4
@@ -140,7 +142,6 @@ GASAC@69293@1	Gasterosteus aculeatus	69293	GASAC
 GORGO@9595@1	Gorilla gorilla	9595	GORGO
 HELRO@6412@1	Helobdella robusta	6412	HELRO
 HORSE@9796@1	Equus caballus	9796	HORSE
-HUMAN@9606@1	Homo sapiens	9606	HUMAN
 IXOSC@6945@1	Ixodes scapularis	6945	IXOSC
 LEPOC@7918@1	Lepisosteus oculatus	7918	LEPOC
 LOALO@7209@1	Loa loa	7209	LOALO
@@ -206,7 +207,6 @@ KLULA@284590@1	Kluyveromyces lactis	284590	KLULA
 LODEL@379508@1	Lodderomyces elongisporus	379508	LODEL
 PICST@322104@1	Scheffersomyces stipitis	322104	PICST
 YARLI@284591@1	Yarrowia lipolytica	284591	YARLI
-YEAST@559292@1	Saccharomyces cerevisiae	559292	YEAST
 PHYIT@403677@1	Phytophthora infestans	403677	PHYIT
 ARATH@3702@1	Arabidopsis thaliana	3702	ARATH
 BRADI@15368@1	Brachypodium distachyon	15368	BRADI

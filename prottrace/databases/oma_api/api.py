@@ -24,6 +24,12 @@ from pathlib import Path
 
 from Bio.SeqIO import index as SeqIO_index
 
+from utils.database_api import (
+    database_pw,
+    ortholog_info,
+    database_gr,
+    database_sq
+)
 from utils.file import generate_splitted_lines
 from utils.log import print_warning, print_error
 
@@ -43,7 +49,7 @@ class oma:
             yield prot[0:5]
 
 
-class oma_pw(oma):
+class oma_pw(oma, database_pw):
     """ Manages OMA pairwise orthologs. """
     __slots__ = ['oma_pairs']
 
@@ -74,14 +80,15 @@ class oma_pw(oma):
         return generate_pairs(self.oma_pairs, species_1, species_2)
 
 
-class oma_gr(oma):
+class oma_gr(oma, database_gr):
     __slots__ = ['oma_groups']
     """ Manages OMA groups. """
 
     def __init__(self, config):
         self.oma_groups = config.path_oma_group
 
-    def gen_members(self, prot_name):
+    def gen_members(self, query):
+        """ Data API interface to retrieve orthologous group member IDs. """
 
         def gen_gr_lines(instance):
             with instance.oma_groups.open('r') as gr_file:
@@ -89,15 +96,16 @@ class oma_gr(oma):
                     yield line
 
         for line in gen_gr_lines(self):
-            if prot_name in line:
+            if query.id in line:
                 # The first two elements of an oma_groups.txt file shows the
                 # group number and fingerprint. The member protein ids are
                 # shown from element 3 onwards.
                 for member in line[2:]:
-                    yield member
+                    yield ortholog_info(member, None,
+                                        self.prot_id_to_spec_id(member), 'oma')
 
 
-class oma_sq(oma):
+class oma_sq(oma, database_sq):
     __slots__ = ['seqs_file', 'index']
     """ Manages OMA sequences. """
 
@@ -120,13 +128,9 @@ class oma_sq(oma):
         """
         return self.seqs_file
 
-    def index_seqs(self, necessary_ids=None):
+    def index_seqs(self):
         try:
-            sequence_index = SeqIO_index(str(self.seqs_file), 'fasta')
-            # The produced index is checked for all necessary species.
-            if necessary_ids is not None:
-                self.index_seqs_check(sequence_index, necessary_ids)
-            return sequence_index
+            return SeqIO_index(str(self.seqs_file), 'fasta')
         except KeyboardInterrupt:
             print_warning('User interrupted the indexing of OMA sequences.')
             sys.exit()
@@ -134,12 +138,12 @@ class oma_sq(oma):
             print_error('The OMA seqs FASTA file is missing!')
             raise e
 
-    def index_seqs_check(self, sequence_index, identifiers):
-        """ Returns an indexed oma_seqs file after checking whether all
-        provided OMA species IDs are present. """
+    # def index_seqs_check(self, sequence_index, identifiers):
+    #     """ Returns an indexed oma_seqs file after checking whether all
+    #     provided OMA species IDs are present. """
 
-        sequence_index = self.index_seqs()
-        for ident in identifiers:
-            if ident not in sequence_index:
-                print_error('{0} could not be found in the OMA seqs file!')
-                sys.exit()
+    #     sequence_index = self.index_seqs()
+    #     for ident in identifiers:
+    #         if ident not in sequence_index:
+    #             print_error('{0} could not be found in the OMA seqs file!')
+    #             sys.exit()

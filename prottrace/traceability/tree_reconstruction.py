@@ -121,14 +121,8 @@ def gen_orth_ml_dists(protein_id, orth):
     with Path(f'ogSeqs_{protein_id}.phy.mldist').open('r') as phy_dists:
         prot_dists = [line for line in gen_lines(phy_dists, sep=' ')]
         # The first line (list of tab-separated items, with 1 item) only
-        # contains the number of species. We do make a sanity check first,
-        # though.
-        if (len(prot_dists[0]) == 1):
-            # if __debug__:
-            #     print('DEBUG: The first line in the orthologous group '
-            #           'species distance file correctly contains the number '
-            #           'of member species.')
-            del prot_dists[0]
+        # contains the number of species.
+        del prot_dists[0]
 
     def get_pairwise_prot_dist(pairwise_distances, count_1, count_2):
         """ From a list of tab-separated lines, retrieve the float from
@@ -138,18 +132,23 @@ def gen_orth_ml_dists(protein_id, orth):
         # start from the 0th + 1 column in each line.
         return float(pairwise_distances[count_2][count_1 + 1])
 
+    def column_species_id(orth, table, row):
+        """ Extracts the protein ID in column 0 which represents the
+        distance value located at row x. """
+        # The 0th column contains the species ID.
+        return orth.member_prot_to_spec(table[row][0])
+
     # The order of columns is identical to the order of rows in respect to the
-    # represented species.
+    # represented species. We can retrieve species pairs by performing an xy
+    # iteration.
     line_counts = range(len(prot_dists))
     for count_1 in line_counts:
-        # The 0th column contains the species ID.
-        spec1 = orth.member_prot_to_spec(prot_dists[count_1][0])
+        spec1 = column_species_id(orth, prot_dists, count_1)
 
-        # Generate the second iteration of the species pair list, without the
-        # own species identifier. We do not care for same-species distances,
-        # which is always 0. With the filter function, we spare the if-clause.
-        for count_2 in filter(lambda count: count != count_1, line_counts):
-            spec2 = orth.member_prot_to_spec(prot_dists[count_2][0])
+        for count_2 in line_counts:
+            if count_1 == count_2:
+                continue
+            spec2 = column_species_id(orth, prot_dists, count_2)
 
             yield species_pair_distance(spec1, spec2,
                                         get_pairwise_prot_dist(prot_dists,

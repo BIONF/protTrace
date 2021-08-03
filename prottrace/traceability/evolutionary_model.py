@@ -82,18 +82,19 @@ def exec_steps(query, prot_config, work_dir_path, cache):
 
     """ Retrieve the orthologous sequences. """
 
-    orth = orth_group(prot_config, query.id)
+    print_progress('Collecting orthologous groups.')
+    orth = orth_group(query, prot_config)
 
-    # Retrieves orthology information from OMA database or infers
-    # orthologs from hamstr / hamstr-OneSeq.
-    exec_step(prot_config.orthologs_prediction,
-              orth.filepath(query.id),
-              "Orthologs file exist. Reusing it.",
-              "Retrieving orthology information.",
-              "Orthology information.",
-              cache,
-              orthology_prediction,
-              query, prot_config)
+    # # Retrieves orthology information from OMA database or infers
+    # # orthologs from hamstr / hamstr-OneSeq.
+    # exec_step(prot_config.orthologs_prediction,
+    #           orth.filepath(query.id),
+    #           "Orthologs file exist. Reusing it.",
+    #           "Retrieving orthology information.",
+    #           "Orthology information.",
+    #           cache,
+    #           orthology_prediction,
+    #           query, prot_config)
 
     # Extra layer of security,  because the orthologs file must be
     # present for ProtTrace to run any further.
@@ -279,7 +280,7 @@ def orthology_prediction(query, prot_config):
     in the species mapper. """
 
     try:
-        return orth_group(prot_config, query.id)
+        return orth_group(query, prot_config)
     except KeyboardInterrupt:
         sys.exit(print_error("Keyboard interruption by user!"))
 

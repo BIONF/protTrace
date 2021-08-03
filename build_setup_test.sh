@@ -18,6 +18,7 @@
 #      REVISION:  ---
 #===============================================================================
 
+{
 # Builds the package. A wheel is added to the ./dist directory.
 python -m build
 
@@ -34,3 +35,5 @@ python -m pip install --force-reinstall "${latest}"
 prottrace -i "example/test.id" -c "prog.config"
 # Fdog is rather tested with the fasta option.
 #prottrace -f "example/test.fasta" -c "prog.config"
+
+} > mainsetup.log 2>&1

@@ -30,7 +30,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from databases.oma_api.api import oma_sq, oma_pw, oma_gr
-from databases.fdog_api.api import fdog_api, fdog_api_species
+from databases.fdog_api.api import fdog_gr, fdog_api_species
 
 from utils.configure import set_params
 from utils.file import generate_splitted_lines as generate_lines
@@ -193,6 +193,10 @@ class species_mapping:
                     if id_mapping.match_oma(species):
                         resulting_mapping = id_mapping
                         break
+                if database == 'fdog':
+                    if id_mapping.match_fdog(species):
+                        resulting_mapping = id_mapping
+                        break
             if id_mapping.match_any_id(species):
                 resulting_mapping = id_mapping
                 break
@@ -209,13 +213,27 @@ class species_mapping:
 class orth_group:
     __slots__ = ['members', 'path']
 
-    def __init__(self, config, prot_name):
+    def __init__(self, query, config):
+        """ Collect the species ID mapping to translate species IDs between
+        databases. """
         mapping = species_mapping(config)
-        group_api = self.resolve_group_api(config)
-        self.members = self.collect_members(prot_name, group_api, mapping)
-        self.collect_sequences(config)
-        self.path = self.filepath(prot_name)
 
+        """ Collect orthologous group member protein IDs. """
+        group_api = self.resolve_group_api(config)
+        # The protein name and database API need to be resolved before this
+        # call, because we do not pass the configuration.
+        self.members = self.collect_members(query, group_api, mapping)
+
+        """ We collect the sequence of each orthologous group member
+        separately, if they were not provided by the used database itself.
+        Under normal circumstances, either every or no entry would have their
+        sequence. Since the first entry may be the query, we only check the
+        second member protein to make the decision. """
+        if len(self.members) > 1 and self.members[1].seq is None:
+            self.collect_sequences(config)
+
+        """ Write the orth_file. """
+        self.path = self.filepath(query.id)
         if not self.path.exists():
             self.write_to_file()
 
@@ -261,17 +279,62 @@ class orth_group:
         else:
             return prot_id(prot, p_mapping)
 
-    def collect_members(self, prot_name, api, mapping):
+    def collect_members(self, query, api, mapping):
         """ Maps orthologous group members by their protein ID to their
         respective species ID mapping. They may access different types of
         data, so we collect the full mapping. """
-        orth_maps = map(lambda member_prot: self.create_prot_id(member_prot,
-                                                                mapping),
-                        api.gen_members(prot_name))
 
-        in_species_mapping = [prot for prot in orth_maps if prot is not None]
+        # Isolation of API exceptions.
+        try:
+            # The gen_members function is supposed to return a tuple which
+            # contains the protein ID and the sequence.
+            member_prots = api.gen_members(query)
+        except Exception as e:
+            print_error('Could not retrieve orthologous group IDs from '
+                        'underlying database')
+            raise e
 
-        return list(in_species_mapping)
+        def compile_member_prots(self, collected_prots, mapping):
+            """ Compiles the orthologous group member proteins passed by the
+            API into prot_ID objects. """
+
+            for member_info in collected_prots:
+
+                # If there is no species ID already provided, try to guess the
+                # species ID from the protein ID.
+                if member_info.species_id is None:
+                    specific_mapping = mapping.get_spec_from_prot(
+                        member_info.member_id)
+                else:
+                    # Try to retrieve the mapping table that translates
+                    # between the species IDs of this member protein.
+                    specific_mapping = mapping.get_species(
+                        member_info.species_id,
+                        member_info.database)
+
+                # The databases do not have access to the mapping file.
+                # Therefore, only here we can verify whether the orthologous
+                # group member is actually part of our taxon search space.
+                if specific_mapping is None:
+                    continue
+                yield prot_id(member_info.member_id,
+                              specific_mapping)
+
+        # Create the protein ID mapping table for every orthologous group
+        # member.
+        # The protein species specific ID mapping is automatically
+        # extracted, if we pass the full species mapping object.
+        # The prot_seq can be None.
+        return list(compile_member_prots(self, member_prots, mapping))
+
+        # orth_maps = map(lambda member_prot:
+        #                 self.create_prot_id(member_prot[0],
+        #                                     mapping,
+        #                                     member_prot[1]),
+        #                 member_prots)
+
+        # # Filter the list for nonexisting entries in the mapping file.
+        # return list([prot for prot in orth_maps if prot is not None])
 
     def collect_sequences(self, config):
         """ Get the sequences of orthologous group members. Previously
@@ -313,7 +376,7 @@ class orth_group:
         if config.search_oma_database:
             return oma_gr(config)
         else:
-            return fdog_api(config)
+            return fdog_gr(config)
 
 
 class fasta:

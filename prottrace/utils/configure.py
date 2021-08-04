@@ -170,6 +170,7 @@ class set_params:
             self.blastp = self.path_option(configs['blastp'])
             self.makeblastdb = self.path_option(configs['makeblastdb'])
             self.R = self.path_option(configs['Rscript'])
+            self.java = self.path_option(configs['java'])
 
             # HaMStR
             self.fdog = self.path_option(configs['hamstr'])

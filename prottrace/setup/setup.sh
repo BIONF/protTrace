@@ -225,22 +225,30 @@ check_java ()
 	# Check whether JAVA is installed for REvolver.
 	#check_program $JAVA_HOME
 
-	if type -p java; then
-	    echo 'Found java executable in PATH'
-	    _java=java
-	elif [[ -n "$JAVA_HOME" ]] && [[ -x "$JAVA_HOME/bin/java" ]];  then
+	if [[ -n "$JAVA_HOME" ]] && [[ -x "$JAVA_HOME/bin/java" ]]
+	then
 	    echo 'Found java executable in JAVA_HOME'     
 	    _java="$JAVA_HOME/bin/java"
+	elif type -p java
+	then
+	    echo 'Found java executable in PATH'
+	    _java=java
 	else
 	    echo 'Java was not found!'
 	fi
 	
-	if [[ "$_java" ]]; then
+	if [[ "$_java" ]]
+	then
 	    version=$("$_java" -version 2>&1 | awk -F '"' '/version/{print $2}')
-	    if below_min_version "${min_version["java"]}" "$version" ; then
+	    if below_min_version "${min_version["java"]}" "$version"
+	    then
 	        echo "Java version is lower than java 1.7 / openjdk 7.0!"
+	    else
+	        # We have to use # as sed command delimiters, because software_path contains backslashes.
+		sed -ri 's#^(java:).*#\1'"${_java}"'#' prog.config
 	    fi
 	fi
+
 
 	check_complete
 
@@ -389,12 +397,36 @@ split_oma ()
 
 }	# ----------  end of function split_oma  ----------
 
+
+number_of_cores ()
+{
+	check_begin "available cores"
+	cores=1
+
+	# nproc and lscpu are alternative programs on Linux. sysctl may be supported by MacOS. It defaults to 1 core, if all functions fail.
+	if nproc
+	then
+		cores=$(nproc)
+	elif lscpu -p | grep -v '^#' | wc -l
+	then
+		cores=$(lscpu -p | grep -v '^#' | wc -l)
+	elif sysctl -n hw.logicalcpu_max
+	then
+		cores=$(sysctl -n hw.logicalcpu_max)
+	fi
+
+	# Edit the standard configuration
+	sed -i 's/nr_of_processors:.*/nr_of_processors:'"${cores}"'/' prog.config
+
+	check_complete
+
+}	# ----------  end of function number_of_cores  ----------
+
 ### Executing tests ###
 
 check_conda
 python_dependencies
 check_terminal_programs
-check_java
 
 ### Creating default directories ###
 
@@ -402,12 +434,14 @@ check_java
 [ -d "cache" ] || mkdir "cache"
 [ -d "distances" ] || mkdir "distances"
 
-### Executing the older script that generates the config file. It remains primarily useful to download databases. ###
-
+### Executing the older script that generates the config file. This script then edits the config file. ###
 create_config
+
+number_of_cores
 
 # Fills in missing programs
 check_config_programs
+check_java
 
 ### Active setup ###
 split_oma

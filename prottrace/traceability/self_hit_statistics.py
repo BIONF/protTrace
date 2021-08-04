@@ -203,12 +203,12 @@ def actual_traceability_calculation(args):
         trials += 1
         try:
             try:
-                run_revolver(prot_config.REvolver, temp_revolver_config_file)
+                run_revolver(temp_revolver_config_file, prot_config)
             except CalledProcessError as e:
                 raise e
                 # The exception is raised by the subprocess routine that
                 # calles REvolver
-                print("REvolver threw an exception!")
+                print_warning('REvolver threw an exception!')
                 break
             try:
                 blastOutput = run_blast(prot_config.blastp, prot_id,
@@ -217,7 +217,7 @@ def actual_traceability_calculation(args):
                 raise e
                 # The exception is raised by the subprocess routine that
                 # calles BLASTP
-                print("BLASTP threw an exception during the reblast!")
+                print_warning('BLASTP threw an exception during the reblast!')
                 break
             for taxa in taxonset:
                 detection = 0
@@ -262,9 +262,9 @@ def decayParams(r, prot_id, decay_script):
     subprocess_run(command, check=True)
 
 
-def run_revolver(REvolver, xml_file):
-    command = ['java', '-Xmx2G', '-Xms2G', '-cp', REvolver, 'revolver',
-               str(xml_file)]
+def run_revolver(xml_file, prot_config):
+    command = [prot_config.java, '-Xmx2G', '-Xms2G', '-cp',
+               prot_config.REvolver, 'revolver', str(xml_file)]
     try:
         check_output(command, stderr=STDOUT)
     except CalledProcessError as e:

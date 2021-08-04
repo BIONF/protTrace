@@ -510,6 +510,7 @@ sub userOptions {
 					linsi => '/share/applications/bin/linsi',
 					hmmfetch => '/share/applications/bin/hmmfetch',
 					hmmscan => '/share/applications/bin/hmmscan',
+					java => '',
 					blastp => '/share/applications/bin/blastp',
 					makeblastdb => '/share/applications/bin/makeblastdb',
 					Rscript => '/usr/bin/Rscript',
@@ -665,6 +666,7 @@ sub printConfig {
 	print OUT "linsi:$prepOptions{linsi}\n";
 	print OUT "hmmfetch:$prepOptions{hmmfetch}\n";
 	print OUT "hmmscan:$prepOptions{hmmscan}\n";
+	print OUT "java:$prepOptions{java}\n";
 	print OUT "blastp:$prepOptions{blastp}\n";
 	print OUT "makeblastdb:$prepOptions{makeblastdb}\n";
 	print OUT "Rscript:$prepOptions{Rscript}\n";

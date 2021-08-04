@@ -83,7 +83,10 @@ split_pairs ()
 	echo "Splitting orthologous pair files. Interrupting the process with SIGTERM once will cleanup leftover files."
 	if split_file $pairs_file $split_pairs_dir  
 	then
-		awk -v pairwise_dir="$split_pairs_dir" 'BEGIN{FS=OFS="\t"} FNR==NR{arr[$4]=1;next} substr($0,1,1)=="#"{next} {s1=substr($1,1,5); s2=substr($2,1,5)} arr[s1]&&arr[s2]{print $1,$2,s1,s2 > pairwise_dir"/"s1"_"s2".txt"}' "$u_files/species_mapping.txt" "$pairs_file"
+		# Putting "ALL" into the species field of the configuration file enables the all-versus-all computation of species distances. This is used internally by ProtTrace, but here one needs to insert the ALL keyword beforehand to remove the filtering for a particular species.
+		focal_species=$(awk 'BEGIN{FS=":";OFS=" "} $1=="species"{print $2;exit}' prog.config)
+
+		awk -v focal=$focal_species -v pairwise_dir="$split_pairs_dir" 'BEGIN{FS=OFS="\t"} FNR==NR&&$4!=focal{arr[$4]=1;next} substr($0,1,1)=="#"{next} {s1=substr($1,1,5); s2=substr($2,1,5)} (s1==focal||s2==focal||focal=="ALL")&&(arr[s1]||arr[s2]){print $1,$2 > pairwise_dir"/"s1"_"s2".txt"}' "$u_files/species_mapping.txt" "$pairs_file"
 	fi
 
 }	# ----------  end of function split_pairs  ----------
@@ -98,8 +101,8 @@ split_seqs ()
 		# Extract the species specified in the species_mapping file as a filter. Write them into a FASTA-like format to make them instantly parsable by the splitting function.
 		awk 'BEGIN{FS="\t";OFS="\n";RS="\n";ORS=">"} {print $4}' "$u_files/species_mapping.txt" > "$u_files/sequence_extractions.tmp"
 
-		# Extracting the protein sequences of species mentioned in the species_mapping file.
-		awk -v seqs_dir="$split_seqs_dir" 'BEGIN{RS=">";ORS="";FS=OFS="\n"} FNR==NR{arr[$1]=1;next} $0==""||/#/{next} {species=substr($1,1,5)} arr[species]{protein=$1; $1=""; gsub("\n","",$0); print ">"protein,$0,"" > seqs_dir"/"species".fa"; protein="FAIL";species="FAIL"}' "$u_files/sequence_extractions.tmp" "$seqs_file"
+		# Extracting the protein sequences of species mentioned in the species_mapping file. REvolver breaks if the query sequence contains X characters.
+		awk -v seqs_dir="$split_seqs_dir" 'BEGIN{RS=">";ORS="";FS=OFS="\n"} FNR==NR{arr[$1]=1;next} $0==""||/#/{next} {species=substr($1,1,5)} arr[species]{protein=$1; $1=""; gsub("\n|X","",$0); print ">"protein,$0,"" > seqs_dir"/"species".fa"; protein="FAIL";species="FAIL"}' "$u_files/sequence_extractions.tmp" "$seqs_file"
 
 		if [[ -f "$u_files/sequence_extractions.tmp" ]]
 		then

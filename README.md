@@ -61,7 +61,7 @@ Please refer to the [protTrace WIKI](https://github.com/BIONF/protTrace/wiki) fo
 
 For the start, we suggest to omit the optional use of HaMStR, since the use of this software comes along with some strict naming conventions.
 
-Once that is out of the way (we suggest to use the [conda package management system](https://github.com/BIONF/protTrace/wiki/EnvironmentSetUp) for this) you can just clone this repository to get a copy of *PhyloProfile*.
+Once that is out of the way (we suggest to use the [conda package management system](https://github.com/BIONF/protTrace/wiki/EnvironmentSetUp) for this) you can just clone this repository to get a copy of *protTrace*.
 
 ```
 git clone https://github.com/BIONF/protTrace

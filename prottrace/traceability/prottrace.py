@@ -114,14 +114,10 @@ def main():
     """
     spec_mappings = species_mapping(protein_params)
 
-    only_update_all_distances = False
-    if arguments.distance:
-        only_update_all_distances = True
-
     # This is a special species ID, where no protein ID is needed and its only
     # purpose is to update the distances between all species in the species
     # list. Prottrace is exited when the distance calculation is finished.
-    if only_update_all_distances:
+    if arguments.distance:
         protein_params.species = 'ALL'
     calculate_species_distances(protein_params, spec_mappings)
 
@@ -167,10 +163,39 @@ def gen_fasta(fasta_file, spec_mapping):
         yield prot_id(record.id, spec_mapping, record.seq)
 
 
+def output_exists(query_id, protein_params):
+    """ Checks whether the final output for the given protein ID exists. """
+
+    # Using the path concatenator operator, "/" from pathlib
+    trace_results_path = (protein_params.path_work_dir / str(query_id.id) /
+                          f'trace_results_{query_id.id}.txt')
+
+    return trace_results_path.exists()
+
+
+def greet_and_check_completion(query, protein_params):
+    """ Prints the greeting message for the currently processed query protein
+    ID and checks whether the traceabilities of this protein have already
+    been calculated. """
+    print_progress('--------------------------')
+    print_progress(f'Running for ID: {query.id}')
+    print_progress('--------------------------')
+
+    if output_exists(query, protein_params):
+        print_progress('Traceability was already calculated. Skipped.')
+        return True
+
+    # The traceabilities have not been calculated before.
+    return False
+
+
 def process_query_list(id_list, protein_params):
     """ Runs all requested ProtTrace steps for a given id_list. """
     for query in id_list:
-        print_progress(f'Running for ID: {query.id}')
+        # Inform the user about the currently processed protein and check
+        # whether we already have the traceabilities in the output directory.
+        if greet_and_check_completion(query, protein_params):
+            continue
         if protein_params.preprocessing:
             evol_model(query, protein_params)
         # Trace the detectability of the query protein.

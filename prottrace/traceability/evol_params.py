@@ -52,15 +52,15 @@ class evol_parameters:
     def scaling_factor(self):
         return self._scaling_factor.value
 
-    def set_indel_rate(self, rate):
+    def set_indel_rate(self, rate=None):
         if not check_none('indel rate', rate):
             self._indel_rate.set_value(rate)
 
-    def set_indel_length_distribution(self, dist):
+    def set_indel_length_distribution(self, dist=None):
         if not check_none('indel length distribution', dist):
             self._indel_length_distribution.set_value(dist)
 
-    def set_scaling_factor(self, scale):
+    def set_scaling_factor(self, scale=None):
         if not check_none('substitution scaling factor', scale):
             self._scaling_factor.set_value(scale)
 

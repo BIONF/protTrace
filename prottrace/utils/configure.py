@@ -120,7 +120,6 @@ class set_params:
                 configs['run_hamstrOneSeq'])
             if not self.run_fdogOneSeq:
                 self.run_fdog = False
-            self.fas_score = self.boolean_option(configs['fas_score'])
             self.preprocessing = self.boolean_option(configs['preprocessing'])
             self.traceability_calculation = self.boolean_option(
                 configs['traceability_calculation'])
@@ -206,7 +205,6 @@ class set_params:
             self.simulation_tree = self.path_option(configs['simulation_tree'])
             self.decay_script = self.path_option(configs['decay_script'])
             self.plot_figtree = self.path_option(configs['plot_figtree'])
-            self.fas_annotations = self.path_option(configs['fas_annotations'])
         except KeyError as e:
             print_error('Configuration key "{0}" not found!'.format(e.args[0]))
             sys.exit()

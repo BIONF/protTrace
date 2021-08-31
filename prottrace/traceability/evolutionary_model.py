@@ -252,6 +252,12 @@ def prepare_REvolver_XML(config, query, evol_params, work_dir_path):
     with xml_file.open('w') as xf:
         xf.write(xml_c)
 
+    # If the user wants to calculate new default evolutionary parameters, this
+    # would be the point, where the indel rate, indel length distribution and
+    # substitution scaling value would be calculated, if valid. Therefore, we
+    # command the evol_params instance to write these values into a text file.
+    evol_params.write_to_file()
+
 
 def run_hmmscan(query, hmm_file, config):
     """ Writes the query sequence to a fasta file. Hmmscan will then create
@@ -655,6 +661,11 @@ def calculate_indels_parsimony(query, evol_params, phy_file, tree_file,
     except CalledProcessError:
         print_warning('IQ-Tree could not estimate indel rates!')
 
+    # If we pass None to evol_params, it keeps the default value specified
+    # inside the config file.
+    indel = None
+    indel_distribution = None
+
     # Parses the result from IQ-Tree.
     for line in result.split('\n'):
         if line.split(':')[0] == 'mean length':
@@ -672,330 +683,15 @@ def calculate_indels_parsimony(query, evol_params, phy_file, tree_file,
             indel = (float(line.split(':')[1].replace(' ',  '')) /
                      (alignment_length * tree_lengths[0])) / 2
 
+    if indel is not None:
+        evol_params.set_indel_rate(indel)
+    if indel_distribution is not None:
+        evol_params.set_indel_length_distribution(indel_distribution)
+
     # Informs the user about the estimated indel parameters.
-    print_progress(f'Indel rate: {indel}; Indel length distribution: '
-                   f'{indel_distribution}')
-
-    evol_params.set_indel_rate(indel)
-    evol_params.set_indel_length_distribution(indel_distribution)
-
-
-""" Parse the query proteome, orthologous proteins and their sequences from
-    OMA. """
-
-# REWRITTEN INTO THE PROTEOME OBJECT IN DATA_API.py
-# def parse_proteome(query, species_id,  proteome_file,  cache,  prot_config):
-#     """ Parses the proteome of the specified species identifier either
-#     from the OMA seqs file or the hamstr genome directory,  if it does
-#     not exist inside the cache directory yet. Then,  create a BLAST
-#     database from it for future BLAST searches. """
-#
-#     # Initializing config parameters
-#     path_oma_seqs = prot_config.path_oma_seqs
-#     search_oma_database = prot_config.search_oma_database
-#     path_makeblastdb = prot_config.makeblastdb
-#     hamstr = hamstr_API(prot_config)
-#     path_hamstr_mapping = prot_config.species_map
-#
-#     # Checks if the proteome has already been parsed and saved inside
-#     # the cache directory,  if the cache directory shall be reused.
-#     if cache.in_cache(proteome_file):
-#         print_progress("Proteome exist. Reusing it.")
-#     else:
-#         if search_oma_database:
-#             protome_datasource = prot_config.path_oma_seqs
-#         else:
-#
-#             proteome_datasource = hamstr.GetGenomePath(hamstr_id)
-#         if search_oma_database:
-#             # Searches the oma seqs file for the proteome sequences.
-#
-#             print_progress(
-#                 "Parsing gene set for species {0} from OMA database".format(species_id))
-#             species_found_flag = False
-#
-#             # The future contents of the proteome file are filled into
-#             # this variable before writing the file.
-#             prot_file_content = []
-#             with open(path_oma_seqs, 'r') as seqs_file:
-#                 for line in seqs_file:
-#                     # If the species identifier is found again inside the OMA-Seqs file,
-#                     # set the sequence found flag to true and write the header
-#                     # and the sequence in the next line into the proteome file.
-#                     if line[:6] == ">" + species_id:
-#                         species_found_flag = True
-#                         prot_file_content.append(line + next(seqs_file))
-#
-#             # Fills the proteome file with the sequences of the query
-#             # protein. We did not trim the contents of any newline
-#             # characters. Therefore,  the contents are joined together
-#             # without any delimiter. The prot_file_content variable
-#             # becomes deleted.
-#             fill_file(proteome_file,  "".join(prot_file_content))
-#
-#             # Throw an error,  if the species was not found within the OMA database.
-#             if not species_found_flag:
-#                 sys.exit(print_error("Species {0} was not found inside the oma sequence file. Please make sure that the species exists within the OMA database. If not,  turn off the search_oma_database option in the prog.config file.".format(species_id)))
-#         else:
-#             # Searches the hamstr genome directory for the proteome sequences.
-#
-#             print_progress("Parsing gene set for species {0} from local (hamstr) BLAST directory".format(species_id))
-#             # If the species OMA id is found in the last column of any line inside the species_tree_mapping file,
-#             # it's corresponding first column must contain the hamstr ID
-#             for splitted_line in generate_splitted_lines(path_hamstr_mapping):
-#                 if species_id == splitted_line[-1]:
-#                     hamstr_id = splitted_line[0]
-#                     break
-#
-#             # Specify the genome directory in which the proteome can be found in.
-#             genome_dir = hamstr.ResolvePath("genome_dir")
-#             # Build the actual proteome file directory
-#             species_genome_file = "{0}/{1}/{1}.fa".format(genome_dir, hamstr_id)
-#             # If the proteome file exists inside the genome directory of hamstr,  copy the contents to the current directory.
-#             if os.path.exists(species_genome_file):
-#                 os.system('cp {0} {1}'.format(species_genome_file, proteome_file))
-#             else:
-#                 sys.exit(print_error("Reference species {0} was not found in the local (hamstr) BLAST directory!".format(species_id)))
-#
-#         # Copy the written proteome file into the cache directory.
-#         cache.copy_to_cache(proteome_file)
-#         prepare_blastdb(config,  proteome_file)
-#
-#
-# def prepare_blastdb(config,  proteome_file):
-#     """ Creating a BLAST database for future searches. """
-#     print_progress('Making a BLAST database of the gene set.')
-#     os.system('{0} -in {1} -input_type fasta -dbtype prot'
-#               .format(config.path_makeblastdb,  proteome_file))
-
-
-# REWRITTEN INTO THE ORTH_GROUP OBJECT IN DATA_API.PY
-# def find_oMAGroup(query, query_seq, work_dir_path, proteome_file, prot_config):
-#     """ Reads the OMA orthologous groups file and parses the ortholog
-#     list for input OMA id """
-#
-#     # Definition of some variables that would bloat the parameter list.
-#     id_file = "ogIds_{0}.txt".format(query.id)
-#     species_id = prot_config.species
-#     path_oma_group = prot_config.path_oma_group
-#     path_oma_seqs = prot_config.path_oma_seqs
-#     path_makeblastdb = prot_config.makeblastdb
-#
-#     # This clause determines,  whether only an OMA ID without a sequence
-#     # is given,  or a fasta file with a sequence,  but not with a
-#     # guaranteed OMA ID in it's header.
-#     # In this case,  a query protein ID is given with no sequence.
-#     if query_seq == 'None':
-#         print_progress("OMA IDs given")
-#         # OMA ID present == 2
-#         id_group_annotation_status = 2
-#         print_progress("Searching OMA ortholog group for given OMA id {0}".format(query.id))
-#         # Write the OMA ID of the query protein into the omaID file.
-#         with open (work_dir_path + "/omaID.txt", 'w') as oma_ID_File:
-#             oma_ID_File.write(query.id)
-#
-#         id_file_content = ""
-#         # Open the OMA ID file where all orthologous OMA IDs are stored in.
-#         written = False
-#         try:
-#             # Iterate the OMA-groups.txt file,  where all OMA
-#             # orthologous groups are stored.
-#             for line in generate_lines(path_oma_group):
-#                 # Hashtags mark the header of an OMA file.
-#                 if not "#" in line and query.id in line:
-#                     # Orthologous OMA IDs are listed in wide tabular
-#                     # format. The orthologous sequence IDs are located
-#                     # behind the first two columns. Join them with
-#                     # newlines.
-#                     id_file_content = '\n'.join(split_line(line)[2:])
-#                     # We assume only one orthologous group to be
-#                     # assigned to this protein. Therefore,  we stop after
-#                     # the first hit.
-#                     written = True
-#                     break
-#             # If no orthologous groups has been found. The query
-#             # protein ID is considered the only ortholog.
-#             if not written:
-#                 id_file_content = query.id
-#         except IOError:
-#             sys.exit(print_error("Cannot find the OMA orthologous",
-#                 "groups file. Check OMA files given as input!"))
-#
-#         # Fills the ortholog ID file with orthologous sequences' IDs.
-#         fill_file(id_file,  id_file_content)
-#     # In this case,  a query protein is given in FASTA format with their
-#     # sequence.
-#     else:
-#         # OMA ID must be estimated == 1
-#         id_group_annotation_status = 1
-#
-#         # We search for the OMA ID by sequence similarity within the
-#         # OMA-seqs.fa file.
-#         sequence_found_flag = False
-#         try:
-#             # Open the OMA-seqs.fa file.
-#             with open(path_oma_seqs) as f:
-#                 for line in f:
-#                     # Testing if the species ID is found in the
-#                     # sequence header.
-#                     if ">" in line and species_id in line:
-#                         # Assuming the OMA-seqs.fa file has been gotten
-#                         # rid of in-sequence newlines.
-#                         if TrimLine(f.next()).replace("*",  "") == TrimLine(query_seq).replace("*",  ""):
-#                             # Found the identical sequence
-#                             query.id_temp = trim_line(line)[1:]
-#                             sequence_found_flag = True
-#                             break
-#         except IOError:
-#             sys.exit(print_error('Cannot find the OMA sequence file. '
-#                 'Check OMA files given as input!'))
-#         # If the exact same sequence could not be found in the OMA
-#         # sequence file,  a BLAST search is attempted.
-#         if not sequence_found_flag:
-#             print_warning('The input sequence is not present in '
-#                 'the OMA sequence file. Performing a BLAST search to get '
-#                 'the closest best hit.')
-#             # Create a temporary directory for the BLAST search.
-#             temp_dir = "temp_blast_{0}".format(query.id)
-#             if not os.path.exists(temp_dir):
-#                 os.mkdir(tmp_dir)
-#             # Changes into the temporary directory.
-#             os.chdir(tmp_dir)
-#             # Copies the proteome into the temporary directory.
-#             os.system('ln -s {0} proteome.fa'.format(proteome_file))
-#             # Casts the proteome into a BLAST database to search against.
-#             os.system('{0} -in proteome.fa -dbtype prot'.format(path_makeblastdb))
-#             # Prepare an input file for BLAST containing the query sequence.
-#             with open("temp_input_seq.fa", 'w') as temp_input:
-#                 temp_input.write(">{0}\n{1}".format(query.id, query_seq))
-#             # Performs the BLASTP search
-#             subprocess.call([path_blastp,    '-query',  'temp_input_seq.fa',
-#                 '-db',   'proteome.fa',  '-evalue',  '0.00001',  '-outfmt',  '6',
-#                 '-out',   'temp.txt'])
-#             #LEGACY-code
-#             #os.system('{0} -query temp_input_seq.fa -db proteome.fa -evalue 0.00001 -outfmt 6 -out temp.txt'.format(path_blastp))
-#             if os.path.exists("temp.txt"):
-#                 with open("temp.txt", 'r') as blastp_output:
-#                     if len(blastp_output.read().split("\n")) > 1:
-#                         # The identifier in the first column of the first line is taken as the protein identifier.
-#                         query.id_temp = split_line(blastp_output.read())[1]
-#                         sequence_found_flag = True
-#                     else:
-#                         sys.exit(print_error("The BLASTP output file does not have more than 1 line! Check the output file at {0}/{1}/temp.txt!".format(query.id, temp_dir)))
-#             else:
-#                 sys.exit(print_error("The BLASTP search did not yield an output file!"))
-#             # Change back to the general work directory of this protein.
-#             os.chdir(work_dir_path)
-#             # Delete the temporary directory,  if the option has been set.
-#             if prot_config.delete_temp:
-#                 os.system('rm -rf {0}'.format(temp_dir))
-#
-#         # If the sequence has been found either by sequence identity or
-#         # a BLASTP search.
-#         if sequence_found_flag:
-#             id_group_annotation_status = 2
-#             # Write the acquired OMA ID into the OMA ID file.
-#             with open (work_dir_path + "/omaID.txt", 'w') as oma_ID_File:
-#                 oma_ID_File.write(query.id_temp)
-#
-#             print_progress("Searching OMA ortholog group for {0}".format(query.id))
-#             id_file_content = ""
-#             # Open the OMA ID file where all orthologous OMA IDs are
-#             # stored in.
-#             with open(id_file, 'w') as id_file_file:
-#                 written = False
-#                 try:
-#                     # Open the OMA-groups.txt file,  where all OMA
-#                     # orthologous groups are stored.
-#                     for line in generate_lines(path_oma_group):
-#                         # Hashtags mark the header of an OMA file.
-#                         if not "#" in line and query.id_temp in line:
-#                             # Orthologous OMA IDs are listed in wide tabular
-#                             # format. The orthologous sequence IDs are located
-#                             # behind the first two columns. Join them with
-#                             # newlines.
-#                             id_file_content = '\n'.join(split_line(line)[2:])
-#                             # We assume only one orthologous group to be
-#                             # assigned to this protein. Therefore,  we stop
-#                             # after the first hit.
-#                             written = True
-#                             break
-#                     # If no orthologous groups has been found.
-#                     if not written:
-#                         id_group_annotation_status = 1
-#                         id_file_content = query.id_temp
-#                 except IOError:
-#                     sys.exit(print_error("Cannot find the OMA orthologous",
-#                     " groups file. Check OMA files given as input!"))
-#
-#                 # Fills the ortholog ID file with orthologous sequences' IDs.
-#                 fill_file(id_file,  id_file_content)
-#
-#     # Return the ending status of this function.
-#     # 1: OMA ID has been found,  but no sequence or OMA group.
-#     # 2: OMA ID has been found together with a sequence. Indicates a
-#     # successful run.
-#     return id_group_annotation_status
-
-
-# REWRITTEN INTO THE PIPELINE PROTEOME -> PROT_ID FOR THE QUERY AND EACH
-# ORTHOLOGOUS GROUP MEMBER
-# def find_oma_sequences(query,  prot_config):
-#     """ Searches sequences for all OMA IDs in the orthologous group. """
-#
-#     # Initializing config parameters
-#     path_oma_seqs = prot_config.path_oma_seqs
-#     path_hamstr_mapping = prot_config.species_map
-#
-#     try:
-#         # Create a pass filter for all species in the mapping file. We
-#         # expect the OMA ID of each species to be the last column of every
-#         # line.
-#         species_id_filter = [splitted_line[-1]
-#             for splitted_line in generate_splitted_lines(path_hamstr_mapping)]
-#     except IOError:
-#         sys.exit(print_error('Cannot find the species mapping file. '
-#         'The default name is speciesTreeMapping.txt.'))
-#
-#     print_progress(f'Searching OMA ortholog sequences for {query.id}')
-#     # Predefine the content list of the ortholog sequence file.
-#     orth_file_content = []
-#     # Read in all ortholog IDs
-#     with open(id_file,  'r') as id_input:
-#         orthologs_ids = id_input.read().split("\n")
-#     # This counter keeps track of how many orthologous sequences have
-#     # been found yet. If all IDs are found. The search ends.
-#     ids_count = len(ids)
-#
-#     try:
-#         # Iterate through the oma_seqs.fa file.
-#         with open(path_oma_seqs,  'r') as sequence_file:
-#             for line in sequence_file:
-#                 # Check whether the line contains a sequence ID and
-#                 # whether the id is in the list of orthologous IDs and
-#                 # the mapping file.
-#                 if (line[0] == '>'
-#                         and line.split('\n')[0][1:] in orthologs_ids
-#                         and line[1:6] in species_id_filter):
-#                     # Write the ID and sequence down. Remove undefined
-#                     # amino acids. These are coded with either '*' or 'X'.
-#                     orth_file_content.append(
-#                         '>' + line[1:6] + '\n' +
-#                         next(sequence_file).replace('*',  '').replace('X',  ''))
-#                     # Remove the number of remaining IDs by one.
-#                     ids_count -= 1
-#                     # If all IDs have been found once,  end the search.
-#                     if ids_count == 0:
-#                         break
-#     except IOError:
-#         print_error('Cannot find OMA orthologs sequences. '
-#                     'The OMA sequence file does not exist!')
-#         sys.exit()
-#
-#     # Fill the orthologous sequences file with the sequences of the
-#     # found orthologs. Since newline characters were not trimmed during
-#     # the search,  the contents are written down without a delimiter.
-#     fill_file(orth_file,  "".join(orth_file_content))
+    print_progress(f'Indel rate: {evol_params.indel_rate}; '
+                   'Indel length distribution: '
+                   f'{evol_params.indel_length_distribution}')
 
 
 # Helper functions and classes for general use. #
@@ -1123,6 +819,8 @@ class cache_manager:
             return True
         return False
 
-    def copy_to_cache(self,  filename):
+    def copy_to_cache(self, filename):
         """ Copies the file into the cache directory """
-        os.system('cp -a {0} {1}'.format(filename,  self.cache_dir + "/" + filename))
+
+        cache_file = self.cache_dir / filename.name
+        os.system(f'cp -a {filename} {cache_file}')

@@ -102,35 +102,16 @@ def calculate_traceability(query, subject, decay_rate, decay_pop, config):
 # The table can be written into two styles:
 # table        - A regular table with target species names
 # phyloprofile - A table readable by PhyloProfile that uses NCBI Ids
-def create_traceability_output_file(query, mappings, compute_fas,
-                                    config):
+def create_traceability_output_file(query, mappings, config):
 
     # The protein ID
     qu_prot = query.id
 
     # Retrieve the presence of orthologs among all other species
-    orth_species_set = [record.description for record in
-                        SeqIO_parse(f'ogSeqs_{qu_prot}.fa', 'fasta')]
-    # if orth_file_name.exists():
-    #     with orth_file_name.open('r') as of:
-    #       # Distills the sequence headers to a set of species with orthologs
-    #       # If the line contains underscores to differentiate same-species
-    #       # sequences, assume the part before the first underscore to be the
-    #       # species id. The query species is also listed in the orthologs
-    #       # file.
-    #       orth_species_set = {line[1:].split('_')[1] if '_' in line
-    #                           else line[1:] for line in of if line[0] == '>'}
-
-    # # FAS scores are only retrieved if the option was turned on in the config
-    # if compute_fas:
-    #     fas_file_name = Path(f'ogSeqs_{qu_prot}.fasScore')
-    #     if fas_file_name.exists():
-    #         with fas_file_name.open('r') as ff:
-    #             # Creates a dictionary of IDs to FAS scores
-    #             # The ID resolution is the long beginning part of the line
-    #             fas_scores = {line.split()[2].split('_')[1] if '_' in line
-    #                           else line.split()[2]: line.split()[-1]
-    #                           for line in ff}
+    # The species ID is the second ID in the space-delimited header. rstrip is
+    # just there for sanity.
+    orth_species_set = [record.description.split(' ')[1].rstrip() for record
+                        in SeqIO_parse(f'ogSeqs_{qu_prot}.fa', 'fasta')]
 
     # We put all output table lines into this list
     output_lines = []
@@ -138,10 +119,6 @@ def create_traceability_output_file(query, mappings, compute_fas,
     output_phyloprofile_lines = []
 
     # The phyloprofile style includes an initial line with column headers
-    # if compute_fas:
-    #     output_phyloprofile_lines.append(["geneID", "ncbiID", "orthID",
-    #                                       "FAS", "Traceability"])
-    # else:
     output_phyloprofile_lines.append(["geneID", "ncbiID", "orthID",
                                       "Traceability"])
 
@@ -166,20 +143,6 @@ def create_traceability_output_file(query, mappings, compute_fas,
         orthology = 0
         if spec.species_id in orth_species_set:
             orthology = 1
-        # FAS computation is no longer supported in ProtTrace. Choose
-        # dedicated software instead.
-        # if compute_fas:
-        #     fas = 'NA'
-        #     if species_id == qu_prot:
-        #         fas = 1
-        #     if species_id != qu_prot:
-        #         fas = fas_scores[species_id]
-        #     output_phyloprofile_lines.append([qu_prot,
-        #                                       "ncbi" + species_line[2],
-        #                                       str(orthology),
-        #                                       str(fas),
-        #                                       trace])
-        # else:
         output_phyloprofile_lines.append([qu_prot, f'ncbi{spec.ncbi}',
                                           str(orthology), str(trace)])
 
@@ -209,11 +172,7 @@ def main(query, config):
     # occupying the extra RAM all the time.
     spec_mapping = species_mapping(config)
     # cache = config.path_cache
-    compute_fas = config.fas_score
     # species_dist_file = config.ML_table
-    matrixDict = {}
-    fas_file = Path(f'ogSeqs_{query.id}.fasScore')
-    orth_file = Path(f'ogSeqs_{query.id}.fa')
     # decayRate = 0.1
     # decayPop = 0.04
 
@@ -221,52 +180,65 @@ def main(query, config):
 
     print_progress('Creating the traceability table.')
 
-    # Iterate through all species in the species mapping file
-    for unit in spec_mapping.all_species():
-        orth = "NA"
-        fas = "NA"
-        if unit not in matrixDict:
-            matrixDict[unit] = []
+    # Calculates and writes the protein traceability into output files
+    create_traceability_output_file(query, spec_mapping, config)
 
-        # The query species gets FAS score and orthology presence value of 1
-        if unit == query.id:
-            if fas_file.exists():
-                with fas_file.open('r') as fas_f:
-                    fas_entries = fas_f.read().split('\n')[0]
-                    if fas_entries != "":
-                        orth = fas_entries.split()[1]
-                    fas = "1.00"
-            else:
-                orth = "1"
+    work_dir.reverse()
 
-        # Any species that is not the query species
-        else:
-            # Adds FAS score information to the output table
-            if fas_file.exists():
-                with fas_file.open('r') as fas_f:
-                    for line2 in fas_f:
-                        line2_species_id = (line2.split()[2].split('_')[1]
-                                            if '_' in line2
-                                            else line2.split()[2])
-                        if line2_species_id == unit:
-                            orth = line2.split()[3]
-                            fas = line2.split()[-1]
-            # Adds orthology information to the output table
-            elif orth_file.exists():
-                orth = "0"
-                with orth_file.open('r') as orth_f:
-                    for line2 in orth_f:
-                        if '>' in line2:
-                            line2_species_id = (line2.split()[0].split('_')[1]
-                                                if '_' in line2
-                                                else line2.split()[0][1:])
-                            if line2_species_id == unit:
-                                orth = "1"
+    """ The following lines were made to record orthologs and FAS scores
+    and they were passed to the colorize_tree script. This section is
+    currently out of order. The code may be needed as orientation on how
+    the colorize_tree script is supposed to work. """
 
-        # Whatever orth and fas values were set above, now they are added for
-        # this species.
-        matrixDict[unit].append(orth + '#' + fas)
-
+#    fas_file = Path(f'ogSeqs_{query.id}.fasScore')
+#    orth_file = Path(f'ogSeqs_{query.id}.fa')
+#    matrixDict = {}
+#    # Iterate through all species in the species mapping file
+#    for unit in spec_mapping.all_species():
+#        orth = "NA"
+#        fas = "NA"
+#        if unit not in matrixDict:
+#            matrixDict[unit] = []
+#
+#        # The query species gets FAS score and orthology presence value of 1
+#        if unit == query.id:
+#            if fas_file.exists():
+#                with fas_file.open('r') as fas_f:
+#                    fas_entries = fas_f.read().split('\n')[0]
+#                    if fas_entries != "":
+#                        orth = fas_entries.split()[1]
+#                    fas = "1.00"
+#            else:
+#                orth = "1"
+#
+#        # Any species that is not the query species
+#        else:
+#            # Adds FAS score information to the output table
+#            if fas_file.exists():
+#                with fas_file.open('r') as fas_f:
+#                    for line2 in fas_f:
+#                        line2_species_id = (line2.split()[2].split('_')[1]
+#                                            if '_' in line2
+#                                            else line2.split()[2])
+#                        if line2_species_id == unit:
+#                            orth = line2.split()[3]
+#                            fas = line2.split()[-1]
+#            # Adds orthology information to the output table
+#            elif orth_file.exists():
+#                orth = "0"
+#                with orth_file.open('r') as orth_f:
+#                    for line2 in orth_f:
+#                        if '>' in line2:
+#                            line2_species_id = (line2.split()[0].split('_')[1]
+#                                                if '_' in line2
+#                                                else line2.split()[0][1:])
+#                            if line2_species_id == unit:
+#                                orth = "1"
+#
+#        # Whatever orth and fas values were set above, now they are added for
+#        # this species.
+#        matrixDict[unit].append(orth + '#' + fas)
+#
     # print('Dictionary length: ', len(matrixDict))
     # try:
     #     fdogMapFile = open(mapFile).read().split('\n')
@@ -279,13 +251,9 @@ def main(query, config):
     # except IOError:
     #     print('ERROR: Colourizing tree encountered problem!!!')
 
-    # Calculates and writes the protein traceability into output files
-    create_traceability_output_file(query, spec_mapping, compute_fas, config)
-
-    # Write the output table file
+# Write the output table file
 #    traceResults = open('trace_results_%s.txt' %protId, 'w')
 
-    work_dir.reverse()
 
 #    if os.path.exists(nexusTreeFile):
 #    #speciesId = nexusTreeFile.split('_')[1].split('.')[0][:5]

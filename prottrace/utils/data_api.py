@@ -225,12 +225,8 @@ class orth_group:
         self.members = self.collect_members(query, group_api, mapping)
 
         """ We collect the sequence of each orthologous group member
-        separately, if they were not provided by the used database itself.
-        Under normal circumstances, either every or no entry would have their
-        sequence. Since the first entry may be the query, we only check the
-        second member protein to make the decision. """
-        if len(self.members) > 1 and self.members[1].seq is None:
-            self.collect_sequences(config)
+        separately, if they were not provided by the used database itself. """
+        self.collect_sequences(config)
 
         """ Write the orth_file. """
         self.path = self.filepath(query.id)
@@ -345,7 +341,7 @@ class orth_group:
 
         for member in self.members:
             for p in proteomes:
-                if p.species_name == member.spec_id:
+                if p.species_name == member.spec_id and member.seq is None:
                     member.seq = p.get_protein(member.id)
 
             # If no preloaded proteome is available, load others on-demand.

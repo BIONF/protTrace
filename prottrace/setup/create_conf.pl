@@ -474,7 +474,6 @@ sub userOptions {
 					  run_hamstr => 'NO',
 					  run_hamstrOneSeq => 'NO',
 					  include_paralogs => 'YES',
-					  fas_score => 'NO',
 					  orthologs_tree_reconstruction => 'YES',
 					  calculate_scaling_factor => 'YES',
 					  default_scaling_factor => 1,
@@ -503,7 +502,6 @@ sub userOptions {
 					path_oma_group => "$currwd/used_files/oma-groups.txt",
 					path_oma_pairs => "$currwd/used_files/oma-pairs.txt",
 					pfam_database => "$currwd/used_files/Pfam-A.hmm",
-					fas_annotations => 'PROVIDEPATH2HaMStR/weight_dir',
 					hamstr_environment => 'default',
 					iqtree => "$currwd/used_files/iqtree",
 					puzzle => '/share/applications/tree-puzzle/bin/puzzle',
@@ -528,7 +526,6 @@ sub userOptions {
 					  run_hamstr => 'YES|NO (Default NO)',
 					  run_hamstrOneSeq => 'YES|NO (Default NO)',
 					  include_paralogs => 'YES|NO (Default NO)',
-					  fas_score => 'YES|NO (Default NO)',
 					  orthologs_tree_reconstruction => 'YES|NO (Default YES)',
 					  calculate_scaling_factor => 'YES|NO (Default YES)',
 					  default_scaling_factor => 'float (Default 1.57)',
@@ -556,7 +553,6 @@ sub userOptions {
 					path_oma_seqs => "Path to OMA sequences (Default $currwd/used_files/oma-seqs.fa)",
 					path_oma_group => "Path to OMA groups (Default $currwd/used_files/oma-groups.txt)",
 					pfam_database => "Path to Pfam (Default $currwd/used_files/Pfam-A.hmm)",
-					fas_annotations => 'Path to HaMStR weight_dir (Default NULL)',
 					hamstr_environment => 'Path to HaMStR directory (Default NULL)',
 					iqtree => 'Path to iqtree (Default NULL)',
 					puzzle => 'Path to puzzle (Default NULL)',
@@ -571,13 +567,13 @@ sub userOptions {
 					oneseq =>  'Path to oneseq.pl (Default NULL)');
 	@generalOptions = qw(species nr_of_processors delete_temporary_files reuse_cache map_traceability_tree colorize_species_tree);
 	@preProcessing = qw(preprocessing orthologs_prediction search_oma_database);
-	@prepAdvanced = qw(run_hamstr run_hamstrOneSeq include_paralogs fas_score);
+	@prepAdvanced = qw(run_hamstr run_hamstrOneSeq include_paralogs);
 	@scaling = qw(calculate_scaling_factor default_scaling_factor);
 	@indel = qw(perform_msa calculate_indel run_spartaABC dawg_instead_of_indelible default_indel default_indel_distribution);
 	@trace = qw(traceability_calculation aa_substitution_matrix simulation_runs);
 	@path2Deps = qw(iqtree puzzle spartaABC linsi hmmfetch hmmscan blastp makeblastdb Rscript hamstr oneseq);
 	@usedFileList = qw(REvolver simulation_tree decay_script plot_figtree Xref_mapping_file reference_species_tree
-	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database fas_annotations hamstr_environment path_output_dir path_cache path_distances);
+	species_MaxLikMatrix path_oma_seqs path_oma_group pfam_database hamstr_environment path_output_dir path_cache path_distances);
 
 	my @options;
 	$options[0] = \@generalOptions;
@@ -595,7 +591,7 @@ sub userOptions {
 sub checkPaths {
 	for (my $i = 0; $i < @usedFileList; $i++){
 		if (! -e $prepOptions{$usedFileList[$i]}){
-			if (($usedFileList[$i] =~ /hamstr/i or $usedFileList[$i] =~ /fas_annotations/) and ! $hamstr){
+			if (($usedFileList[$i] =~ /hamstr/i) and ! $hamstr){
 				next;
 			}
 			else {
@@ -632,8 +628,6 @@ sub printConfig {
 	print OUT "run_hamstr:$prepOptions{run_hamstr}\n";
 	print OUT "run_hamstrOneSeq:$prepOptions{run_hamstrOneSeq}\n";
 	print OUT "include_paralogs:$prepOptions{include_paralogs}\n";
-	print OUT "###     FAS Score Calculations  ###\n";
-	print OUT "fas_score:$prepOptions{fas_score}\n";
 	print OUT "###     Orthologs Tree Reconstruction   ###\n";
 	print OUT "orthologs_tree_reconstruction:$prepOptions{orthologs_tree_reconstruction}\n";
 	print OUT "###     Scaling Factor Calculation      ###\n";
@@ -686,7 +680,6 @@ sub printConfig {
 	print OUT "path_oma_group:$prepOptions{path_oma_group}\n";
 	print OUT "path_oma_pairs:$prepOptions{path_oma_pairs}\n";
 	print OUT "pfam_database:$prepOptions{pfam_database}\n";
-	print OUT "fas_annotations:$prepOptions{fas_annotations}\n";
 	print OUT "hamstr_environment:$prepOptions{hamstr_environment}\n";
 	print OUT "\n####################\n";
 	print OUT "###     NOTE:- If no hamstr_environment is used or default HaMStR directories are used, then simply write hamstr_environment:default

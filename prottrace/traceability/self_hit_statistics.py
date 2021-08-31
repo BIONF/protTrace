@@ -286,8 +286,14 @@ def run_revolver(xml_file, prot_config):
                           'time!\nThe sequence evolved most likely at rapid '
                           'speeds and got fully deleted!')
             pass
+        elif ('For input string: \">>\"') in message_lines:
+            print_warning('REvolver had an issue with a wrongly formatted '
+                          f'input sequence in run {xml_file}')
+            pass
         else:
             print(e.output.decode('utf-8'))
+            # This function needs to raise the exception, otherwise the
+            # wrapping functions try-catch will not detect the exception!
             raise e
 
 

@@ -37,8 +37,6 @@ def main(query, config):
 
     work_dir = dir_move(config.path_work_dir / prot_id)
 
-    cache_dir = config.path_cache
-
     nexus_file = 'nexus_' + prot_id + '.nexus'
 
     # Save the species name into a variable taxonset
@@ -48,17 +46,17 @@ def main(query, config):
         taxonset.append(str(element).replace("'", "").replace(" ", "_"))
 
     generateNexusFile(nexus_file, taxonset, config)
-    colourizeTree.main(nexus_file, config.fdog_oma_tree_map,
-                       prot_id, config.species_tree,
-                       config.plot_figtree,
-                       config.ML_matrix,
-                       species_id, cache_dir, config.fas_score)
+    # colourizeTree.main(nexus_file, config.fdog_oma_tree_map,
+    #                    prot_id, config.species_tree,
+    #                    config.plot_figtree,
+    #                    config.ML_matrix,
+    #                    species_id, cache_dir, config.fas_score)
 
     work_dir.reverse()
 
 
-def colorize(species_name, speciesId, nexusTreeFile, speciesTree, decayRate,
-              decayPop, traceResults, matrixDict):
+def colorize(query_species, speciesId, nexusTreeFile, speciesTree, decayRate,
+             decayPop, traceResults, matrixDict):
     tree = open(nexusTreeFile).read().split('\n')
     for i in range(len(tree) - 1):
         if tree[i] == "\ttaxlabels":
@@ -72,28 +70,32 @@ def colorize(species_name, speciesId, nexusTreeFile, speciesTree, decayRate,
     for i in range(startTaxa):
         fnew.write(tree[i] + '\n')
 
-    for i in range(startTaxa, stopTaxa):
-        temp_species = tree[i].split()[-1]
-        if not temp_species == species_name:
+    def gen_species(tree, start, stop):
+        """ Iterates through the nexus file and returns ever species name. """
+        for i in range(start, stop):
+            yield tree[i].split()[-1]
+
+    for taxon in gen_species(tree, startTaxa, stopTaxa):
+        if not taxon == query_species:
             try:
-                colourCode, traceValue = getColourCode(species_name,
-                                                       temp_species,
+                colourCode, traceValue = getColourCode(query_species,
+                                                       taxon,
                                                        decayRate, decayPop)
                 omaName = "NA"
 
                 for j in range(len(fdogMapFile) - 1):
-                    if temp_species == fdogMapFile[j].split('\t')[1]:
+                    if taxon == fdogMapFile[j].split('\t')[1]:
                         omaName = fdogMapFile[j].split('\t')[-1]
                         break
                 for elements in matrixDict[omaName]:
                     newElement = elements + '#' + str(traceValue)
                     matrixDict[omaName].remove(elements)
                     matrixDict[omaName].insert(0, newElement)
-                traceResults.write(species_name + '\t' + temp_species + '\t' +
+                traceResults.write(species_name + '\t' + taxon + '\t' +
                                    str(traceValue) +'\n')
                 fnew.write(tree[i] + '[&!color=#-' + colourCode + ']' + '\n')
             except:
-                print_error(f'Check species {temp_species} in species tree '
+                print_error(f'Check species {taxon} in species tree '
                             'and used mapping files')
                 sys.exit()
         else:

@@ -31,6 +31,14 @@ fi
 
 u_files="$PWD/used_files"
 
+# These flags offer a way to ignore one category of data. For example, orthologous pairs can be skipped if we never need to calculate ML species distances.
+skip_pairs=false
+#skip_pairs=true
+skip_seqs=false
+#skip_seqs=true
+
+### Function definitions ###
+
 exit_split_pairs()
 {
 	if [ ! -z "$split_pairs_dir" ]
@@ -58,7 +66,7 @@ exit_split_seqs()
 	exit	
 }	# ----------  end of function exit_split_seqs  ----------
 
-split_file ()
+split_file_possible ()
 {
 	source_file=$1
 	split_dir=$2
@@ -75,13 +83,13 @@ split_file ()
 
 	false 
 	return
-}	# ----------  end of function split_file  ----------
+}	# ----------  end of function split_file_possible  ----------
 
 split_pairs ()
 {
 	# The pairwise orthologs file of the OMA database is very large. Therefore, we try to reduce the space and time needed by filtering the rows for species specified in the species_mapping file.
 	echo "Splitting orthologous pair files. Interrupting the process with SIGTERM once will cleanup leftover files."
-	if split_file $pairs_file $split_pairs_dir  
+	if split_file_possible $pairs_file $split_pairs_dir  
 	then
 		# Putting "ALL" into the species field of the configuration file enables the all-versus-all computation of species distances. This is used internally by ProtTrace, but here one needs to insert the ALL keyword beforehand to remove the filtering for a particular species.
 		focal_species=$(awk 'BEGIN{FS=":";OFS=" "} $1=="species"{print $2;exit}' prog.config)
@@ -96,7 +104,7 @@ split_seqs ()
 
 	# The sequence file is separated, based on species IDs in each sequence header. By temporarily removing the header line, we can remove newlines from the sequence. Therefore, we can save the preprocessing step.
 	echo "Splitting sequence files. Interrupting the process with SIGTERM once will cleanup leftover files."
-	if split_file $seqs_file $split_seqs_dir
+	if split_file_possible $seqs_file $split_seqs_dir
 	then
 		# Extract the species specified in the species_mapping file as a filter. Write them into a FASTA-like format to make them instantly parsable by the splitting function.
 		awk 'BEGIN{FS="\t";OFS="\n";RS="\n";ORS=">"} {print $4}' "$u_files/species_mapping.txt" > "$u_files/sequence_extractions.tmp"
@@ -125,18 +133,28 @@ split_oma_files ()
 	split_seqs_dir="$u_files/splitted_seqs"
 
 	### Splitting the databases into species-categorized parts may be time consuming. Therefore, I made this part interruptable by CNTRL-C.
-	# Delete the splitted_pairs directory, if anything fails until the next trap change.
-	trap exit_split_pairs SIGINT
 
-	split_pairs
+	if [ $skip_pairs = false ]
+	then
+		# Delete the splitted_pairs directory, if anything fails until the next trap change.
+		trap exit_split_pairs SIGINT
 
-	# Delete the splitted_seqs directory, if anything fails until the next trap change. The previous SIGINT trap function is overridden.
-	trap exit_split_seqs SIGINT
+		split_pairs
 
-	split_seqs
+		# Reset the CNTRL-C behavior.
+		trap - SIGINT
+	fi
 
-	# Reset the CNTRL-C behavior.
-	trap - SIGINT
+	if [ $skip_seqs = false ]
+	then
+		# Delete the splitted_seqs directory, if anything fails until the next trap change. The previous SIGINT trap function is overridden.
+		trap exit_split_seqs SIGINT
+
+		split_seqs
+
+		# Reset the CNTRL-C behavior.
+		trap - SIGINT
+	fi
 
 	# Defuse the exit_splitting function
 	unset split_pairs_dir split_seqs_dir
@@ -145,4 +163,5 @@ split_oma_files ()
 }	# ----------  end of function split_oma_files  ----------
 
 ### Active setup ###
+
 split_oma_files

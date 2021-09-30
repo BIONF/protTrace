@@ -294,7 +294,8 @@ def run_revolver(xml_file, prot_config):
             print(e.output.decode('utf-8'))
             # This function needs to raise the exception, otherwise the
             # wrapping functions try-catch will not detect the exception!
-            raise e
+            pass
+            # raise e
 
 
 def run_blast(blastp, prot_id, proteome, revolverOut):

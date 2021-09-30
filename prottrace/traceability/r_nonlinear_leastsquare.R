@@ -6,8 +6,6 @@ args <- commandArgs(trailingOnly = TRUE)
         x = seq(0.1, length(y)*0.1, 0.1)
         y=1-y
         
-        myfunc = function(t, params){ (1*params[1]*exp(params[2]*t))/(1+params[1]*(exp(params[2]*t)-1)) }
-        
         fit <- function(givenData,givenStartingN)
         {
           return(tryCatch(
@@ -16,10 +14,14 @@ args <- commandArgs(trailingOnly = TRUE)
           }, error=function(e) NULL))
         }
         
+	# Trying to fit the data to a sigmoid function until the nonlinear-least square function throws no exception anymore. Typically, the function immediately works. We only need the loop for extremely fast mutating sequences.
         loopingFitFunc <- function(givenDataset)
         {
           finalCoef = c(N=0.01,r=0.6)
+
+	  # Sequence of seed numbers for N to try out.
           nseq = 10^(-2:-8)
+
           counter = 0
           while (counter <= length(nseq)) 
           {
@@ -41,7 +43,14 @@ args <- commandArgs(trailingOnly = TRUE)
         }
         
         par = loopingFitFunc(y)
-        y2 = myfunc(x, par)
+	write(par[1], file=paste(path, "_parameter", sep=""), append = FALSE)
+        write(par[2], file=paste(path, "_parameter", sep=""), append = TRUE)
+
+	### plotting the data for personal inspection ###
+
+	# Only needed when producing a debugging plot
+        # myfunc = function(t, params){ (1*params[1]*exp(params[2]*t))/(1+params[1]*(exp(params[2]*t)-1)) }
+        # y2 = myfunc(x, par)
         
         #png(paste(path, ".png", sep=""), width=600, height=600)
         #par(mar=c(5,5,2,2))
@@ -55,10 +64,8 @@ args <- commandArgs(trailingOnly = TRUE)
         #points(x, 1-y)
         #invisible(dev.off())
         
-        write(par[1], file=paste(path, "_parameter", sep=""), append = FALSE)
-        write(par[2], file=paste(path, "_parameter", sep=""), append = TRUE)
-
         #residual_sumofsquares = sum(resid(fitModel)^2);
         #write(residual_sumofsquares, file=paste(path, "_residualsumofsquares", sep=""), append = FALSE)
 
-q()
+# Ends the script
+q("no")
